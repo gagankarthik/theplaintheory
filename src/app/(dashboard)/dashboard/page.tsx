@@ -158,7 +158,7 @@ export default async function Dashboard() {
           
           <div className="flex items-center gap-3">
             <Link 
-              href="/new"
+              href="/habit/new"
               className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-xl font-medium transition-all duration-200 shadow-sm hover:shadow-md transform hover:scale-[1.02]"
             >
               + New Habit
@@ -348,7 +348,7 @@ export default async function Dashboard() {
                 Start your journey today. Create your first habit and begin building the life you want.
               </p>
               <Link 
-                href="/new"
+                href="/habit/new"
                 className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-4 rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-[1.02]"
               >
                 <span>✨</span>
@@ -362,7 +362,7 @@ export default async function Dashboard() {
         {habitsData.length > 0 && (
           <div className="mt-12 flex flex-wrap gap-4 justify-center">
             <Link 
-              href="/new"
+              href="/habit/new"
               className="flex items-center justify-center gap-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-600 text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 px-6 py-3 rounded-xl font-medium transition-all duration-200 shadow-sm hover:shadow-md"
             >
               ➕ Add Habit
@@ -406,7 +406,7 @@ export default async function Dashboard() {
           </p>
           {totalHabits === 0 && (
             <Link 
-              href="/new"
+              href="/habit/new"
               className="inline-block mt-4 text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-medium underline"
             >
               Create your first habit →
