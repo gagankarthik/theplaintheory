@@ -1,123 +1,134 @@
 "use client";
 
-import { CheckinToggle } from "@/components/CheckinToggle";
-import WeekStrip from "@/components/WeekStrip";
-
-export function HabitProgress({ 
-  habitId, 
-  today, 
-  todayChecked, 
+export function HabitStats({ 
   currentStreak, 
-  checkins 
+  bestStreak, 
+  totalCheckins, 
+  last7Rate, 
+  last30Rate, 
+  daysSinceCreated 
 }) {
+  const stats = [
+    {
+      title: "Current Streak",
+      value: currentStreak,
+      unit: currentStreak === 1 ? "day" : "days",
+      icon: "🔥",
+      color: "from-orange-500 to-red-500",
+      bgColor: "from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20",
+      borderColor: "border-orange-200 dark:border-orange-800/50"
+    },
+    {
+      title: "Best Streak",
+      value: bestStreak,
+      unit: bestStreak === 1 ? "day" : "days",
+      icon: "🏆",
+      color: "from-yellow-500 to-orange-500",
+      bgColor: "from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20",
+      borderColor: "border-yellow-200 dark:border-yellow-800/50"
+    },
+    {
+      title: "Total Check-ins",
+      value: totalCheckins,
+      unit: totalCheckins === 1 ? "time" : "times",
+      icon: "✅",
+      color: "from-green-500 to-emerald-500",
+      bgColor: "from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20",
+      borderColor: "border-green-200 dark:border-green-800/50"
+    },
+    {
+      title: "7-Day Rate",
+      value: last7Rate,
+      unit: "%",
+      icon: "📈",
+      color: "from-blue-500 to-indigo-500",
+      bgColor: "from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20",
+      borderColor: "border-blue-200 dark:border-blue-800/50"
+    }
+  ];
+
   return (
-    <div className="space-y-6">
-      {/* Today's Action */}
-      <div className="text-center">
-        <div className="mb-4">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-            {todayChecked ? "Nice work today! 🎉" : "Ready to continue your streak?"}
-          </h2>
-          <p className="text-gray-600 dark:text-gray-400">
-            {todayChecked 
-              ? "You've completed this habit for today. Great consistency!"
-              : "Mark this habit as complete for today to continue your progress."
-            }
-          </p>
-        </div>
-
-        {/* Large Check-in Toggle */}
-        <div className="flex justify-center mb-6">
-          <CheckinToggle
-            habitId={habitId}
-            day={today}
-            checked={todayChecked}
-            size="lg"
-          />
-        </div>
-
-        {/* Current Streak Display */}
-        <div className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 rounded-2xl border border-orange-200 dark:border-orange-800/50">
-          <span className="text-2xl">🔥</span>
-          <div className="text-left">
-            <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-              {currentStreak}
-            </div>
-            <div className="text-sm text-orange-700 dark:text-orange-300">
-              day{currentStreak === 1 ? '' : 's'} streak
-            </div>
+    <>
+      {stats.map((stat, index) => (
+        <div
+          key={index}
+          className={`bg-gradient-to-br ${stat.bgColor} border ${stat.borderColor} rounded-2xl p-6 shadow-sm hover:shadow-md transition-all duration-200`}
+        >
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-2xl">{stat.icon}</span>
+            <div className={`w-8 h-8 bg-gradient-to-br ${stat.color} rounded-full opacity-20`}></div>
           </div>
-        </div>
-      </div>
-
-      {/* Week Overview */}
-      <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
-        <div className="text-center mb-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-            This Week's Progress
-          </h3>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            Your last 7 days at a glance
-          </p>
-        </div>
-
-        {/* Week Strip */}
-        <div className="flex justify-center">
-          <WeekStrip
-            habitId={habitId}
-            checkins={checkins}
-            size="lg"
-            showLabels={true}
-          />
-        </div>
-
-        {/* Week Stats */}
-        <div className="mt-6 grid grid-cols-2 gap-4 max-w-md mx-auto">
-          <div className="text-center p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
-            <div className="text-xl font-bold text-green-600 dark:text-green-400">
-              {checkins?.filter(c => {
-                const checkinDate = new Date(c.day);
-                const sevenDaysAgo = new Date();
-                sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-                return checkinDate >= sevenDaysAgo;
-              }).length || 0}
-            </div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">
-              Completed
+          
+          <div className="space-y-1">
+            <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">
+              {stat.title}
+            </h3>
+            <div className="flex items-baseline gap-1">
+              <span className="text-3xl font-bold text-gray-900 dark:text-white">
+                {stat.value}
+              </span>
+              <span className="text-sm text-gray-500 dark:text-gray-400">
+                {stat.unit}
+              </span>
             </div>
           </div>
 
-          <div className="text-center p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
-            <div className="text-xl font-bold text-blue-600 dark:text-blue-400">
-              {Math.round(((checkins?.filter(c => {
-                const checkinDate = new Date(c.day);
-                const sevenDaysAgo = new Date();
-                sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-                return checkinDate >= sevenDaysAgo;
-              }).length || 0) / 7) * 100)}%
+          {/* Additional context */}
+          {stat.title === "7-Day Rate" && (
+            <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700/50">
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-gray-500 dark:text-gray-400">30-day rate</span>
+                <span className={`font-medium ${
+                  last30Rate >= 70 ? 'text-green-600 dark:text-green-400' : 
+                  last30Rate >= 50 ? 'text-yellow-600 dark:text-yellow-400' : 
+                  'text-red-600 dark:text-red-400'
+                }`}>
+                  {last30Rate}%
+                </span>
+              </div>
             </div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">
-              Success Rate
-            </div>
-          </div>
-        </div>
-      </div>
+          )}
 
-      {/* Motivational Message */}
-      <div className="text-center p-4 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-xl border border-indigo-200 dark:border-indigo-800/50">
-        <p className="text-sm text-indigo-700 dark:text-indigo-300">
-          {currentStreak === 0 
-            ? "Every journey begins with a single step. Start your streak today! 🌱"
-            : currentStreak === 1
-            ? "Great start! One day down, keep the momentum going! 💪"
-            : currentStreak < 7
-            ? `${currentStreak} days strong! You're building a solid habit foundation. 🏗️`
-            : currentStreak < 21
-            ? `${currentStreak} days of consistency! This is becoming second nature. 🌟`
-            : `${currentStreak} days of dedication! You've built an incredible habit. 🏆`
-          }
-        </p>
-      </div>
-    </div>
+          {stat.title === "Total Check-ins" && daysSinceCreated > 0 && (
+            <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700/50">
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-gray-500 dark:text-gray-400">Overall rate</span>
+                <span className={`font-medium ${
+                  Math.round((totalCheckins / daysSinceCreated) * 100) >= 70 ? 'text-green-600 dark:text-green-400' : 
+                  Math.round((totalCheckins / daysSinceCreated) * 100) >= 50 ? 'text-yellow-600 dark:text-yellow-400' : 
+                  'text-red-600 dark:text-red-400'
+                }`}>
+                  {Math.round((totalCheckins / daysSinceCreated) * 100)}%
+                </span>
+              </div>
+            </div>
+          )}
+
+          {stat.title === "Current Streak" && bestStreak > currentStreak && bestStreak > 0 && (
+            <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700/50">
+              <div className="text-xs text-gray-500 dark:text-gray-400">
+                {currentStreak === 0 
+                  ? `Your best was ${bestStreak} days`
+                  : `${bestStreak - currentStreak} away from your best`
+                }
+              </div>
+            </div>
+          )}
+
+          {stat.title === "Best Streak" && bestStreak > 0 && (
+            <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700/50">
+              <div className="text-xs text-gray-500 dark:text-gray-400">
+                {bestStreak >= 21 
+                  ? "Habit fully formed! 🧠"
+                  : bestStreak >= 7
+                  ? "Weekly rhythm built 📅"
+                  : "Building momentum 💪"
+                }
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+    </>
   );
 }

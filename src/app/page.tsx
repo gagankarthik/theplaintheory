@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence, useScroll, useTransform, useInView } from 'framer-motion';
+import { motion, AnimatePresence, useScroll, useTransform, useInView, Variants } from 'framer-motion';
 import Link from 'next/link';
 import Image from 'next/image';
 
@@ -119,19 +119,23 @@ const HabitTrackerLanding: React.FC = () => {
     return () => clearInterval(interval);
   }, [testimonials.length]);
 
-  const fadeInUp = {
-    hidden: { opacity: 0, y: 60 },
+  // Fixed Framer Motion variants with proper TypeScript typing
+  const fadeInUp: Variants = {
+    hidden: { 
+      opacity: 0, 
+      y: 60 
+    },
     visible: {
       opacity: 1,
       y: 0,
       transition: {
         duration: 0.6,
-        ease: [0.22, 1, 0.36, 1]
+        ease: [0.22, 1, 0.36, 1] as any // Type assertion for custom easing
       }
     }
   };
 
-  const staggerChildren = {
+  const staggerChildren: Variants = {
     visible: {
       transition: {
         staggerChildren: 0.1
@@ -154,7 +158,7 @@ const HabitTrackerLanding: React.FC = () => {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-sky-50 dark:from-gray-900 dark:via-gray-900 dark:to-slate-800">
       {/* Navigation */}
       <motion.nav
-        className="fixed top-0 w-full z-50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-700"
+        className="fixed top-0 w-full z-50 bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border-b border-gray-200/50 dark:border-gray-700/50 shadow-sm"
         initial={{ y: -100 }}
         animate={{ y: 0 }}
         transition={{ duration: 0.6 }}
@@ -163,29 +167,34 @@ const HabitTrackerLanding: React.FC = () => {
           <div className="flex justify-between items-center h-16">
             <motion.div
               className="flex items-center space-x-3"
-              whileHover={{ scale: 1.05 }}
+              whileHover={{ scale: 1.02 }}
+              transition={{ duration: 0.2 }}
             >
-               <Image src="/logo.svg" alt="Streaks Logo" width={142} height={32} />
-              
+              <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 via-purple-600 to-teal-500 rounded-xl flex items-center justify-center shadow-lg">
+                <span className="text-white font-bold text-lg">S</span>
+              </div>
+              <span className="font-bold text-xl text-gray-900 dark:text-white tracking-tight">
+                Streaks
+              </span>
             </motion.div>
 
             {/* Desktop Menu */}
             <div className="hidden md:flex items-center space-x-8">
               <a 
                 href="#features" 
-                className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
+                className="text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors font-medium"
               >
                 Features
               </a>
               <a 
                 href="#testimonials" 
-                className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
+                className="text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors font-medium"
               >
                 Reviews
               </a>
               <Link href="/login">
                 <motion.button
-                  className="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition-colors font-medium shadow-sm"
+                  className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-2.5 rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all font-medium shadow-lg hover:shadow-xl"
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                 >
@@ -196,7 +205,7 @@ const HabitTrackerLanding: React.FC = () => {
 
             {/* Mobile Menu Button */}
             <motion.button
-              className="md:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              className="md:hidden p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
               onClick={() => setIsMenuOpen(!isMenuOpen)}
               whileTap={{ scale: 0.95 }}
               aria-label="Toggle menu"
@@ -205,14 +214,17 @@ const HabitTrackerLanding: React.FC = () => {
                 <motion.span
                   className="w-5 h-0.5 bg-gray-900 dark:bg-white block"
                   animate={{ rotate: isMenuOpen ? 45 : 0, y: isMenuOpen ? 6 : 0 }}
+                  transition={{ duration: 0.2 }}
                 />
                 <motion.span
                   className="w-5 h-0.5 bg-gray-900 dark:bg-white block mt-1"
                   animate={{ opacity: isMenuOpen ? 0 : 1 }}
+                  transition={{ duration: 0.2 }}
                 />
                 <motion.span
                   className="w-5 h-0.5 bg-gray-900 dark:bg-white block mt-1"
                   animate={{ rotate: isMenuOpen ? -45 : 0, y: isMenuOpen ? -6 : 0 }}
+                  transition={{ duration: 0.2 }}
                 />
               </div>
             </motion.button>
@@ -223,28 +235,29 @@ const HabitTrackerLanding: React.FC = () => {
         <AnimatePresence>
           {isMenuOpen && (
             <motion.div
-              className="md:hidden bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-t border-gray-200 dark:border-gray-700"
+              className="md:hidden bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border-t border-gray-200/50 dark:border-gray-700/50"
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.3 }}
             >
               <div className="px-4 py-6 space-y-4">
                 <a 
                   href="#features" 
-                  className="block text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+                  className="block text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 font-medium"
                   onClick={() => setIsMenuOpen(false)}
                 >
                   Features
                 </a>
                 <a 
                   href="#testimonials" 
-                  className="block text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+                  className="block text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 font-medium"
                   onClick={() => setIsMenuOpen(false)}
                 >
                   Reviews
                 </a>
                 <Link href="/login">
-                  <button className="w-full bg-indigo-600 text-white px-4 py-3 rounded-lg hover:bg-indigo-700 font-medium">
+                  <button className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-4 py-3 rounded-xl hover:from-indigo-700 hover:to-purple-700 font-medium shadow-lg">
                     Get Started Free
                   </button>
                 </Link>
@@ -257,11 +270,11 @@ const HabitTrackerLanding: React.FC = () => {
       {/* Hero Section */}
       <motion.section
         ref={heroRef}
-        className="pt-24 pb-12 px-4 sm:px-6 lg:px-8"
+        className="pt-32 pb-16 px-4 sm:px-6 lg:px-8"
         style={{ y, opacity }}
       >
         <div className="max-w-7xl mx-auto">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
+          <div className="grid lg:grid-cols-2 gap-16 items-center">
             <motion.div
               className="text-center lg:text-left"
               variants={staggerChildren}
@@ -270,15 +283,15 @@ const HabitTrackerLanding: React.FC = () => {
             >
               <motion.div
                 variants={fadeInUp}
-                className="inline-flex items-center px-4 py-2 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-sm font-medium mb-6"
+                className="inline-flex items-center px-4 py-2 rounded-full bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/30 dark:to-purple-900/30 text-indigo-600 dark:text-indigo-400 text-sm font-medium mb-8 border border-indigo-200/50 dark:border-indigo-800/50"
               >
-                <span className="w-2 h-2 bg-indigo-400 rounded-full mr-2 animate-pulse"></span>
+                <span className="w-2 h-2 bg-gradient-to-r from-indigo-400 to-purple-400 rounded-full mr-2 animate-pulse"></span>
                 Free forever • No credit card required
               </motion.div>
 
               <motion.h1
                 variants={fadeInUp}
-                className="text-4xl sm:text-6xl lg:text-7xl font-bold text-gray-900 dark:text-white leading-tight mb-6"
+                className="text-5xl sm:text-6xl lg:text-7xl font-bold text-gray-900 dark:text-white leading-[0.9] mb-8 tracking-tight"
               >
                 Build habits that
                 <motion.span
@@ -297,18 +310,18 @@ const HabitTrackerLanding: React.FC = () => {
 
               <motion.p
                 variants={fadeInUp}
-                className="text-xl text-gray-600 dark:text-gray-300 mb-8 max-w-lg mx-auto lg:mx-0"
+                className="text-xl text-gray-600 dark:text-gray-300 mb-10 max-w-lg mx-auto lg:mx-0 leading-relaxed"
               >
                 The minimalist habit tracker designed for privacy, simplicity, and real progress. No overwhelm, just results.
               </motion.p>
 
               <motion.div
                 variants={fadeInUp}
-                className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start mb-8"
+                className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start mb-10"
               >
                 <Link href="/login">
                   <motion.button
-                    className="bg-indigo-600 text-white px-8 py-4 rounded-xl text-lg font-semibold hover:bg-indigo-700 shadow-lg hover:shadow-xl transition-all duration-300"
+                    className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-10 py-4 rounded-2xl text-lg font-semibold hover:from-indigo-700 hover:to-purple-700 shadow-xl hover:shadow-2xl transition-all duration-300"
                     whileHover={{ scale: 1.05, y: -2 }}
                     whileTap={{ scale: 0.95 }}
                   >
@@ -316,7 +329,7 @@ const HabitTrackerLanding: React.FC = () => {
                   </motion.button>
                 </Link>
                 <motion.button
-                  className="border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 px-8 py-4 rounded-xl text-lg font-semibold hover:border-gray-400 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-300"
+                  className="border-2 border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 px-10 py-4 rounded-2xl text-lg font-semibold hover:border-indigo-300 dark:hover:border-indigo-500 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 dark:hover:from-indigo-900/20 dark:hover:to-purple-900/20 transition-all duration-300"
                   whileHover={{ scale: 1.05, y: -2 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={scrollToFeatures}
@@ -327,19 +340,19 @@ const HabitTrackerLanding: React.FC = () => {
 
               <motion.div
                 variants={fadeInUp}
-                className="flex items-center justify-center lg:justify-start space-x-6 text-sm text-gray-500 dark:text-gray-400"
+                className="flex items-center justify-center lg:justify-start space-x-8 text-sm text-gray-500 dark:text-gray-400"
               >
-                <div className="flex items-center space-x-1">
-                  <span className="text-green-500">✓</span>
-                  <span>Always free</span>
+                <div className="flex items-center space-x-2">
+                  <span className="text-green-500 text-lg">✓</span>
+                  <span className="font-medium">Always free</span>
                 </div>
-                <div className="flex items-center space-x-1">
-                  <span className="text-green-500">✓</span>
-                  <span>Privacy focused</span>
+                <div className="flex items-center space-x-2">
+                  <span className="text-green-500 text-lg">✓</span>
+                  <span className="font-medium">Privacy focused</span>
                 </div>
-                <div className="flex items-center space-x-1">
-                  <span className="text-green-500">✓</span>
-                  <span>No ads</span>
+                <div className="flex items-center space-x-2">
+                  <span className="text-green-500 text-lg">✓</span>
+                  <span className="font-medium">No ads</span>
                 </div>
               </motion.div>
             </motion.div>
@@ -353,7 +366,7 @@ const HabitTrackerLanding: React.FC = () => {
             >
               <div className="relative z-10">
                 <motion.div
-                  className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-6 sm:p-8 max-w-md mx-auto border border-gray-200 dark:border-gray-700"
+                  className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-3xl shadow-2xl p-8 max-w-md mx-auto border border-white/20 dark:border-gray-700/50"
                   animate={{
                     y: [0, -10, 0],
                     rotate: [0, 1, 0]
@@ -378,7 +391,7 @@ const HabitTrackerLanding: React.FC = () => {
                     ].map((habit, index) => (
                       <motion.div
                         key={index}
-                        className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-xl"
+                        className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50/80 to-indigo-50/50 dark:from-gray-700/50 dark:to-indigo-900/20 rounded-xl backdrop-blur-sm border border-gray-200/30 dark:border-gray-600/30"
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: index * 0.1 + 0.5 }}
@@ -389,9 +402,9 @@ const HabitTrackerLanding: React.FC = () => {
                         </div>
                         <div className="flex items-center space-x-2">
                           <motion.div
-                            className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
+                            className={`w-7 h-7 rounded-full border-2 flex items-center justify-center ${
                               habit.completed
-                                ? 'bg-green-500 border-green-500'
+                                ? 'bg-gradient-to-r from-green-500 to-emerald-500 border-green-500'
                                 : 'border-gray-300 dark:border-gray-600'
                             }`}
                             whileHover={{ scale: 1.1 }}
@@ -399,7 +412,7 @@ const HabitTrackerLanding: React.FC = () => {
                           >
                             {habit.completed && (
                               <motion.span
-                                className="text-white text-xs"
+                                className="text-white text-sm font-bold"
                                 initial={{ scale: 0 }}
                                 animate={{ scale: 1 }}
                                 transition={{ type: "spring" }}
@@ -414,19 +427,19 @@ const HabitTrackerLanding: React.FC = () => {
                   </div>
 
                   <motion.div
-                    className="mt-6 text-center"
-                    animate={{ opacity: [0.7, 1, 0.7] }}
+                    className="mt-8 text-center p-4 bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 rounded-xl border border-orange-200/50 dark:border-orange-800/30"
+                    animate={{ opacity: [0.8, 1, 0.8] }}
                     transition={{ duration: 2, repeat: Infinity }}
                   >
-                    <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">Current streak</div>
-                    <div className="text-3xl font-bold text-orange-500">🔥 12 days</div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">Current streak</div>
+                    <div className="text-3xl font-bold bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent">🔥 12 days</div>
                   </motion.div>
                 </motion.div>
               </div>
 
-              {/* Floating elements */}
+              {/* Floating elements with improved design */}
               <motion.div
-                className="absolute -top-4 -right-4 w-16 h-16 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center shadow-lg"
+                className="absolute -top-6 -right-6 w-20 h-20 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-2xl flex items-center justify-center shadow-2xl border-4 border-white/20"
                 animate={{
                   rotate: [0, 360],
                   scale: [1, 1.1, 1]
@@ -436,13 +449,13 @@ const HabitTrackerLanding: React.FC = () => {
                   scale: { duration: 3, repeat: Infinity }
                 }}
               >
-                <span className="text-2xl">⚡</span>
+                <span className="text-3xl">⚡</span>
               </motion.div>
 
               <motion.div
-                className="absolute -bottom-4 -left-4 w-12 h-12 bg-gradient-to-br from-green-400 to-teal-500 rounded-full flex items-center justify-center shadow-lg"
+                className="absolute -bottom-6 -left-6 w-16 h-16 bg-gradient-to-br from-green-400 to-teal-500 rounded-2xl flex items-center justify-center shadow-2xl border-4 border-white/20"
                 animate={{
-                  y: [0, -10, 0],
+                  y: [0, -15, 0],
                   rotate: [0, -10, 0]
                 }}
                 transition={{
@@ -451,7 +464,7 @@ const HabitTrackerLanding: React.FC = () => {
                   ease: "easeInOut"
                 }}
               >
-                <span className="text-xl">🎯</span>
+                <span className="text-2xl">🎯</span>
               </motion.div>
             </motion.div>
           </div>
@@ -459,19 +472,19 @@ const HabitTrackerLanding: React.FC = () => {
       </motion.section>
 
       {/* Features Section */}
-      <section id="features" ref={featuresRef} className="py-20 bg-white dark:bg-gray-900">
+      <section id="features" ref={featuresRef} className="py-24 bg-white dark:bg-gray-900">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
-            className="text-center mb-16"
+            className="text-center mb-20"
             variants={fadeInUp}
             initial="hidden"
             animate={featuresInView ? "visible" : "hidden"}
           >
-            <h2 className="text-4xl sm:text-5xl font-bold text-gray-900 dark:text-white mb-4">
+            <h2 className="text-4xl sm:text-5xl font-bold text-gray-900 dark:text-white mb-6">
               Everything you need,
-              <span className="block text-indigo-600 dark:text-indigo-400">nothing you don't</span>
+              <span className="block bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">nothing you don't</span>
             </h2>
-            <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
+            <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto leading-relaxed">
               We've stripped away the noise and focused on what actually helps you build lasting habits.
             </p>
           </motion.div>
@@ -486,11 +499,12 @@ const HabitTrackerLanding: React.FC = () => {
               <motion.div
                 key={index}
                 variants={fadeInUp}
-                className={`p-8 rounded-2xl bg-gradient-to-br ${feature.color} border ${feature.border} hover:shadow-lg transition-all duration-300`}
-                whileHover={{ scale: 1.02, y: -5 }}
+                className={`p-8 rounded-3xl bg-gradient-to-br ${feature.color} border ${feature.border} hover:shadow-xl transition-all duration-500 backdrop-blur-sm`}
+                whileHover={{ scale: 1.03, y: -8 }}
+                transition={{ duration: 0.3 }}
               >
-                <div className="text-4xl mb-4">{feature.icon}</div>
-                <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-3">{feature.title}</h3>
+                <div className="text-5xl mb-6">{feature.icon}</div>
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">{feature.title}</h3>
                 <p className="text-gray-600 dark:text-gray-300 leading-relaxed">{feature.description}</p>
               </motion.div>
             ))}
@@ -499,7 +513,7 @@ const HabitTrackerLanding: React.FC = () => {
       </section>
 
       {/* Social Proof / Stats */}
-      <section className="py-16 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20">
+      <section className="py-20 bg-gradient-to-r from-indigo-50 via-purple-50 to-teal-50 dark:from-indigo-900/20 dark:via-purple-900/20 dark:to-teal-900/20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center"
@@ -513,10 +527,13 @@ const HabitTrackerLanding: React.FC = () => {
                 initial={{ scale: 0 }}
                 whileInView={{ scale: 1 }}
                 viewport={{ once: true }}
-                transition={{ delay: index * 0.1, type: "spring" }}
+                transition={{ delay: index * 0.1, type: "spring", stiffness: 200 }}
+                className="p-6 rounded-2xl bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-white/30 dark:border-gray-700/30 shadow-lg"
               >
-                <div className="text-3xl sm:text-4xl font-bold text-indigo-600 dark:text-indigo-400 mb-2">{stat.number}</div>
-                <div className="text-gray-600 dark:text-gray-300">{stat.label}</div>
+                <div className="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-2">
+                  {stat.number}
+                </div>
+                <div className="text-gray-600 dark:text-gray-300 font-medium">{stat.label}</div>
               </motion.div>
             ))}
           </motion.div>
@@ -524,15 +541,15 @@ const HabitTrackerLanding: React.FC = () => {
       </section>
 
       {/* Testimonials */}
-      <section id="testimonials" className="py-20 bg-white dark:bg-gray-900">
+      <section id="testimonials" className="py-24 bg-white dark:bg-gray-900">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
-            className="text-center mb-16"
+            className="text-center mb-20"
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
           >
-            <h2 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
+            <h2 className="text-4xl sm:text-5xl font-bold text-gray-900 dark:text-white mb-6">
               Loved by habit builders everywhere
             </h2>
             <p className="text-xl text-gray-600 dark:text-gray-300">
@@ -540,7 +557,7 @@ const HabitTrackerLanding: React.FC = () => {
             </p>
           </motion.div>
 
-          <div className="relative max-w-4xl mx-auto">
+          <div className="relative max-w-5xl mx-auto">
             <AnimatePresence mode="wait">
               <motion.div
                 key={activeTestimonial}
@@ -548,29 +565,31 @@ const HabitTrackerLanding: React.FC = () => {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -100 }}
                 transition={{ duration: 0.5 }}
-                className="text-center"
+                className="text-center bg-gradient-to-br from-gray-50 to-indigo-50 dark:from-gray-800/50 dark:to-indigo-900/20 p-12 rounded-3xl border border-gray-200/50 dark:border-gray-700/50 backdrop-blur-sm"
               >
-                <div className="text-6xl mb-6">❝</div>
-                <blockquote className="text-2xl text-gray-900 dark:text-white font-medium mb-8 leading-relaxed">
+                <div className="text-7xl mb-8 text-indigo-200 dark:text-indigo-800">❝</div>
+                <blockquote className="text-2xl sm:text-3xl text-gray-900 dark:text-white font-medium mb-10 leading-relaxed">
                   {testimonials[activeTestimonial].quote}
                 </blockquote>
-                <div className="flex items-center justify-center space-x-4">
-                  <div className="text-4xl">{testimonials[activeTestimonial].avatar}</div>
+                <div className="flex items-center justify-center space-x-6">
+                  <div className="text-5xl">{testimonials[activeTestimonial].avatar}</div>
                   <div className="text-left">
-                    <div className="font-semibold text-gray-900 dark:text-white">{testimonials[activeTestimonial].author}</div>
-                    <div className="text-gray-600 dark:text-gray-400">{testimonials[activeTestimonial].role}</div>
+                    <div className="font-bold text-xl text-gray-900 dark:text-white">{testimonials[activeTestimonial].author}</div>
+                    <div className="text-gray-600 dark:text-gray-400 text-lg">{testimonials[activeTestimonial].role}</div>
                   </div>
                 </div>
               </motion.div>
             </AnimatePresence>
 
             {/* Testimonial indicators */}
-            <div className="flex justify-center space-x-2 mt-8">
+            <div className="flex justify-center space-x-3 mt-10">
               {testimonials.map((_, index) => (
                 <button
                   key={index}
-                  className={`w-3 h-3 rounded-full transition-all duration-300 ${
-                    index === activeTestimonial ? 'bg-indigo-600' : 'bg-gray-300 dark:bg-gray-600'
+                  className={`w-4 h-4 rounded-full transition-all duration-300 ${
+                    index === activeTestimonial 
+                      ? 'bg-gradient-to-r from-indigo-600 to-purple-600 shadow-lg' 
+                      : 'bg-gray-300 dark:bg-gray-600 hover:bg-gray-400'
                   }`}
                   onClick={() => setActiveTestimonial(index)}
                   aria-label={`View testimonial ${index + 1}`}
@@ -582,8 +601,9 @@ const HabitTrackerLanding: React.FC = () => {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 bg-gradient-to-r from-indigo-600 to-purple-700">
-        <div className="max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8">
+      <section className="py-24 bg-gradient-to-r from-indigo-600 via-purple-600 to-teal-600 relative overflow-hidden">
+        <div className="absolute inset-0 bg-black/10"></div>
+        <div className="max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8 relative z-10">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}

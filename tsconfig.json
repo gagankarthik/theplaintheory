@@ -22,6 +22,6 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "src/app/(dashboard)/buddy/page.jsx", "src/app/(dashboard)/habit/[id]/page.jsx", "src/components/WeekStrip.jsx", "src/components/CheckinToggle.jsx", "src/components/HabitHeader.jsx", "src/components/HabitProgress.jsx", "src/components/HabitStats.jsx", "src/components/HabitCalendar.jsx", "src/components/HabitActions.jsx", "src/app/page.jsx"],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "src/app/(dashboard)/buddy/page.jsx", "src/app/(dashboard)/habit/[id]/page.jsx", "src/components/WeekStrip.tsx", "src/components/CheckinToggle.jsx", "src/components/HabitHeader.jsx", "src/components/HabitProgress.jsx", "src/components/HabitStats.jsx", "src/components/HabitCalendar.jsx", "src/components/HabitActions.jsx", "src/app/page.jsx", "src/app/(dashboard)/dashboard/page.tsx", "src/app/actions/buddies.js"],
   "exclude": ["node_modules"]
 }

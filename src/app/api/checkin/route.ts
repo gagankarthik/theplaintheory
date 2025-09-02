@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
-function getSupabaseClient() {
-  const cookieStore = cookies();
+async function getSupabaseClient() {
+  const cookieStore = await cookies();
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!, // use anon if you only want public access
@@ -24,7 +24,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "habitId required" }, { status: 400 });
   }
 
-  const supabase = getSupabaseClient();
+  const supabase = await getSupabaseClient();
   const { data, error } = await supabase
     .from("checkins")
     .select("*")
@@ -43,7 +43,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "habitId and day required" }, { status: 400 });
   }
 
-  const supabase = getSupabaseClient();
+  const supabase = await getSupabaseClient();
   const { data, error } = await supabase
     .from("checkins")
     .insert({ habit_id: habitId, day })
@@ -62,7 +62,7 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ error: "habitId and day required" }, { status: 400 });
   }
 
-  const supabase = getSupabaseClient();
+  const supabase = await getSupabaseClient();
   const { error } = await supabase
     .from("checkins")
     .delete()

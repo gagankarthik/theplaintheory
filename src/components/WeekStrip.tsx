@@ -2,9 +2,35 @@
 
 import { cn } from "@/lib/utils";
 
+interface Checkin {
+  habit_id: string;
+  day: string;
+}
+
+interface Day {
+  date: string;
+  dayName: string;
+  dayNumber: number;
+  isToday: boolean;
+}
+
+interface WeekStripProps {
+  habitId: string;
+  checkins?: Checkin[];
+  className?: string;
+  size?: "sm" | "md" | "lg";
+  showLabels?: boolean;
+}
+
+interface CompactWeekStripProps {
+  habitId: string;
+  checkins?: Checkin[];
+  className?: string;
+}
+
 // Helper function to get last 7 days
-function getLast7Days() {
-  const days = [];
+function getLast7Days(): Day[] {
+  const days: Day[] = [];
   const today = new Date();
   for (let i = 6; i >= 0; i--) {
     const date = new Date(today);
@@ -25,7 +51,7 @@ export default function WeekStrip({
   className = "",
   size = "md",
   showLabels = false,
-}) {
+}: WeekStripProps) {
   const days = getLast7Days();
 
   // Create a Set of checked days for O(1) lookup
@@ -35,7 +61,7 @@ export default function WeekStrip({
       .map((checkin) => checkin.day)
   );
 
-  const sizeClasses = {
+  const sizeClasses: Record<string, string> = {
     sm: "w-6 h-6 text-xs",
     md: "w-8 h-8 text-sm",
     lg: "w-10 h-10 text-base",
@@ -149,7 +175,7 @@ export function CompactWeekStrip({
   habitId,
   checkins = [],
   className = "",
-}) {
+}: CompactWeekStripProps) {
   const days = getLast7Days();
   const checkedDays = new Set(
     checkins
