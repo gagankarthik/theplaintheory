@@ -119,7 +119,7 @@ export default async function HabitDetailPage({ params }) {
   const daysSinceCreated = Math.floor((new Date().getTime() - createdAt.getTime()) / (24 * 60 * 60 * 1000));
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 p-8">
       {/* Header */}
       <div className="flex items-center gap-4">
         <Link 
