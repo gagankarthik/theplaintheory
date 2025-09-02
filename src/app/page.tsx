@@ -170,12 +170,12 @@ const HabitTrackerLanding: React.FC = () => {
               whileHover={{ scale: 1.02 }}
               transition={{ duration: 0.2 }}
             >
-              <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 via-purple-600 to-teal-500 rounded-xl flex items-center justify-center shadow-lg">
-                <span className="text-white font-bold text-lg">S</span>
-              </div>
-              <span className="font-bold text-xl text-gray-900 dark:text-white tracking-tight">
-                Streaks
-              </span>
+              <Image
+                src="/logo.svg"
+                alt="Streaks"
+                width={180}
+                height={40}
+              />
             </motion.div>
 
             {/* Desktop Menu */}
