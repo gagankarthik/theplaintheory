@@ -32,7 +32,9 @@ export const metadata: Metadata = {
       name: "Gagan Mullapudi",
     },
   ],
-  
+  other: {
+    "google-site-verification": "google91f2696981cae7ed.html",
+  },
 };
 
 export default function RootLayout({
