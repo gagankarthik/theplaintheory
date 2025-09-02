@@ -33,10 +33,10 @@ export const metadata: Metadata = {
     },
   ],
   other: {
-    "google-site-verification": "google91f2696981cae7ed.html",
+    "google-site-verification": "heoT9nRZBdSXjt7cxjO40TZZiNmZwrPlXt5MBQIuLuk",
   },
   verification: {
-    "google": "google91f2696981cae7ed.html",
+    "google": "heoT9nRZBdSXjt7cxjO40TZZiNmZwrPlXt5MBQIuLuk",
   },
 };
 
