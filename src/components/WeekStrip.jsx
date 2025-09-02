@@ -35,7 +35,7 @@ export default function WeekStrip({
       .map((checkin) => checkin.day)
   );
 
-  const sizeClasses: Record<string, string> = {
+  const sizeClasses = {
     sm: "w-6 h-6 text-xs",
     md: "w-8 h-8 text-sm",
     lg: "w-10 h-10 text-base",
