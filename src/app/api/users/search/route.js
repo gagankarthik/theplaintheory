@@ -37,7 +37,7 @@ export async function GET(request) {
     if (error) {
       console.error("User search error:", error);
       return NextResponse.json(
-        { error: "Failed to search users" },
+        { error: "Failed to search users as mentioned" },
         { status: 500 }
       );
     }
