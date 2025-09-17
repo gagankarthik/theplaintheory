@@ -7,6 +7,7 @@ import { HabitProgress } from "@/components/HabitProgress";
 import { HabitCalendar } from "@/components/HabitCalendar";
 import { HabitStats } from "@/components/HabitStats";
 import { HabitActions } from "@/components/HabitActions";
+import { ShareButton } from "@/components/ShareButton";
 
 // Helper function to calculate streak
 function calculateStreak(checkins) {
@@ -46,7 +47,76 @@ function getDateRanges() {
   };
 }
 
+// Server component for insights (no client-side interaction needed)
+function InsightsSection({ currentStreak, last7Rate, last30Rate, daysSinceCreated, bestStreak }) {
+  const insights = [];
+
+  if (currentStreak > 0) {
+    insights.push({
+      emoji: "🔥",
+      title: "Great momentum!",
+      message: `You're on a ${currentStreak}-day streak. ${currentStreak >= 7 ? "You've built this into a weekly habit!" : "Keep going to build consistency!"}`
+    });
+  }
+
+  if (last7Rate >= 80) {
+    insights.push({
+      emoji: "⭐",
+      title: "Excellent consistency!",
+      message: `You've completed this habit ${last7Rate}% of the time this week.`
+    });
+  }
+
+  if (last30Rate < 50 && daysSinceCreated > 7) {
+    insights.push({
+      emoji: "💪",
+      title: "Room for improvement.",
+      message: "Try setting a specific time of day for this habit, or reducing the difficulty to build momentum."
+    });
+  }
+
+  if (bestStreak > currentStreak && bestStreak > 3) {
+    insights.push({
+      emoji: "🎯",
+      title: "You can do it again!",
+      message: `Your best streak was ${bestStreak} days. You've proven you can maintain this habit consistently.`
+    });
+  }
+
+  if (insights.length === 0) {
+    insights.push({
+      emoji: "🌱",
+      title: "Keep growing!",
+      message: "Every day you work on this habit is a step toward building a better you."
+    });
+  }
+
+  return (
+    <div className="bg-gradient-to-br from-purple-50 via-indigo-50 to-blue-50 dark:from-purple-900/20 dark:via-indigo-900/20 dark:to-blue-900/20 rounded-2xl border border-purple-200 dark:border-purple-800/50 p-4 sm:p-6 shadow-sm">
+      <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+        <span>💡</span>
+        Insights & Motivation
+      </h2>
+      
+      <div className="space-y-3">
+        {insights.map((insight, index) => (
+          <div key={index} className="bg-white/70 dark:bg-gray-800/70 backdrop-blur rounded-xl p-4 border border-white/50 dark:border-gray-700/50 shadow-sm">
+            <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+              <span className="text-base mr-2">{insight.emoji}</span>
+              <strong className="text-gray-900 dark:text-white">{insight.title}</strong> {insight.message}
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default async function HabitDetailPage({ params }) {
+  // Fix: Await params before using
+  const resolvedParams = await params;
+  const habitId = resolvedParams.id;
+  
   const supabase = await createClientServer(cookies());
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -54,7 +124,6 @@ export default async function HabitDetailPage({ params }) {
     redirect("/login");
   }
 
-  const habitId = params.id;
   const { today, last7Days, last30Days } = getDateRanges();
 
   // Get habit details
@@ -119,160 +188,111 @@ export default async function HabitDetailPage({ params }) {
   const daysSinceCreated = Math.floor((new Date().getTime() - createdAt.getTime()) / (24 * 60 * 60 * 1000));
 
   return (
-    <div className="space-y-8 p-8">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <Link 
-          href="/dashboard"
-          className="flex items-center justify-center w-10 h-10 rounded-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-colors shadow-sm"
-          aria-label="Back to dashboard"
-        >
-          <svg className="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-        </Link>
-        
-        <div className="flex-1">
-          <HabitHeader 
-            habit={habit}
-            currentStreak={currentStreak}
-            todayChecked={todayChecked}
-          />
-        </div>
-      </div>
-
-      {/* Today's Progress */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
-        <HabitProgress
-          habitId={habitId}
-          today={today}
-          todayChecked={todayChecked}
-          currentStreak={currentStreak}
-          checkins={checkins}
-        />
-      </div>
-
-      {/* Statistics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <HabitStats
-          currentStreak={currentStreak}
-          bestStreak={bestStreak}
-          totalCheckins={totalCheckins}
-          last7Rate={last7Rate}
-          last30Rate={last30Rate}
-          daysSinceCreated={daysSinceCreated}
-        />
-      </div>
-
-      {/* Calendar View */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-            <span>📅</span>
-            Progress Calendar
-          </h2>
-          <div className="text-sm text-gray-500 dark:text-gray-400">
-            Last 90 days
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+        <div className="space-y-6 sm:space-y-8">
+          {/* Header */}
+          <div className="flex items-center gap-3 sm:gap-4">
+            <Link 
+              href="/dashboard"
+              className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200 shadow-sm hover:shadow-md"
+              aria-label="Back to dashboard"
+            >
+              <svg className="w-5 h-5 sm:w-6 sm:h-6 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </Link>
+            
+            <div className="flex-1 min-w-0">
+              <HabitHeader 
+                habit={habit}
+                currentStreak={currentStreak}
+                todayChecked={todayChecked}
+              />
+            </div>
           </div>
-        </div>
-        
-        <HabitCalendar 
-          checkins={checkins || []}
-          habitId={habitId}
-        />
-      </div>
 
-      {/* Insights */}
-      <div className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-2xl border border-indigo-200 dark:border-indigo-800/50 p-6">
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-          <span>💡</span>
-          Insights
-        </h2>
-        
-        <div className="space-y-4">
-          {currentStreak > 0 && (
-            <div className="bg-white/50 dark:bg-gray-800/50 rounded-lg p-4">
-              <p className="text-sm text-gray-700 dark:text-gray-300">
-                🔥 <strong>Great momentum!</strong> You're on a {currentStreak}-day streak. 
-                {currentStreak >= 7 ? " You've built this into a weekly habit!" : " Keep going to build consistency!"}
-              </p>
-            </div>
-          )}
-          
-          {last7Rate >= 80 && (
-            <div className="bg-white/50 dark:bg-gray-800/50 rounded-lg p-4">
-              <p className="text-sm text-gray-700 dark:text-gray-300">
-                ⭐ <strong>Excellent consistency!</strong> You've completed this habit {last7Rate}% of the time this week.
-              </p>
-            </div>
-          )}
-          
-          {last30Rate < 50 && daysSinceCreated > 7 && (
-            <div className="bg-white/50 dark:bg-gray-800/50 rounded-lg p-4">
-              <p className="text-sm text-gray-700 dark:text-gray-300">
-                💪 <strong>Room for improvement.</strong> Try setting a specific time of day for this habit, or reducing the difficulty to build momentum.
-              </p>
-            </div>
-          )}
-          
-          {bestStreak > currentStreak && bestStreak > 3 && (
-            <div className="bg-white/50 dark:bg-gray-800/50 rounded-lg p-4">
-              <p className="text-sm text-gray-700 dark:text-gray-300">
-                🎯 <strong>You can do it again!</strong> Your best streak was {bestStreak} days. You've proven you can maintain this habit consistently.
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
+          {/* Today's Progress */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 sm:p-6 shadow-sm hover:shadow-md transition-shadow duration-200">
+            <HabitProgress
+              habitId={habitId}
+              today={today}
+              todayChecked={todayChecked}
+              currentStreak={currentStreak}
+              checkins={checkins}
+            />
+          </div>
 
-      {/* Actions */}
-      <HabitActions 
-        habit={habit}
-        checkins={checkins || []}
-        currentStreak={currentStreak}
-        totalCheckins={totalCheckins}
-      />
+          {/* Statistics Grid */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
+            <HabitStats
+              currentStreak={currentStreak}
+              bestStreak={bestStreak}
+              totalCheckins={totalCheckins}
+              last7Rate={last7Rate}
+              last30Rate={last30Rate}
+              daysSinceCreated={daysSinceCreated}
+            />
+          </div>
 
-      {/* Sharing */}
-      {habit.is_public && (
-        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-            <span>🔗</span>
-            Public Sharing
-          </h2>
-          
-          <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-            <div>
-              <p className="text-sm text-gray-700 dark:text-gray-300 mb-1">
-                <strong>Your habit is public!</strong>
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Others can see your progress and streak
-              </p>
+          {/* Calendar View */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 sm:p-6 shadow-sm hover:shadow-md transition-shadow duration-200">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-6">
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                <span className="text-xl sm:text-2xl">📅</span>
+                Progress Calendar
+              </h2>
+              <div className="text-sm text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded-full">
+                Last 90 days
+              </div>
             </div>
             
-            <button
-              onClick={() => {
-                const url = `${window.location.origin}/u/${profile?.display_name || user.id}/habit/${habitId}`;
-                navigator.clipboard.writeText(url);
-              }}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-            >
-              Copy Link
-            </button>
+            <HabitCalendar 
+              checkins={checkins || []}
+              habitId={habitId}
+            />
+          </div>
+
+          {/* Insights */}
+          <InsightsSection 
+            currentStreak={currentStreak}
+            last7Rate={last7Rate}
+            last30Rate={last30Rate}
+            daysSinceCreated={daysSinceCreated}
+            bestStreak={bestStreak}
+          />
+
+          {/* Actions */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 sm:p-6 shadow-sm hover:shadow-md transition-shadow duration-200">
+            <HabitActions 
+              habit={habit}
+              checkins={checkins || []}
+              currentStreak={currentStreak}
+              totalCheckins={totalCheckins}
+            />
+          </div>
+
+          {/* Sharing - Client Component */}
+          <ShareButton 
+            habitId={habitId}
+            displayName={profile?.display_name}
+            userId={user.id}
+            isPublic={habit.is_public}
+          />
+
+          {/* Footer */}
+          <div className="text-center py-6 sm:py-8">
+            <div className="bg-white/50 dark:bg-gray-800/50 backdrop-blur rounded-xl p-4 border border-gray-200/50 dark:border-gray-700/50 inline-block">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                <span className="font-medium">Created</span> {createdAt.toLocaleDateString('en-US', { 
+                  month: 'long', 
+                  day: 'numeric', 
+                  year: 'numeric' 
+                })} • <span className="font-medium">{daysSinceCreated}</span> day{daysSinceCreated === 1 ? '' : 's'} ago
+              </p>
+            </div>
           </div>
         </div>
-      )}
-
-      {/* Footer */}
-      <div className="text-center py-8">
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          Created {createdAt.toLocaleDateString('en-US', { 
-            month: 'long', 
-            day: 'numeric', 
-            year: 'numeric' 
-          })} • {daysSinceCreated} day{daysSinceCreated === 1 ? '' : 's'} ago
-        </p>
       </div>
     </div>
   );

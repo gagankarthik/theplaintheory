@@ -370,7 +370,7 @@ export default async function Dashboard() {
             
             {!buddyData && (
               <Link 
-                href="/buddies"
+                href="/buddy"
                 className="flex items-center justify-center gap-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-600 text-gray-700 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 px-6 py-3 rounded-xl font-medium transition-all duration-200 shadow-sm hover:shadow-md"
               >
                 🤝 Add Accountability Buddy
