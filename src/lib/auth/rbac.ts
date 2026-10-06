@@ -1,0 +1,34 @@
+import type { Role } from "../types";
+
+export type Permission =
+  | "property:read"
+  | "property:write"
+  | "property:delete"
+  | "logs:export"
+  | "team:manage"
+  | "billing:manage"
+  | "org:settings";
+
+const GRANTS: Record<Role, Permission[]> = {
+  owner: ["property:read", "property:write", "property:delete", "logs:export", "team:manage", "billing:manage", "org:settings"],
+  admin: ["property:read", "property:write", "property:delete", "logs:export", "team:manage", "org:settings"],
+  viewer: ["property:read", "logs:export"],
+};
+
+export const can = (role: Role, p: Permission) => GRANTS[role].includes(p);
+
+export class ForbiddenError extends Error {
+  constructor(p: Permission) {
+    super(`Your role doesn't allow this (${p}). Ask an owner or admin.`);
+  }
+}
+
+export function assertCan(role: Role, p: Permission) {
+  if (!can(role, p)) throw new ForbiddenError(p);
+}
+
+export const ROLE_INFO: Record<Role, string> = {
+  owner: "Everything, including billing and deleting the organization.",
+  admin: "Manage sites, banners and team members. No billing.",
+  viewer: "See analytics and export consent logs. Can't change anything.",
+};
