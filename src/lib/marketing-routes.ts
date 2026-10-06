@@ -3,15 +3,16 @@
 export const COMPLIANCE_SLUGS = ["gdpr", "ccpa", "dpdpa"] as const;
 export type ComplianceSlug = (typeof COMPLIANCE_SLUGS)[number];
 
-export const MARKETING_ROUTES: { path: string; priority: number; changeFrequency: "weekly" | "monthly" | "yearly" }[] = [
-  { path: "/", priority: 1, changeFrequency: "weekly" },
-  { path: "/pricing", priority: 0.9, changeFrequency: "monthly" },
-  { path: "/contact-sales", priority: 0.7, changeFrequency: "yearly" },
-  { path: "/docs", priority: 0.8, changeFrequency: "weekly" },
-  ...COMPLIANCE_SLUGS.map((s) => ({ path: `/compliance/${s}`, priority: 0.8, changeFrequency: "monthly" as const })),
-  { path: "/security", priority: 0.7, changeFrequency: "monthly" },
-  { path: "/brand", priority: 0.4, changeFrequency: "yearly" },
-  { path: "/legal/privacy", priority: 0.3, changeFrequency: "yearly" },
-  { path: "/legal/terms", priority: 0.3, changeFrequency: "yearly" },
-  { path: "/legal/cookies", priority: 0.3, changeFrequency: "yearly" },
+/** `updated` is when the page content last changed (ISO date): the sitemap reports it as lastmod. */
+export const MARKETING_ROUTES: { path: string; priority: number; changeFrequency: "weekly" | "monthly" | "yearly"; updated: string }[] = [
+  { path: "/", priority: 1, changeFrequency: "weekly", updated: "2026-10-06" },
+  { path: "/pricing", priority: 0.9, changeFrequency: "monthly", updated: "2026-10-06" },
+  { path: "/contact-sales", priority: 0.7, changeFrequency: "yearly", updated: "2026-10-06" },
+  { path: "/docs", priority: 0.8, changeFrequency: "weekly", updated: "2026-10-06" },
+  ...COMPLIANCE_SLUGS.map((s) => ({ path: `/compliance/${s}`, priority: 0.8, changeFrequency: "monthly" as const, updated: "2026-10-06" })),
+  { path: "/security", priority: 0.7, changeFrequency: "monthly", updated: "2026-10-06" },
+  { path: "/brand", priority: 0.4, changeFrequency: "yearly", updated: "2026-10-06" },
+  { path: "/legal/privacy", priority: 0.3, changeFrequency: "yearly", updated: "2026-10-06" },
+  { path: "/legal/terms", priority: 0.3, changeFrequency: "yearly", updated: "2026-10-06" },
+  { path: "/legal/cookies", priority: 0.3, changeFrequency: "yearly", updated: "2026-10-06" },
 ];

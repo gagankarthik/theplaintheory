@@ -23,6 +23,9 @@ const ABOUT: Record<string, [title: string, about: string]> = {
  * /llms.txt (llmstxt.org): a plain Markdown summary of the site for AI assistants and crawlers.
  * Built from the same route list as the sitemap and from live plan data, so it can't drift.
  */
+/** Built once at deploy: the content only changes when routes or prices do. */
+export const dynamic = "force-static";
+
 export function GET() {
   const prices = PLANS.filter((p) => p.priceMonthly !== null)
     .map((p) => p.priceMonthly === 0 ? `${p.name} (no charge)` : `${p.name} ${formatPrice(p.priceMonthly!, "usd")}/month`)

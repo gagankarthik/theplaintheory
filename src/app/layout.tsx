@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { WebAnalytics } from "@/components/analytics/web-analytics";
 import { site } from "@/lib/site";
 import "./globals.css";
 
@@ -50,7 +51,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
-      <body>{children}</body>
+      <body>
+        {children}
+        <WebAnalytics />
+      </body>
     </html>
   );
 }

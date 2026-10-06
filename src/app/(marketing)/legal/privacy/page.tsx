@@ -135,8 +135,11 @@ export default function PrivacyPage() {
 
       <h3>Visitors to our website</h3>
       <p>
-        Our website does not use advertising cookies or third-party analytics. It sets only the cookies and browser storage
-        described in our <Link href="/legal/cookies">cookie policy</Link>.
+        Our website does not use advertising cookies. To understand which pages are useful we use Vercel Web Analytics, which
+        counts page views without cookies or any identifier that follows you across sites. It records the page path (we strip
+        query strings first), the referring site, and your country, browser, operating system and device type, and reports them
+        only in aggregate. Your IP address is used to derive the country and is not stored. Our site sets only the cookies and
+        browser storage described in our <Link href="/legal/cookies">cookie policy</Link>.
       </p>
 
       <h2 id="visitors">Data we process for customers</h2>
@@ -180,6 +183,11 @@ export default function PrivacyPage() {
             "Keep accounts and the service secure, prevent abuse and investigate incidents",
             "Security and usage logs, account data",
             "Legitimate interests (6(1)(f)) in a secure service",
+          ],
+          [
+            "Measure which pages of our website are useful, in aggregate and without cookies",
+            "Page path, referrer, country, browser, operating system and device type",
+            "Legitimate interests (6(1)(f)) in improving our website",
           ],
           ["Answer sales enquiries and support requests", "Enquiry and support data", "Steps before a contract (6(1)(b)) or legitimate interests (6(1)(f))"],
           [
@@ -284,6 +292,12 @@ export default function PrivacyPage() {
             "The region each customer chooses: Mumbai, Hyderabad, Frankfurt or N. Virginia. The script is delivered from CloudFront edge locations worldwide.",
           ],
           ["Stripe", "Payments, invoices and subscription management", "Billing data", "United States and other Stripe locations"],
+          [
+            "Vercel",
+            "Website hosting and cookieless page-view analytics for our marketing site",
+            "Website visitors' page paths, referrer, country and device type; IP addresses briefly, to serve pages",
+            "United States, with edge locations worldwide",
+          ],
           ["Our email provider", "Account, security, billing and support emails", "Name and email address", "Varies by provider"],
           ["Our team messaging tool", "Alerts our team to new sales enquiries", "Sales enquiry details", "Varies by provider"],
         ]}

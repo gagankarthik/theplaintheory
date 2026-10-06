@@ -7,7 +7,7 @@ import { site } from "@/lib/site";
 export const metadata = pageMetadata({
   title: "Cookie policy",
   description:
-    "Cookies and storage used by the Plain Theory website and dashboard, why each exists and how long it lasts. No advertising cookies or third-party analytics.",
+    "Cookies and storage used by the Plain Theory website and dashboard, why each exists and how long it lasts. No advertising cookies and no tracking cookies.",
   path: "/legal/cookies",
   kicker: "Legal",
 });
@@ -29,8 +29,8 @@ export default function CookiePolicyPage() {
       <h2 id="summary">In short</h2>
       <p>
         We use a handful of first-party cookies and browser storage entries to sign you in, keep your account secure and remember
-        a few settings. We don&apos;t use advertising cookies, we don&apos;t run third-party analytics, and nothing on our site
-        tracks you across other websites.
+        a few settings. We don&apos;t use advertising cookies, our page-view analytics (Vercel Web Analytics) works without cookies,
+        and nothing on our site tracks you across other websites.
       </p>
 
       <h2 id="what">What cookies are</h2>
@@ -95,7 +95,7 @@ export default function CookiePolicyPage() {
       <h2 id="not-used">What we don&apos;t use</h2>
       <ul>
         <li>no advertising or retargeting cookies, and no social media pixels;</li>
-        <li>no third-party analytics, such as Google Analytics, and no session recording;</li>
+        <li>no analytics cookies: Vercel Web Analytics counts page views without cookies or identifiers, and we use no session recording;</li>
         <li>no cookies that track you across other websites;</li>
         <li>no third-party cookies of any kind.</li>
       </ul>

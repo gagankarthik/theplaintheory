@@ -67,6 +67,13 @@ export default function HomePage() {
           "@context": "https://schema.org",
           "@graph": [
             {
+              "@type": "WebSite",
+              name: site.name,
+              url: site.url,
+              inLanguage: "en",
+              publisher: { "@type": "Organization", name: site.legalName },
+            },
+            {
               "@type": "Organization",
               name: site.legalName,
               url: site.url,
