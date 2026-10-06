@@ -1,0 +1,63 @@
+# Change management gate (SOC 2 CC8.1): every change to main goes through a pull request that must
+# pass lint, type checks, the SDK size budget, chain-integrity tests, a production build and a
+# dependency audit before it can merge. Branch protection on main enforces this workflow.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check
+        run: npx tsc --noEmit -p .
+
+      - name: SDK build and 10 KB budget
+        run: npm run sdk:build
+
+      - name: Tests
+        run: npm test
+
+      - name: Production build
+        run: npx next build
+        env:
+          SESSION_SECRET: ci-only-session-secret-not-used-in-production-000000
+          IP_HASH_SALT: ci-only-salt
+
+      - name: Dependency audit (high and critical)
+        run: npm audit --omit=dev --audit-level=high
+
+  secrets-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Scan for committed secrets
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

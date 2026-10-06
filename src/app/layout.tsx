@@ -1,19 +1,10 @@
 import type { Metadata, Viewport } from "next";
-import { Atkinson_Hyperlegible_Next, Atkinson_Hyperlegible_Mono } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 import { site } from "@/lib/site";
 import "./globals.css";
 
-const atkinson = Atkinson_Hyperlegible_Next({
-  subsets: ["latin"],
-  variable: "--font-atkinson",
-  display: "swap",
-});
-
-const atkinsonMono = Atkinson_Hyperlegible_Mono({
-  subsets: ["latin"],
-  variable: "--font-atkinson-mono",
-  display: "swap",
-});
+const geistSans = Geist({ subsets: ["latin"], variable: "--font-geist-sans", display: "swap" });
+const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono", display: "swap" });
 
 export const metadata: Metadata = {
   metadataBase: new URL(site.url),
@@ -51,14 +42,14 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#141B34",
+  themeColor: "#2E2BD6",
   width: "device-width",
   initialScale: 1,
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${atkinson.variable} ${atkinsonMono.variable}`}>
+    <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
       <body>{children}</body>
     </html>
   );

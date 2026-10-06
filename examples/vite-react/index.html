@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Plain Theory + Vite + React</title>
+    <!--
+      Production setup: put the script first in <head> so trackers in this HTML are held.
+      This example lets <PlainConsentProvider> load it instead, to show the package on its own:
+      <script src="http://localhost:3000/sdk/plain-consent.js" data-site="pk_demo_store"></script>
+    -->
+    <!-- Held until analytics is allowed: the script releases it and runs it exactly once. -->
+    <script type="text/plain" data-consent="analytics">
+      console.log("[example] analytics snippet released");
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

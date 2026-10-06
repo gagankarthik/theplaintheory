@@ -19,6 +19,11 @@ export interface PublicConfig {
   gcm: boolean;
   expiryDays: number;
   dpo?: { name: string; email: string };
+  /** days to wait before asking again after "reject all" */
+  reask: number;
+  rights?: Property["config"]["rights"];
+  /** report tracker requests that fire after a decline */
+  leaks: boolean;
 }
 
 export function toPublicConfig(p: Property, dpo?: { name: string; email: string }): PublicConfig {
@@ -38,5 +43,8 @@ export function toPublicConfig(p: Property, dpo?: { name: string; email: string 
     gcm: p.config.googleConsentMode,
     expiryDays: p.config.expiryDays,
     dpo,
+    reask: p.config.reaskAfterRejectDays ?? 180,
+    rights: p.config.rights,
+    leaks: p.config.leakDetection ?? true,
   };
 }

@@ -6,24 +6,32 @@ export const DEFAULT_CATEGORIES: CategoryCopy[] = [
     label: "Essential",
     description: "Keeps the site working: sign-in, security and remembering this choice. Always on.",
     required: true,
+    dataItems: ["Session identifier", "Security tokens", "Your consent choice"],
+    retention: "Until you sign out, or 12 months for your consent choice",
   },
   {
     id: "functional",
     label: "Preferences",
     description: "Remembers settings like language and region so you don't have to set them again.",
     required: false,
+    dataItems: ["Language and region settings", "Display preferences"],
+    retention: "12 months",
   },
   {
     id: "analytics",
     label: "Analytics",
     description: "Counts visits and shows which pages are useful. Reported in aggregate, never sold.",
     required: false,
+    dataItems: ["Pages visited", "Device and browser type", "Approximate location (city)", "Referring website"],
+    retention: "13 months",
   },
   {
     id: "marketing",
     label: "Marketing",
     description: "Lets ad partners show you relevant ads on other sites and measure whether they worked.",
     required: false,
+    dataItems: ["Advertising identifiers", "Pages and products viewed", "Ad clicks and conversions"],
+    retention: "90 days",
   },
 ];
 
@@ -41,7 +49,7 @@ const ccpaCopy = {
   title: "Your privacy choices",
   body: "We and our partners use cookies for analytics and personalised ads, which California law may treat as selling or sharing your information. You can opt out.",
   acceptAll: "Okay",
-  rejectAll: "Do not sell or share my info",
+  rejectAll: "Do not sell or share my personal information",
   customize: "Choose categories",
   save: "Save my choices",
   policyLabel: "Privacy notice",
@@ -81,6 +89,9 @@ export const DEFAULT_REGIONS: Record<Framework, RegionRule> = {
   generic: { framework: "generic", enabled: true, model: "opt-in", copy: genericCopy, language: "en" },
 };
 
+/** Don't ask again for 6 months after "reject all" (EU Digital Omnibus direction; respectful everywhere). */
+export const DEFAULT_REASK_DAYS = 180;
+
 export function defaultConfig(domain: string): BannerConfig {
   return {
     version: 1,
@@ -101,6 +112,10 @@ export function defaultConfig(domain: string): BannerConfig {
     headless: false,
     googleConsentMode: true,
     expiryDays: 180,
+    reaskAfterRejectDays: DEFAULT_REASK_DAYS,
+    // The Board's online complaint channel isn't published yet; readiness flags it until set.
+    rights: { rightsUrl: `https://${domain}/privacy#your-rights`, boardComplaintUrl: undefined },
+    leakDetection: true,
   };
 }
 

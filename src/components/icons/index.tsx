@@ -1,4 +1,5 @@
 import type { SVGProps } from "react";
+import { AppIcon, Lockup } from "../brand/logo";
 
 /**
  * The Plain Theory icon set. Drawn on a 24px grid, 1.75 stroke, round joins.
@@ -28,27 +29,19 @@ function Svg({ size = 20, title, children, ...rest }: IconProps & { children: Re
 }
 
 /* ---------- Brand ---------- */
+// The identity lives in components/brand/logo.tsx; these wrappers keep the original API.
 
-/** Logo mark: a consent toggle whose knob forms the bowl of a "P". */
-export function LogoMark({ size = 28, ...rest }: IconProps) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden {...rest}>
-      <rect x="2" y="2" width="28" height="28" rx="9" fill="currentColor" />
-      <path d="M11 24V8h6.5a5.5 5.5 0 0 1 0 11H11" fill="none" stroke="var(--logo-fg, #fff)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="17.5" cy="13.5" r="2.2" fill="var(--logo-accent, #19b989)" />
-    </svg>
-  );
+/** App-icon tile. Pass `tone="ink"` for dark surfaces. */
+export function LogoMark({ size = 28, tone = "brand", ...rest }: IconProps & { tone?: "brand" | "ink" }) {
+  return <AppIcon size={size} tone={tone} {...rest} />;
 }
 
-export function Logo({ className, mono }: { className?: string; mono?: boolean }) {
-  return (
-    <span className={`inline-flex items-center gap-2.5 font-bold tracking-[-0.02em] ${className ?? ""}`}>
-      <LogoMark className={mono ? "text-current" : "text-brand"} />
-      <span className="text-[1.0625rem] leading-none">
-        The Plain Theory
-      </span>
-    </span>
-  );
+/**
+ * Horizontal lockup. `mono` inherits text colour; `reverse` (or a `text-white` class) is for dark surfaces.
+ */
+export function Logo({ className, mono, reverse, size }: { className?: string; mono?: boolean; reverse?: boolean; size?: number }) {
+  const variant = mono ? "mono" : reverse || className?.includes("text-white") ? "reverse" : "color";
+  return <Lockup variant={variant} size={size} className={className} />;
 }
 
 /* ---------- Consent states ---------- */
@@ -118,13 +111,11 @@ export const IconReceipt = (p: IconProps) => (
   </Svg>
 );
 
-/** Hash chain: three linked blocks. */
+/** Hash chain: two interlocking links, each receipt holding the next. */
 export const IconChain = (p: IconProps) => (
   <Svg {...p}>
-    <rect x="2.5" y="9" width="5.5" height="6" rx="1.5" />
-    <rect x="9.25" y="9" width="5.5" height="6" rx="1.5" />
-    <rect x="16" y="9" width="5.5" height="6" rx="1.5" />
-    <path d="M8 12h1.25M14.75 12H16" />
+    <path d="M10.2 13.8a3.8 3.8 0 0 1 0-5.4l2.6-2.6a3.8 3.8 0 0 1 5.4 5.4l-1.4 1.4" />
+    <path d="M13.8 10.2a3.8 3.8 0 0 1 0 5.4l-2.6 2.6a3.8 3.8 0 0 1-5.4-5.4l1.4-1.4" />
   </Svg>
 );
 

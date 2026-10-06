@@ -7,11 +7,15 @@ export type Permission =
   | "logs:export"
   | "team:manage"
   | "billing:manage"
-  | "org:settings";
+  | "org:settings"
+  /** read the audit trail, security status and access reviews */
+  | "audit:read"
+  /** org-wide security policy, e.g. requiring MFA */
+  | "security:manage";
 
 const GRANTS: Record<Role, Permission[]> = {
-  owner: ["property:read", "property:write", "property:delete", "logs:export", "team:manage", "billing:manage", "org:settings"],
-  admin: ["property:read", "property:write", "property:delete", "logs:export", "team:manage", "org:settings"],
+  owner: ["property:read", "property:write", "property:delete", "logs:export", "team:manage", "billing:manage", "org:settings", "audit:read", "security:manage"],
+  admin: ["property:read", "property:write", "property:delete", "logs:export", "team:manage", "org:settings", "audit:read"],
   viewer: ["property:read", "logs:export"],
 };
 

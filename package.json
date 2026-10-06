@@ -4,9 +4,13 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "npm run sdk:build && next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "sdk:build": "node scripts/build-sdk.mjs",
+    "seed": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/seed.mjs",
+    "retention": "node scripts/retention.mjs",
+    "test": "vitest run"
   },
   "dependencies": {
     "@aws-sdk/client-cloudfront": "^3.1146.0",
@@ -33,6 +37,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.8",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.2.7"
   }
 }
