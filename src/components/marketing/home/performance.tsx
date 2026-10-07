@@ -50,7 +50,7 @@ export function Performance({ sizeKb }: { sizeKb: string }) {
   const WEIGHTS = weights(sizeKb);
   const max = Math.max(...WEIGHTS.map((w) => w.kb));
   return (
-    <Section id="performance" tone="white" labelledBy="performance-title">
+    <Section id="performance" tone="paper" labelledBy="performance-title">
       <div className="grid gap-14 lg:grid-cols-12 lg:items-center lg:gap-16">
         <div className="pt-reveal lg:col-span-5">
           <h2 id="performance-title" className="display text-[2.25rem] sm:text-[2.75rem] md:text-[3.25rem]">
@@ -118,6 +118,7 @@ export function Performance({ sizeKb }: { sizeKb: string }) {
                           </span>
                         ) : (
                           <span
+                            data-gsap-bar
                             className={`absolute inset-y-0 rounded-sm ${BAR[r.kind]}`}
                             style={{ left: `${(r.start / SCALE) * 100}%`, width: `${Math.max(((r.end - r.start) / SCALE) * 100, 1.2)}%` }}
                           >
@@ -172,6 +173,7 @@ export function Performance({ sizeKb }: { sizeKb: string }) {
               <div className="flex items-center gap-3">
                 <span
                   aria-hidden
+                  data-gsap-bar
                   className={`h-2.5 rounded-full ${w.ours ? "bg-brand" : "bg-ink-3/35"}`}
                   style={{ width: `${Math.max((w.kb / max) * 85, 2)}%` }}
                 />

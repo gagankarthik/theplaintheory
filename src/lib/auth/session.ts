@@ -119,6 +119,8 @@ export async function requireUser(opts: { allowWithoutMfa?: boolean } = {}) {
   if (!active) redirect("/onboarding");
   const org = await store.getOrg(active.orgId);
   if (!org) redirect("/onboarding");
+  // Suspended by Plain Theory staff: no dashboard access until it's lifted (the page explains why).
+  if (org.suspendedAt) redirect("/suspended");
   if (org.security?.requireMfa && !user.mfa && !opts.allowWithoutMfa) redirect("/app/account?mfa=required");
   return { session, user, org, role: active.role, memberships };
 }

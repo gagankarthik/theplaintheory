@@ -18,7 +18,8 @@ function Code({ id, label, code }: { id: string; label: string; code: string }) 
           <CopyButton value={code} describedBy={id} />
         </span>
       </figcaption>
-      <pre className="overflow-x-auto p-4 font-mono text-[13px] leading-relaxed">
+      {/* scrolls sideways on narrow screens; focusable so keyboard users can scroll it too */}
+      <pre className="overflow-x-auto p-4 font-mono text-[13px] leading-relaxed" tabIndex={0} role="region" aria-labelledby={id}>
         <code>{code}</code>
       </pre>
     </figure>
@@ -101,9 +102,15 @@ window.PlainConsent.revoke();                 // withdraw consent (DPDPA)`;
             {property.publishedAt ? <span className="text-ink-3">Last published {new Date(property.publishedAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}</span> : null}
           </p>
           <p>
-            {cdn
-              ? `Published settings are served from ${cdn}/c/${property.siteKey}.json via CloudFront.`
-              : `Published settings are served from ${origin}/api/v1/config/${property.siteKey}. Set PUBLISH_DRIVER=s3 to serve them from CloudFront.`}
+            Published settings are served from{" "}
+            <code className="break-all font-mono text-ink">{cdn ? `${cdn}/c/${property.siteKey}.json` : `${origin}/api/v1/config/${property.siteKey}`}</code>
+            {cdn ? (
+              " via CloudFront."
+            ) : (
+              <>
+                . Set <code className="font-mono text-ink">PUBLISH_DRIVER=s3</code> to serve them from CloudFront.
+              </>
+            )}
           </p>
         </Step>
         <Step n={4} title="Optional: build your own banner">

@@ -1,6 +1,8 @@
 import Script from "next/script";
+import { WebAnalytics } from "@/components/analytics/web-analytics";
 import { AnnouncementBar } from "@/components/marketing/announcement-bar";
 import { SiteFooter } from "@/components/marketing/site-footer";
+import { MarketingMotion } from "@/components/marketing/motion";
 import { SiteHeader } from "@/components/marketing/site-header";
 
 /** Our own site's consent property; production sets NEXT_PUBLIC_PLAIN_SITE_KEY. */
@@ -22,6 +24,8 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
       </main>
       <SiteFooter />
       <div aria-hidden className="pt-grain" />
+      <WebAnalytics />
+      <MarketingMotion />
       {/* We run our own consent script. The site sets no analytics or ad cookies, so it isn't blocking-critical. */}
       <Script src="/sdk/plain-consent.js" data-site={SITE_KEY} strategy="afterInteractive" />
     </>

@@ -168,7 +168,6 @@ function Scanner({ propertyId, existing }: { propertyId: string; existing: strin
           <p className="text-sm text-ink-3">We load your homepage and look for known analytics and ad scripts. Takes up to 8 seconds.</p>
         </div>
         <Button
-          variant="ink"
           loading={scanning}
           loadingLabel="Scanning"
           onClick={() =>

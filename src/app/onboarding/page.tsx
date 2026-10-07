@@ -4,51 +4,35 @@ import { redirect } from "next/navigation";
 import { Logo } from "@/components/icons";
 import { getSignedInUser } from "@/lib/auth/session";
 import { getStore } from "@/lib/store";
+import type { PlanId } from "@/lib/types";
 import { OnboardingForm } from "./form";
 
 export const metadata: Metadata = { title: "Set up your workspace", robots: { index: false, follow: false } };
 
-export default async function OnboardingPage() {
+const SELF_SERVE: PlanId[] = ["free", "starter", "growth", "business"];
+const asPlan = (v: unknown) => (typeof v === "string" && (SELF_SERVE as string[]).includes(v) ? (v as PlanId) : undefined);
+
+export default async function OnboardingPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const session = await getSignedInUser();
   if (!session) redirect("/login");
-  const memberships = await (await getStore()).listMemberships(session.userId);
+  const store = await getStore();
+  const memberships = await store.listMemberships(session.userId);
   if (memberships.length) redirect("/app");
+  const user = await store.getUser(session.userId);
+  const { plan } = await searchParams;
 
   return (
-    <div className="min-h-dvh bg-paper">
-      <header className="container-page flex h-16 items-center">
-        <Link href="/" aria-label="Plain Theory home">
+    <div className="relative min-h-dvh overflow-hidden bg-paper">
+      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-80 bg-[linear-gradient(180deg,var(--color-brand-wash),transparent)]" />
+      <header className="container-page relative flex h-16 items-center justify-between">
+        <Link href="/" aria-label="Plain Theory home" className="flex min-h-11 items-center">
           <Logo />
         </Link>
+        <p className="truncate pl-4 text-sm text-ink-3">{session.email}</p>
       </header>
-      <main className="container-page grid gap-12 py-10 md:grid-cols-[minmax(0,1fr)_minmax(0,420px)] md:py-16">
-        <div className="max-w-md">
-          <h1 className="text-2xl font-bold">Set up your workspace</h1>
-          <p className="mt-4 text-base text-ink-2">
-            An organization holds your sites, team and billing. Agencies usually create one per client so each client&apos;s
-            consent records stay separate.
-          </p>
-          <ol className="mt-10 space-y-6">
-            {[
-              ["Name the organization and site", "You can add more sites later."],
-              ["Paste one script tag", "We show you the snippet next."],
-              ["Publish your banner", "Defaults are already compliant for GDPR, CCPA and DPDPA."],
-            ].map(([t, d], i) => (
-              <li key={t} className="flex gap-4">
-                <span className={`grid size-8 shrink-0 place-items-center rounded-full text-sm font-bold ${i === 0 ? "bg-ink text-paper" : "border border-line-strong text-ink-3"}`}>
-                  {i + 1}
-                </span>
-                <div>
-                  <p className="font-bold">{t}</p>
-                  <p className="text-sm text-ink-3">{d}</p>
-                </div>
-              </li>
-            ))}
-          </ol>
-        </div>
-        <div className="panel p-6 sm:p-8">
-          <OnboardingForm />
-        </div>
+      <main className="container-page relative max-w-3xl py-8 sm:py-14">
+        <h1 className="sr-only">Set up your workspace</h1>
+        <OnboardingForm userName={user?.name} initialPlan={asPlan(plan)} />
       </main>
     </div>
   );

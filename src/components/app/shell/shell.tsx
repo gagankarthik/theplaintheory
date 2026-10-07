@@ -40,6 +40,8 @@ interface ShellProps {
   properties: { id: string; name: string; domain: string; dirty: boolean }[];
   /** read from the `pt-sidebar` cookie on the server so the first paint has the right width */
   initialCollapsed?: boolean;
+  /** Plain Theory staff: show the link to the staff console (/admin) in the account menu */
+  staffConsole?: boolean;
   children: React.ReactNode;
 }
 
@@ -179,7 +181,7 @@ function UpDown() {
 const crumbTrigger =
   "flex h-9 min-w-0 max-w-full items-center gap-2 rounded-[8px] px-2 text-sm font-medium text-ink transition-colors hover:bg-paper aria-expanded:bg-paper";
 
-export function Shell({ user, org, role, orgs, properties, initialCollapsed = false, children }: ShellProps) {
+export function Shell({ user, org, role, orgs, properties, initialCollapsed = false, staffConsole = false, children }: ShellProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -360,6 +362,11 @@ export function Shell({ user, org, role, orgs, properties, initialCollapsed = fa
                     <Link href="/docs" role="menuitem" tabIndex={-1} onClick={close} className={menuItemClass}>
                       Documentation
                     </Link>
+                    {staffConsole ? (
+                      <Link href="/admin" role="menuitem" tabIndex={-1} onClick={close} className={menuItemClass}>
+                        <IconShieldCheck size={16} /> Staff console
+                      </Link>
+                    ) : null}
                     <Link href="/" role="menuitem" tabIndex={-1} onClick={close} className={menuItemClass}>
                       Home page
                     </Link>

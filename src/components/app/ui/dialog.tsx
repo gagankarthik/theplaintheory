@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, type ReactNode } from "react";
 import { IconClose } from "@/components/icons";
+import { EASE, gsap, reducedMotion } from "@/lib/motion";
 
 /**
  * Modal built on native <dialog>: the browser traps focus, Esc closes, and the page behind is inert.
@@ -32,6 +33,8 @@ export function Dialog({
     if (open && !d.open) {
       opener.current = document.activeElement;
       d.showModal();
+      // Springs up into place; the native backdrop fades in with it.
+      if (!reducedMotion()) gsap.fromTo(d, { y: 16, scale: 0.97, opacity: 0 }, { y: 0, scale: 1, opacity: 1, duration: 0.45, ease: EASE, clearProps: "transform,opacity" });
     } else if (!open && d.open) {
       d.close();
     }

@@ -1,7 +1,8 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { IconAlert, IconCheck, IconClose } from "@/components/icons";
+import { gsap, reducedMotion } from "@/lib/motion";
 
 type Tone = "success" | "error";
 interface ToastItem {
@@ -21,8 +22,6 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <Ctx.Provider value={push}>
       {children}
-      {/* keyframes live outside the live region so they're never part of an announcement */}
-      <style>{`@keyframes toast-in{from{opacity:0;transform:translateY(8px)}}`}</style>
       <div aria-live="polite" aria-relevant="additions" className="pointer-events-none fixed inset-x-4 bottom-4 z-[60] flex flex-col items-end gap-2 sm:left-auto sm:w-[380px]">
         {items.map((t) => (
           <ToastCard key={t.id} item={t} onDone={() => setItems((l) => l.filter((x) => x.id !== t.id))} />
@@ -33,21 +32,33 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 }
 
 function ToastCard({ item, onDone }: { item: ToastItem; onDone: () => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  // Springs in from below; slides out to the side before it's removed.
+  useLayoutEffect(() => {
+    if (ref.current && !reducedMotion()) gsap.fromTo(ref.current, { y: 20, scale: 0.96, autoAlpha: 0 }, { y: 0, scale: 1, autoAlpha: 1, duration: 0.5, ease: "back.out(1.6)" });
+  }, []);
+  const dismiss = useCallback(() => {
+    if (!ref.current || reducedMotion()) return onDone();
+    gsap.to(ref.current, { x: 48, autoAlpha: 0, duration: 0.3, ease: "power2.in", onComplete: onDone });
+  }, [onDone]);
+
   useEffect(() => {
-    const t = setTimeout(onDone, item.tone === "error" ? 9000 : 5000);
+    const t = setTimeout(dismiss, item.tone === "error" ? 9000 : 5000);
     return () => clearTimeout(t);
-  }, [item.tone, onDone]);
+  }, [item.tone, dismiss]);
   const error = item.tone === "error";
   return (
     <div
+      ref={ref}
       role={error ? "alert" : "status"}
-      className="pointer-events-auto flex w-full items-start gap-3 rounded-lg border border-line bg-surface px-4 py-3 text-sm shadow-float [animation:toast-in_.2s_ease-out]"
+      className="pointer-events-auto flex w-full items-start gap-3 rounded-lg border border-line bg-surface px-4 py-3 text-sm shadow-float"
     >
       <span className={`mt-0.5 grid size-5 shrink-0 place-items-center rounded-full ${error ? "bg-rose text-white" : "bg-jade text-white"}`}>
         {error ? <IconAlert size={13} /> : <IconCheck size={13} />}
       </span>
       <p className="min-w-0 flex-1 text-ink">{item.message}</p>
-      <button type="button" onClick={onDone} className="-m-1 grid size-7 shrink-0 place-items-center rounded text-ink-3 hover:bg-paper hover:text-ink" aria-label="Dismiss notification">
+      <button type="button" onClick={dismiss} className="-m-1 grid size-7 shrink-0 place-items-center rounded text-ink-3 hover:bg-paper hover:text-ink" aria-label="Dismiss notification">
         <IconClose size={14} />
       </button>
     </div>

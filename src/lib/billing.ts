@@ -1,7 +1,8 @@
 import "server-only";
 import Stripe from "stripe";
-import { PLANS, type Plan } from "./plans";
-import type { PlanId } from "./types";
+import { PLANS, type Currency, type Plan } from "./plans";
+import { absoluteUrl } from "./site";
+import type { Organization, PlanId } from "./types";
 
 export type BillingInterval = "monthly" | "annual";
 
@@ -26,3 +27,44 @@ export const billingConfigured = () => Boolean(getStripe() && PLANS.some((p) => 
 
 /** Annual billing: two months free. */
 export const annualPrice = (monthly: number) => monthly * 10;
+
+/**
+ * Stripe Checkout for a subscription on `org`. Returns null when Stripe or this plan's price isn't
+ * configured, so callers can explain instead of failing. The plan changes only when the webhook confirms.
+ */
+export async function createCheckoutUrl({
+  org,
+  email,
+  plan,
+  interval,
+  currency,
+  successPath = "/app/billing?checkout=success",
+  cancelPath = "/app/billing?checkout=cancelled",
+}: {
+  org: Pick<Organization, "id" | "stripeCustomerId">;
+  email: string;
+  plan: Plan;
+  interval: BillingInterval;
+  currency: Currency;
+  successPath?: string;
+  cancelPath?: string;
+}): Promise<string | null> {
+  const stripe = getStripe();
+  const price = priceIdFor(plan, interval);
+  if (!stripe || !price) return null;
+  const session = await stripe.checkout.sessions.create({
+    mode: "subscription",
+    // Each price carries EUR, GBP and INR as Stripe currency options; USD is the default.
+    currency,
+    line_items: [{ price, quantity: 1 }],
+    customer: org.stripeCustomerId,
+    customer_email: org.stripeCustomerId ? undefined : email,
+    client_reference_id: org.id,
+    metadata: { orgId: org.id },
+    subscription_data: { metadata: { orgId: org.id } },
+    allow_promotion_codes: true,
+    success_url: absoluteUrl(successPath),
+    cancel_url: absoluteUrl(cancelPath),
+  });
+  return session.url;
+}

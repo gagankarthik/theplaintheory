@@ -8,6 +8,9 @@
  * Plain Theory design tokens.
  * Ultramarine is the brand. Ink carries text and primary actions. Jade, amber and rose are reserved for
  * consent states: released, held and declined.
+ *
+ * Proportion (documented on /brand): 60% white and paper surfaces, 30% ink (text, dark sections,
+ * marketing primary buttons), 10% ultramarine (links, selection, focus, one highlight per section).
  */
 @theme {
   /* Neutrals */
@@ -340,19 +343,6 @@
       filter: blur(8px);
     }
   }
-  /* Slow idle float for the hero cards; two phases so they never move in lockstep */
-  .pt-float {
-    animation: pt-float 7s ease-in-out infinite alternate;
-  }
-  @keyframes pt-float {
-    from {
-      transform: translateY(-5px);
-    }
-    to {
-      transform: translateY(6px);
-    }
-  }
-
   /* Menu panels settle in from slightly above */
   .pt-menu {
     animation: pt-menu 0.45s var(--ease-spring) both;
@@ -364,22 +354,13 @@
     }
   }
 
-  /* Staggered entry for the mobile menu items */
-  .pt-stagger > * {
-    animation: pt-enter-up 0.6s var(--ease-spring) both;
-  }
-  .pt-stagger > *:nth-child(2) { animation-delay: 60ms; }
-  .pt-stagger > *:nth-child(3) { animation-delay: 120ms; }
-  .pt-stagger > *:nth-child(4) { animation-delay: 180ms; }
-  .pt-stagger > *:nth-child(5) { animation-delay: 240ms; }
-  .pt-stagger > *:nth-child(n + 6) { animation-delay: 300ms; }
-
   /*
    * Scroll reveal with CSS scroll-driven animations: content is fully visible by default (no JS, no
    * flash of hidden content) and only animates where the browser supports view timelines.
    */
+  /* GSAP (components/marketing/motion.tsx) takes over reveals when it's running: html.gsap-on */
   @supports (animation-timeline: view()) {
-    .pt-reveal {
+    html:not(.gsap-on) .pt-reveal {
       animation: pt-reveal linear both;
       animation-timeline: view();
       animation-range: entry 0% entry 40%;
@@ -404,69 +385,22 @@
   mix-blend-mode: multiply;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
-/* Coverage hub: connectors from our mark out to each standard, with a pulse travelling outward */
-.pt-line-base {
-  fill: none;
-  stroke: var(--color-line-strong);
-  stroke-width: 1.5;
-  transition: stroke 200ms ease;
+/* A completed step's check pops in */
+.pt-pop {
+  animation: pt-pop 0.45s var(--ease-spring) both;
 }
-.pt-line-flow {
-  fill: none;
-  stroke: var(--color-brand);
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-dasharray: 14 120;
-  stroke-dashoffset: 14;
-  opacity: 0.85;
-  animation: pt-flow 3.2s cubic-bezier(0.45, 0, 0.25, 1) infinite;
-}
-.pt-line-node {
-  fill: var(--color-surface);
-  stroke: var(--color-line-strong);
-  stroke-width: 1.5;
-  transition: stroke 200ms ease, fill 200ms ease;
-}
-@keyframes pt-flow {
-  to {
-    stroke-dashoffset: -106;
-  }
-}
-.pt-ring {
-  animation: pt-ring 3.2s ease-out infinite;
-}
-@keyframes pt-ring {
+@keyframes pt-pop {
   from {
-    transform: scale(0.9);
-    opacity: 0.9;
-  }
-  to {
-    transform: scale(1.75);
     opacity: 0;
+    transform: scale(0.4);
   }
-}
-/* Hovering a standard lights its connector */
-.pt-coverage:has([data-cov="0"]:hover) [data-line="0"],
-.pt-coverage:has([data-cov="1"]:hover) [data-line="1"],
-.pt-coverage:has([data-cov="2"]:hover) [data-line="2"],
-.pt-coverage:has([data-cov="3"]:hover) [data-line="3"],
-.pt-coverage:has([data-cov="4"]:hover) [data-line="4"],
-.pt-coverage:has([data-cov="5"]:hover) [data-line="5"] {
-  stroke: var(--color-brand);
 }
 
 @media (prefers-reduced-motion: reduce) {
   .pt-reveal,
   .pt-menu,
   .pt-hero-in,
-  .pt-float,
-  .pt-ring,
-  .pt-line-flow,
-  .pt-stagger > * {
+  .pt-pop {
     animation: none !important;
-  }
-  .pt-line-flow,
-  .pt-ring {
-    opacity: 0;
   }
 }

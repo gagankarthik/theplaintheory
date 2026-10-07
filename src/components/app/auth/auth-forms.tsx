@@ -99,13 +99,14 @@ export function LoginForm({ next }: { next?: string }) {
   );
 }
 
-export function SignupForm({ formToken }: { formToken: string }) {
+export function SignupForm({ formToken, plan }: { formToken: string; plan?: string }) {
   const [state, action] = useActionState<AuthState, FormData>(signup, null);
   const formRef = useRef<HTMLFormElement>(null);
   useFocusOnError(state, formRef);
   return (
     <form ref={formRef} action={action} className="space-y-5 short:space-y-4 shorter:space-y-3" noValidate>
       <FormGuard token={state?.formToken ?? formToken} />
+      {plan ? <input type="hidden" name="plan" value={plan} /> : null}
       <TextField
         id="name"
         label="Your name"

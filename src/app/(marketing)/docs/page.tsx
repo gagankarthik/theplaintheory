@@ -41,9 +41,25 @@ function DocSection({ id, title, children }: { id: string; title: string; childr
   );
 }
 
+/** Reference table. Below 640px each row stacks (name and type, then the description) instead of clipping columns. */
 function Params({ caption, rows }: { caption: string; rows: [name: string, type: string, description: string][] }) {
   return (
-    <div className="overflow-x-auto rounded-[var(--radius-md)] border border-line">
+    <>
+      <dl aria-label={caption} className="divide-y divide-line rounded-[var(--radius-md)] border border-line sm:hidden">
+        {rows.map(([n, t, d]) => (
+          <div key={n} className="px-4 py-3.5">
+            <dt className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+              <span className="font-mono text-[13px] text-ink [overflow-wrap:anywhere]">{n}</span>
+              <span className="font-mono text-xs text-ink-3">
+                <span className="sr-only">Type: </span>
+                {t}
+              </span>
+            </dt>
+            <dd className="mt-1 text-sm text-ink-2">{d}</dd>
+          </div>
+        ))}
+      </dl>
+      <div className="hidden overflow-x-auto rounded-[var(--radius-md)] border border-line sm:block" tabIndex={0} role="region" aria-label={caption}>
       <table className="w-full min-w-[560px] border-collapse text-left text-sm">
         <caption className="sr-only">{caption}</caption>
         <thead className="bg-paper text-xs text-ink-3">
@@ -71,7 +87,8 @@ function Params({ caption, rows }: { caption: string; rows: [name: string, type:
           ))}
         </tbody>
       </table>
-    </div>
+      </div>
+    </>
   );
 }
 

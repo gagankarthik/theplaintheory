@@ -13,6 +13,7 @@ import type {
   Role,
   User,
 } from "../types";
+import type { PlatformAuditDraft, PlatformAuditEvent, PlatformAuditQuery } from "../platform/types";
 
 export type ReceiptDraft = Omit<ConsentReceipt, "id" | "seq" | "prevHash" | "hash">;
 export type AuditDraft = Omit<AuditEvent, "id" | "seq" | "prevHash" | "hash" | "createdAt"> & { createdAt?: string };
@@ -39,6 +40,8 @@ export interface Store {
   getUser(id: string): Promise<User | null>;
   getUserByEmail(email: string): Promise<User | null>;
   updateUser(id: string, patch: Partial<User>): Promise<User>;
+  /** every user; for the staff console and scheduled jobs, never customer request paths */
+  listUsers(): Promise<User[]>;
 
   // server-side sessions (SOC 2 CC6.1): the cookie holds only the id
   createSessionRecord(s: SessionRecord): Promise<SessionRecord>;
@@ -53,6 +56,11 @@ export interface Store {
   appendAudit(draft: AuditDraft): Promise<AuditEvent>;
   /** newest first */
   listAudit(orgId: string, q?: AuditQuery): Promise<AuditEvent[]>;
+
+  // platform audit trail: what Plain Theory staff did, one hash chain across the platform
+  appendPlatformAudit(draft: PlatformAuditDraft): Promise<PlatformAuditEvent>;
+  /** newest first */
+  listPlatformAudit(q?: PlatformAuditQuery): Promise<PlatformAuditEvent[]>;
 
   // organizations & membership (RBAC)
   createOrg(o: Organization, owner: string): Promise<Organization>;

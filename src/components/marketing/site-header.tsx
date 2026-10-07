@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { daysUntil, useNow } from "@/hooks/use-now";
-import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { cascadeIn } from "@/lib/motion";
 import { IconChevronDown, IconChevronRight, Logo } from "@/components/icons";
 import { FRAMEWORK_LOGOS } from "./framework-logos";
 import { IconBrowserSignal, IconCalifornia, IconChakra, IconEuStars } from "./home/coverage-icons";
@@ -32,7 +33,7 @@ function MenuGlyph({ open }: { open: boolean }) {
 function MenuRow({ item, icon, onSelect }: { item: NavItem; icon?: ReactNode; onSelect: () => void }) {
   const Icon = item.icon;
   return (
-    <li>
+    <li data-anim>
       <Link
         href={item.href}
         onClick={onSelect}
@@ -114,6 +115,16 @@ export function SiteHeader() {
       document.removeEventListener("pointerdown", onPointer);
     };
   }, [open, drawer, close]);
+
+  // Menu contents cascade in as a panel or the mobile sheet opens.
+  const drawerNavRef = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    if (open) cascadeIn(document.getElementById(ids[open]), { y: 8, stagger: 0.025 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- ids are stable for the component's life
+  }, [open]);
+  useLayoutEffect(() => {
+    if (drawer) cascadeIn(drawerNavRef.current, { y: 16, stagger: 0.03 });
+  }, [drawer]);
 
   // Lock page scroll behind the mobile menu and move focus into it.
   useEffect(() => {
@@ -213,7 +224,7 @@ export function SiteHeader() {
           <Link href="/login" className="inline-flex h-9 items-center rounded-full px-3.5 text-sm font-medium text-ink-2 transition-colors hover:bg-ink/[0.04] hover:text-ink">
             Log in
           </Link>
-          <Link href="/signup" className="btn btn-pill btn-ink h-9 px-4">
+          <Link href="/signup" className="btn btn-pill btn-primary h-9 px-4">
             Try for free
           </Link>
         </div>
@@ -248,6 +259,7 @@ export function SiteHeader() {
           <Link
             href="/demo"
             onClick={dismiss}
+            data-anim
             className="group col-span-3 flex flex-col gap-5 self-start overflow-hidden rounded-[16px] bg-paper p-5 ring-1 ring-inset ring-line transition-colors hover:ring-ink/20"
           >
             {/* a miniature banner, the product itself */}
@@ -256,7 +268,7 @@ export function SiteHeader() {
               <span className="mt-2 block h-1.5 w-full rounded-full bg-line" />
               <span className="mt-1 block h-1.5 w-3/4 rounded-full bg-line" />
               <span className="mt-3 grid grid-cols-3 gap-1.5">
-                <span className="h-5 rounded-md ring-1 ring-line-strong" />
+                <span className="h-5 rounded-md bg-brand" />
                 <span className="h-5 rounded-md ring-1 ring-line-strong" />
                 <span className="h-5 rounded-md bg-brand" />
               </span>
@@ -295,6 +307,7 @@ export function SiteHeader() {
           <Link
             href="/compliance/dpdpa"
             onClick={dismiss}
+            data-anim
             className="group col-span-3 flex flex-col justify-between rounded-[16px] bg-ink p-5 text-white transition-colors hover:bg-ink-raised"
           >
             <span>
@@ -322,7 +335,7 @@ export function SiteHeader() {
               ))}
             </ul>
           </div>
-          <div className="col-span-5 col-start-8 rounded-[16px] bg-ink-raised p-5 text-white">
+          <div data-anim className="col-span-5 col-start-8 rounded-[16px] bg-ink-raised p-5 text-white">
             <p className="text-xs text-white/65">Works with</p>
             <ul className="mt-3 flex flex-wrap gap-2" aria-label="Supported frameworks">
               {FRAMEWORK_LOGOS.map((f) => (
@@ -367,7 +380,7 @@ export function SiteHeader() {
             <MenuGlyph open />
           </button>
         </div>
-        <nav aria-label="Mobile" className="pt-stagger container-page flex flex-1 flex-col py-6">
+        <nav ref={drawerNavRef} aria-label="Mobile" className="container-page flex flex-1 flex-col py-6">
           {[
             { label: "Product", items: PRODUCT_NAV },
             { label: "Compliance", items: COMPLIANCE_NAV },
@@ -377,7 +390,7 @@ export function SiteHeader() {
               <p className="text-xs font-medium text-ink-3">{group.label}</p>
               <ul className="mt-2">
                 {group.items.map((item) => (
-                  <li key={item.title}>
+                  <li key={item.title} data-anim>
                     <Link href={item.href} onClick={() => setDrawer(false)} className="flex min-h-12 items-center border-b border-line text-base text-ink">
                       {item.title}
                     </Link>
@@ -391,15 +404,15 @@ export function SiteHeader() {
               { href: "/pricing", t: "Pricing" },
               { href: "/login", t: "Log in" },
             ].map((l) => (
-              <li key={l.href}>
+              <li key={l.href} data-anim>
                 <Link href={l.href} onClick={() => setDrawer(false)} className="flex min-h-12 items-center border-b border-line text-base font-medium text-ink">
                   {l.t}
                 </Link>
               </li>
             ))}
           </ul>
-          <div className="mt-auto grid gap-3 pt-10">
-            <Link href="/signup" onClick={() => setDrawer(false)} className="btn btn-pill btn-ink btn-lg">
+          <div data-anim className="mt-auto grid gap-3 pt-10">
+            <Link href="/signup" onClick={() => setDrawer(false)} className="btn btn-pill btn-primary btn-lg">
               Try for free
             </Link>
           </div>

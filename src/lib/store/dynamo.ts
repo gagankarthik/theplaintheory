@@ -11,6 +11,8 @@ import {
 } from "@aws-sdk/lib-dynamodb";
 import { AUDIT_GENESIS, hashAudit } from "../audit-chain";
 import { GENESIS_HASH, hashReceipt, id } from "../crypto";
+import { PLATFORM_AUDIT_GENESIS, hashPlatformAudit } from "../platform/audit-chain";
+import type { PlatformAuditEvent } from "../platform/types";
 import type {
   AuditEvent,
   ConsentReceipt,
@@ -39,6 +41,7 @@ import type { AuditDraft, ReceiptDraft, Store } from "./types";
  *   PROP#<id>       CHAIN#HEAD
  *   PROP#<id>       RCPT#<seq, 12 digits>
  *   PROP#<id>       DAY#<yyyy-mm-dd>
+ *   PLATFORM        AUDIT#<seq, 12 digits>  (staff actions; head at AUDIT#HEAD)
  */
 const TABLE = process.env.DYNAMO_TABLE ?? "plain-theory";
 const doc = DynamoDBDocumentClient.from(new DynamoDBClient({ region: process.env.AWS_REGION ?? "ap-south-1" }), {
@@ -114,6 +117,24 @@ export const dynamoStore: Store = {
       }),
     );
     return next;
+  },
+  async listUsers() {
+    // A scan: only the staff console calls this. Add a GSI (e.g. ENTITY#USER) before customer counts grow large.
+    const out: User[] = [];
+    let ExclusiveStartKey: Record<string, unknown> | undefined;
+    do {
+      const r = await doc.send(
+        new ScanCommand({
+          TableName: TABLE,
+          FilterExpression: "SK = :p AND begins_with(PK, :u)",
+          ExpressionAttributeValues: { ":p": "PROFILE", ":u": "USER#" },
+          ExclusiveStartKey,
+        }),
+      );
+      for (const i of r.Items ?? []) out.push(strip<User>(i)!);
+      ExclusiveStartKey = r.LastEvaluatedKey;
+    } while (ExclusiveStartKey);
+    return out;
   },
 
   // Sessions: PK SESSION#id, listed per user via GSI1 (USERSESS#userId), expired by TTL 30 days after the absolute end.
@@ -216,6 +237,53 @@ export const dynamoStore: Store = {
     let rows = items.map((i) => strip<AuditEvent>(i)!);
     if (q.action) rows = rows.filter((e) => e.action === q.action || e.action.startsWith(`${q.action}.`));
     if (q.actorUserId) rows = rows.filter((e) => e.actorUserId === q.actorUserId);
+    return q.limit ? rows.slice(0, q.limit) : rows;
+  },
+
+  // Platform audit trail: PK PLATFORM, SK AUDIT#<seq>, head at AUDIT#HEAD, same optimistic chain append.
+  async appendPlatformAudit(draft) {
+    for (let attempt = 0; attempt < 8; attempt++) {
+      const headRes = await doc.send(new GetCommand({ TableName: TABLE, Key: { PK: "PLATFORM", SK: "AUDIT#HEAD" }, ConsistentRead: true }));
+      const head = (headRes.Item as { seq: number; hash: string } | undefined) ?? { seq: 0, hash: PLATFORM_AUDIT_GENESIS };
+      const unsigned = { ...draft, createdAt: draft.createdAt ?? new Date().toISOString(), id: id("paud"), seq: head.seq + 1, prevHash: head.hash };
+      const event: PlatformAuditEvent = { ...unsigned, hash: hashPlatformAudit(unsigned) };
+      try {
+        await doc.send(
+          new TransactWriteCommand({
+            TransactItems: [
+              { Put: { TableName: TABLE, Item: { PK: "PLATFORM", SK: auditKey(event.seq), type: "platform_audit", ...event }, ConditionExpression: "attribute_not_exists(PK)" } },
+              {
+                Put: {
+                  TableName: TABLE,
+                  Item: { PK: "PLATFORM", SK: "AUDIT#HEAD", seq: event.seq, hash: event.hash },
+                  ConditionExpression: head.seq === 0 ? "attribute_not_exists(PK)" : "seq = :s",
+                  ExpressionAttributeValues: head.seq === 0 ? undefined : { ":s": head.seq },
+                },
+              },
+            ],
+          }),
+        );
+        return event;
+      } catch (e) {
+        if (e instanceof TransactionCanceledException) continue;
+        throw e;
+      }
+    }
+    throw new Error("Could not append platform audit event: chain head contention");
+  },
+  async listPlatformAudit(q = {}) {
+    const upper = q.before ? auditKey(q.before - 1) : "AUDIT#999999999999";
+    const input = {
+      TableName: TABLE,
+      KeyConditionExpression: "PK = :p AND SK BETWEEN :lo AND :hi",
+      ExpressionAttributeValues: { ":p": "PLATFORM", ":lo": "AUDIT#000000000000", ":hi": upper },
+      ScanIndexForward: false,
+    };
+    const filtered = Boolean(q.action || q.targetId);
+    const items = q.limit && !filtered ? ((await doc.send(new QueryCommand({ ...input, Limit: q.limit }))).Items ?? []) : await queryAll(input);
+    let rows = items.map((i) => strip<PlatformAuditEvent>(i)!);
+    if (q.action) rows = rows.filter((e) => e.action === q.action || e.action.startsWith(`${q.action}.`));
+    if (q.targetId) rows = rows.filter((e) => e.target.id === q.targetId);
     return q.limit ? rows.slice(0, q.limit) : rows;
   },
 

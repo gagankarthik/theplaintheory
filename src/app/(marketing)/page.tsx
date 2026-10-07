@@ -3,6 +3,7 @@ import { pageMetadata } from "@/lib/seo";
 import { Faq, type FaqItem } from "@/components/marketing/faq";
 import { FinalCta } from "@/components/marketing/final-cta";
 import { ChainProof } from "@/components/marketing/home/chain-proof";
+import { CostOfConsent } from "@/components/marketing/home/cost-of-consent";
 import { CoverageStrip } from "@/components/marketing/home/coverage-strip";
 import { DpdpSection } from "@/components/marketing/home/dpdp-section";
 import { Hero } from "@/components/marketing/home/hero";
@@ -96,9 +97,10 @@ export default function HomePage() {
           ],
         }}
       />
-      {/* The story: the promise, the laws it covers, what it does, what your team sees, why the proof
-          holds up, India, speed, then the questions buyers ask before they start */}
+      {/* The story: the promise, what getting it wrong costs, the laws it covers, what it does, what your
+          team sees, why the proof holds up, India, speed, then the questions buyers ask before they start */}
       <Hero />
+      <CostOfConsent />
       <CoverageStrip />
       <PlatformGrid />
       <ProductTour />
@@ -106,7 +108,7 @@ export default function HomePage() {
       <DpdpSection />
       <Performance sizeKb={sizeKb} />
 
-      <Section id="faq" tone="paper" labelledBy="faq-title">
+      <Section id="faq" tone="white" labelledBy="faq-title">
         <div className="grid gap-10 lg:grid-cols-12">
           <div className="lg:col-span-4 lg:sticky lg:top-28 lg:self-start">
             <h2 id="faq-title" className="display text-[2rem] sm:text-[2.5rem]">

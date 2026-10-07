@@ -157,11 +157,11 @@ export default function BrandPage() {
             <Lockup size={22} layout="stacked" variant="reverse" />
           </Figure>
           <Figure label="App icons and the single-colour mark">
-            <div className="flex items-center gap-8">
-              <AppIcon size={80} title="App icon" />
-              <AppIcon size={80} tone="ink" title="App icon, dark" />
+            <div className="flex items-center gap-5 sm:gap-8">
+              <AppIcon size={80} className="max-sm:size-16" title="App icon" />
+              <AppIcon size={80} className="max-sm:size-16" tone="ink" title="App icon, dark" />
               <span className="text-ink">
-                <BrandMark size={80} variant="mono" title="Single-colour mark" />
+                <BrandMark size={80} className="max-sm:size-16" variant="mono" title="Single-colour mark" />
               </span>
             </div>
           </Figure>
@@ -203,8 +203,8 @@ export default function BrandPage() {
               ))}
             </div>
           </div>
-          <div className="grid place-items-center rounded-[var(--radius-lg)] bg-paper p-10 md:p-16 lg:col-span-7">
-            <div className="relative p-6 outline-1 outline-dashed outline-brand/50 sm:p-8">
+          <div className="grid place-items-center rounded-[var(--radius-lg)] bg-paper px-4 py-10 sm:p-10 md:p-16 lg:col-span-7">
+            <div className="relative p-7 outline-1 outline-dashed outline-brand/50 sm:p-9">
               <Lockup size={26} />
               {["left-0 top-1/2 -translate-y-1/2", "right-0 top-1/2 -translate-y-1/2", "top-0 left-1/2 -translate-x-1/2", "bottom-0 left-1/2 -translate-x-1/2"].map((c) => (
                 <span key={c} aria-hidden className={`absolute size-6 rounded-full bg-brand-wash ring-1 ring-brand/40 sm:size-8 ${c}`} />
@@ -220,7 +220,38 @@ export default function BrandPage() {
           title="Colour"
           lead="Each colour has one job. Ultramarine asks you to act. Jade, amber and rose mean consent states and are never decoration. Ratios below are calculated live."
         />
-        <div className="mt-14 overflow-hidden rounded-[var(--radius-lg)] border border-line bg-surface">
+
+        {/* Proportion: 60-30-10 across any page or screen */}
+        <div className="mt-14 rounded-[var(--radius-lg)] border border-line bg-surface p-5 sm:p-8">
+          <h3 className="text-base font-semibold">Proportion: 60, 30, 10</h3>
+          <p className="mt-1.5 max-w-[70ch] text-sm text-ink-2">
+            Every page and screen keeps roughly this balance. If ultramarine starts to cover large areas, it stops pointing at anything.
+          </p>
+          <div aria-hidden className="mt-6 flex h-16 overflow-hidden rounded-[12px] ring-1 ring-inset ring-line">
+            <span className="flex basis-[60%] items-end bg-[linear-gradient(90deg,var(--color-surface),var(--color-paper))] p-3 text-xs font-semibold text-ink-2">60%</span>
+            <span className="flex basis-[30%] items-end bg-ink p-3 text-xs font-semibold text-white">30%</span>
+            <span className="flex basis-[10%] items-end bg-brand p-3 text-xs font-semibold text-white">10%</span>
+          </div>
+          <ul className="mt-6 grid gap-5 text-sm md:grid-cols-3">
+            {[
+              { share: "60%", name: "White and Paper", body: "Page and card backgrounds, alternating section bands, quiet panels." },
+              { share: "30%", name: "Ink", body: "Text, primary marketing buttons, dark sections and code panels. At most two dark sections per page." },
+              { share: "10%", name: "Ultramarine", body: "Links, selected and focused states, the one key highlight in a section, and in-app primary actions." },
+            ].map((r) => (
+              <li key={r.name}>
+                <p className="font-semibold">
+                  {r.share} <span className="font-normal text-ink-3">·</span> {r.name}
+                </p>
+                <p className="mt-1 text-ink-2">{r.body}</p>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-5 border-t border-line pt-4 text-sm text-ink-3">
+            Outside the split: jade, amber and rose only ever mean released, held and declined consent (rose also marks form errors).
+          </p>
+        </div>
+
+        <div className="mt-6 overflow-hidden rounded-[var(--radius-lg)] border border-line bg-surface">
           <table className="w-full border-collapse text-left">
             <caption className="sr-only">Brand colours with their role and WCAG contrast against white and ink</caption>
             <thead className="hidden bg-paper text-xs text-ink-3 md:table-header-group">

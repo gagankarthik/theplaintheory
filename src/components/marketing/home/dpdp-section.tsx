@@ -72,7 +72,7 @@ function ItemisedNotice() {
 
 export function DpdpSection() {
   return (
-    <section id="dpdp" aria-labelledby="dpdp-title" className="bg-paper py-24 md:py-32">
+    <section id="dpdp" aria-labelledby="dpdp-title" className="bg-surface py-24 md:py-32">
       <div className="container-page">
         <div>
           <div className="max-w-[44rem]">
@@ -90,7 +90,7 @@ export function DpdpSection() {
         </div>
 
         {/* 22 scripts: the notice is offered in each */}
-        <ul aria-label="Notice languages" className="pt-reveal mt-14 grid grid-cols-2 gap-px overflow-hidden rounded-[var(--radius-lg)] border border-line bg-line sm:grid-cols-4 md:grid-cols-6 xl:grid-cols-[repeat(11,minmax(0,1fr))]">
+        <ul aria-label="Notice languages" data-gsap-stagger className="mt-14 grid grid-cols-2 gap-px overflow-hidden rounded-[var(--radius-lg)] border border-line bg-line sm:grid-cols-4 md:grid-cols-6 xl:grid-cols-[repeat(11,minmax(0,1fr))]">
           {LANGUAGES.map((l) => (
             <li key={l.code} className="group flex min-h-[96px] min-w-0 flex-col justify-between bg-surface px-3 py-3.5 transition-colors hover:bg-brand-wash/60">
               <span

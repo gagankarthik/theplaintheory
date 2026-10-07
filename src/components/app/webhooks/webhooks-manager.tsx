@@ -6,6 +6,7 @@ import { IconAlert, IconCheck, IconPlug, IconPlus } from "@/components/icons";
 import { Badge } from "@/components/app/ui/badge";
 import { Button } from "@/components/app/ui/button";
 import { CopyButton } from "@/components/app/ui/copy-button";
+import { DataTable, type Column } from "@/components/app/ui/data-table";
 import { Dialog } from "@/components/app/ui/dialog";
 import { EmptyState } from "@/components/app/ui/empty-state";
 import { TextField } from "@/components/app/ui/field";
@@ -109,6 +110,36 @@ export function WebhooksManager({ propertyId, webhooks, deliveries, canWrite }: 
   const [testing, setTesting] = useState<string | null>(null);
   const toast = useToast();
   const urlOf = (id: string) => webhooks.find((w) => w.id === id)?.url ?? "Deleted webhook";
+  const deliveryColumns: Column<WebhookDelivery>[] = [
+    {
+      id: "time",
+      header: "Time (UTC)",
+      cell: (d) => <span className="whitespace-nowrap tabular-nums text-ink-2 max-sm:font-medium max-sm:text-ink">{d.createdAt.replace("T", " ").slice(0, 19)}</span>,
+    },
+    { id: "event", header: "Event", cell: (d) => <span className="font-mono text-xs">{d.event}</span> },
+    {
+      id: "endpoint",
+      header: "Endpoint",
+      className: "max-w-[240px]",
+      cell: (d) => (
+        <span className="block truncate font-mono text-xs text-ink-2" title={urlOf(d.webhookId)}>
+          {urlOf(d.webhookId)}
+        </span>
+      ),
+    },
+    {
+      id: "result",
+      header: "Result",
+      cell: (d) =>
+        d.status === "delivered" ? (
+          <Badge tone="released">{d.httpStatus ?? 200} delivered</Badge>
+        ) : (
+          <Badge tone="declined">{d.httpStatus ? `${d.httpStatus} failed` : "No response"}</Badge>
+        ),
+    },
+    { id: "attempt", header: "Attempt", align: "right", cell: (d) => d.attempt },
+    { id: "duration", header: "Duration", align: "right", cell: (d) => `${d.durationMs} ms` },
+  ];
 
   return (
     <div className="space-y-10">
@@ -204,39 +235,12 @@ export function WebhooksManager({ propertyId, webhooks, deliveries, canWrite }: 
         {deliveries.length === 0 ? (
           <p className="rounded-lg border border-dashed border-line-strong px-5 py-6 text-sm text-ink-3">No deliveries yet. Send a test to see one here.</p>
         ) : (
-          <div className="panel overflow-x-auto">
-            <table className="w-full min-w-[640px] text-left text-sm">
-              <caption className="sr-only">Recent webhook deliveries</caption>
-              <thead className="border-b border-line bg-paper text-xs text-ink-3">
-                <tr>
-                  <th scope="col" className="px-5 py-2.5 font-medium">Time (UTC)</th>
-                  <th scope="col" className="px-3 py-2.5 font-medium">Event</th>
-                  <th scope="col" className="px-3 py-2.5 font-medium">Endpoint</th>
-                  <th scope="col" className="px-3 py-2.5 font-medium">Result</th>
-                  <th scope="col" className="px-3 py-2.5 text-right font-medium">Attempt</th>
-                  <th scope="col" className="px-5 py-2.5 text-right font-medium">Duration</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-line">
-                {deliveries.map((d) => (
-                  <tr key={d.id}>
-                    <td className="whitespace-nowrap px-5 py-2.5 tabular-nums text-ink-2">{d.createdAt.replace("T", " ").slice(0, 19)}</td>
-                    <td className="px-3 py-2.5 font-mono text-xs">{d.event}</td>
-                    <td className="max-w-[240px] truncate px-3 py-2.5 font-mono text-xs text-ink-2">{urlOf(d.webhookId)}</td>
-                    <td className="px-3 py-2.5">
-                      {d.status === "delivered" ? (
-                        <Badge tone="released">{d.httpStatus ?? 200} delivered</Badge>
-                      ) : (
-                        <Badge tone="declined">{d.httpStatus ? `${d.httpStatus} failed` : "No response"}</Badge>
-                      )}
-                    </td>
-                    <td className="px-3 py-2.5 text-right tabular-nums">{d.attempt}</td>
-                    <td className="px-5 py-2.5 text-right tabular-nums">{d.durationMs} ms</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <DataTable
+            caption="Recent webhook deliveries"
+            rows={deliveries}
+            rowKey={(d) => d.id}
+            columns={deliveryColumns}
+          />
         )}
       </section>
 

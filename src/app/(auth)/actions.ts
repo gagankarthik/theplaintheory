@@ -161,7 +161,9 @@ export async function signup(_: AuthState, form: FormData): Promise<AuthState> {
     });
   }
   await createSession({ userId: r.user.id, email: r.user.email, orgId: invites[0]?.orgId });
-  redirect(invites.length ? "/app" : "/onboarding");
+  // Carry a plan picked on the pricing page into onboarding's plan step.
+  const plan = String(form.get("plan") ?? "");
+  redirect(invites.length ? "/app" : ["starter", "growth", "business"].includes(plan) ? `/onboarding?plan=${plan}` : "/onboarding");
 }
 
 /** Abandon a pending second-factor step. */

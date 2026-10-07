@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { REFRESH_AFTER_SECONDS, SESSION_COOKIE, sessionCookieOptions, signSessionToken, verifySessionToken } from "@/lib/auth/token";
 
 /**
- * Fast session gate for /app and /onboarding:
+ * Fast session gate for /app, /onboarding, /suspended and the staff console (/admin):
  * - No valid token (missing, tampered, idle more than 30 minutes, or past the 12-hour absolute
  *   lifetime) redirects to sign-in.
  * - A valid token is re-issued with a fresh idle window (sliding expiry), at most once a minute.
@@ -24,6 +24,9 @@ export async function proxy(request: NextRequest) {
     }
     return res;
   }
+  // The staff console answers 404 to anyone without a staff session, so no sign-in redirect here:
+  // a redirect would reveal that /admin exists. The page-level check decides.
+  if (request.nextUrl.pathname.startsWith("/admin")) return NextResponse.next();
   const url = request.nextUrl.clone();
   url.pathname = "/login";
   url.search = request.nextUrl.pathname.startsWith("/app") ? `?next=${encodeURIComponent(request.nextUrl.pathname + request.nextUrl.search)}` : "";
@@ -33,5 +36,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/app/:path*", "/onboarding/:path*"],
+  matcher: ["/app/:path*", "/onboarding/:path*", "/suspended", "/admin", "/admin/:path*"],
 };

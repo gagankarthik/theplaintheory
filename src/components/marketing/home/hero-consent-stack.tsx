@@ -50,6 +50,7 @@ export function HeroConsentStack() {
   return (
     <figure
       data-hero-art
+      data-gsap-parallax="48"
       className="relative mx-auto w-full max-w-[480px] select-none"
       aria-label="A Customise Consent Preferences panel with a cookie banner in front of it"
     >
@@ -105,7 +106,7 @@ export function HeroConsentStack() {
               this any time.
             </p>
             <div className="mt-4 grid grid-cols-3 gap-2">
-              <ButtonArt>Reject all</ButtonArt>
+              <ButtonArt primary>Reject all</ButtonArt>
               <ButtonArt>Customise</ButtonArt>
               <ButtonArt primary>Accept all</ButtonArt>
             </div>

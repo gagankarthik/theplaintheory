@@ -2,6 +2,8 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { GENESIS_HASH, hashReceipt, id } from "../crypto";
 import { AUDIT_GENESIS, hashAudit } from "../audit-chain";
+import { PLATFORM_AUDIT_GENESIS, hashPlatformAudit } from "../platform/audit-chain";
+import type { PlatformAuditEvent } from "../platform/types";
 import type {
   AuditEvent,
   ConsentReceipt,
@@ -39,6 +41,7 @@ const DIR = process.env.LOCAL_DATA_DIR ?? path.join(process.cwd(), ".data");
 const DB_FILE = path.join(DIR, "db.json");
 const RECEIPTS_DIR = path.join(DIR, "receipts");
 const AUDIT_DIR = path.join(DIR, "audit");
+const PLATFORM_AUDIT_FILE = path.join(DIR, "platform-audit.jsonl");
 
 /**
  * Process-wide state. Next bundles route handlers, server actions and pages separately, so this
@@ -134,6 +137,18 @@ async function readAudit(orgId: string): Promise<AuditEvent[]> {
   }
 }
 
+async function readPlatformAudit(): Promise<PlatformAuditEvent[]> {
+  try {
+    const raw = await fs.readFile(PLATFORM_AUDIT_FILE, "utf8");
+    return raw
+      .split("\n")
+      .filter(Boolean)
+      .map((l) => JSON.parse(l) as PlatformAuditEvent);
+  } catch {
+    return [];
+  }
+}
+
 export const localStore: Store = {
   async createUser(u) {
     return mutate((db) => {
@@ -157,6 +172,9 @@ export const localStore: Store = {
       for (const [k, v] of Object.entries(patch)) if (v === undefined) delete (u as unknown as Record<string, unknown>)[k];
       return u;
     });
+  },
+  async listUsers() {
+    return [...(await load()).users];
   },
 
   async createSessionRecord(rec) {
@@ -221,6 +239,28 @@ export const localStore: Store = {
     return q.limit ? rows.slice(0, q.limit) : rows;
   },
 
+  async appendPlatformAudit(draft) {
+    return locked(async () => {
+      // Chain from the file itself, like the org trail, so concurrent writers can't fork it.
+      const all = await readPlatformAudit();
+      const last = all[all.length - 1];
+      const head = last ? { seq: last.seq, hash: last.hash } : { seq: 0, hash: PLATFORM_AUDIT_GENESIS };
+      const unsigned = { ...draft, createdAt: draft.createdAt ?? new Date().toISOString(), id: id("paud"), seq: head.seq + 1, prevHash: head.hash };
+      const event: PlatformAuditEvent = { ...unsigned, hash: hashPlatformAudit(unsigned) };
+      await fs.mkdir(DIR, { recursive: true });
+      await fs.appendFile(PLATFORM_AUDIT_FILE, JSON.stringify(event) + "\n");
+      return event;
+    });
+  },
+  async listPlatformAudit(q = {}) {
+    let rows = await readPlatformAudit();
+    if (q.before) rows = rows.filter((e) => e.seq < q.before!);
+    if (q.action) rows = rows.filter((e) => e.action === q.action || e.action.startsWith(`${q.action}.`));
+    if (q.targetId) rows = rows.filter((e) => e.target.id === q.targetId);
+    rows.reverse();
+    return q.limit ? rows.slice(0, q.limit) : rows;
+  },
+
   async createOrg(o, owner) {
     return mutate((db) => {
       db.orgs.push(o);
@@ -239,6 +279,8 @@ export const localStore: Store = {
       const o = db.orgs.find((x) => x.id === oid);
       if (!o) throw new Error("Organization not found");
       Object.assign(o, patch, { id: o.id });
+      // undefined in a patch means "remove this field" (e.g. lifting a suspension)
+      for (const [k, v] of Object.entries(patch)) if (v === undefined) delete (o as unknown as Record<string, unknown>)[k];
       return o;
     });
   },

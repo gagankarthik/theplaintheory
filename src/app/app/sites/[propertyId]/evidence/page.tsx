@@ -95,14 +95,14 @@ export default async function EvidencePage(props: PageProps<"/app/sites/[propert
         />
       </div>
 
-      <article className="mx-auto max-w-[900px] rounded-lg border border-line bg-surface px-6 py-8 text-ink sm:px-10 print:max-w-none print:rounded-none print:border-0 print:p-0">
-        <header className="flex items-start justify-between gap-6 border-b-2 border-ink pb-6">
-          <div>
+      <article className="mx-auto min-w-0 max-w-[900px] rounded-lg border border-line bg-surface px-4 py-6 text-ink sm:px-10 sm:py-8 print:max-w-none print:rounded-none print:border-0 print:p-0">
+        <header className="flex flex-col-reverse items-start gap-4 border-b-2 border-ink pb-6 sm:flex-row sm:justify-between sm:gap-6">
+          <div className="min-w-0">
             <p className="text-sm text-ink-3">Compliance Evidence Pack</p>
-            <h1 className="mt-1 text-2xl font-semibold tracking-tight">{property.domain}</h1>
+            <h1 className="mt-1 text-xl font-semibold tracking-tight [overflow-wrap:anywhere] sm:text-2xl">{property.domain}</h1>
             <p className="mt-1 text-sm text-ink-2">Generated {fmt(pack.generatedAt)} by {pack.generatedBy.name}</p>
           </div>
-          <Logo />
+          <Logo className="shrink-0" />
         </header>
 
         <Section id="e-summary" title="Summary">
@@ -144,23 +144,26 @@ export default async function EvidencePage(props: PageProps<"/app/sites/[propert
           {pack.chain.head ? <p className="mt-2 break-all font-mono text-xs text-ink-3">Head {pack.chain.head}</p> : null}
           <h3 className="mb-2 mt-5 text-sm font-semibold">Daily anchors, last 30 days</h3>
           <p className="mb-3 text-xs text-ink-3">The last receipt of each UTC day. Published daily, so a rewritten log would no longer match.</p>
+          {/* The hash column takes the remaining width and truncates, so the table always fits; the full hash is in the JSON download. */}
           <table className="w-full text-left text-xs">
             <caption className="sr-only">Daily chain anchors</caption>
             <thead className="text-ink-3">
               <tr className="border-b border-line">
-                <th scope="col" className="py-1.5 pr-3 font-medium">Day (UTC)</th>
-                <th scope="col" className="py-1.5 pr-3 text-right font-medium">Receipts</th>
-                <th scope="col" className="py-1.5 pr-3 text-right font-medium">Last #</th>
+                <th scope="col" className="whitespace-nowrap py-1.5 pr-3 font-medium">Day (UTC)</th>
+                <th scope="col" className="whitespace-nowrap py-1.5 pr-3 text-right font-medium">Receipts</th>
+                <th scope="col" className="whitespace-nowrap py-1.5 pr-3 text-right font-medium">Last #</th>
                 <th scope="col" className="py-1.5 font-medium">Hash</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
               {pack.anchors.map((a) => (
                 <tr key={a.day} className="break-inside-avoid">
-                  <td className="py-1.5 pr-3 tabular-nums">{a.day}</td>
+                  <td className="whitespace-nowrap py-1.5 pr-3 tabular-nums">{a.day}</td>
                   <td className="py-1.5 pr-3 text-right tabular-nums">{formatInt(a.receipts)}</td>
                   <td className="py-1.5 pr-3 text-right tabular-nums">{a.seq}</td>
-                  <td className="py-1.5 font-mono text-ink-2">{a.hash.slice(0, 32)}…</td>
+                  <td className="w-full max-w-0 truncate py-1.5 font-mono text-ink-2" title={a.hash}>
+                    {a.hash}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -266,7 +269,7 @@ export default async function EvidencePage(props: PageProps<"/app/sites/[propert
               <ul className="space-y-1 text-xs">
                 {pack.leaks.groups.map((g) => (
                   <li key={`${g.url}${g.page}${g.category}`} className="break-inside-avoid">
-                    <span className="font-mono">{g.url}</span> on {g.page}, {g.category} declined, {formatInt(g.count)}×
+                    <span className="break-all font-mono">{g.url}</span> on <span className="[overflow-wrap:anywhere]">{g.page}</span>, {g.category} declined, {formatInt(g.count)}×
                   </li>
                 ))}
               </ul>

@@ -60,7 +60,7 @@ function BuilderPanel() {
           <p className="text-sm font-semibold">Your choice about cookies</p>
           <p className="mt-1 text-xs text-ink-2">Essential cookies run this site. With your permission we&apos;d also use analytics.</p>
           <div className="mt-3 grid grid-cols-3 gap-1.5">
-            <span className="grid h-8 place-items-center rounded-md text-xs ring-1 ring-line-strong">Reject all</span>
+            <span className="grid h-8 place-items-center rounded-md bg-brand text-xs text-white">Reject all</span>
             <span className="grid h-8 place-items-center rounded-md text-xs ring-1 ring-line-strong">Choose</span>
             <span className="grid h-8 place-items-center rounded-md bg-brand text-xs text-white">Accept all</span>
           </div>
@@ -217,7 +217,7 @@ export function ProductTour() {
   const Panel = STEPS[active].panel;
 
   return (
-    <Section id="tour" labelledBy="tour-title">
+    <Section id="tour" tone="paper" labelledBy="tour-title">
       <SectionIntro
         id="tour-title"
         align="left"
@@ -296,7 +296,7 @@ export function ProductTour() {
           tabIndex={0}
           className="lg:col-span-7"
         >
-          <div className="rounded-[var(--radius-xl)] bg-paper p-2.5 sm:p-4">
+          <div className="rounded-[var(--radius-xl)] bg-surface/70 p-2.5 ring-1 ring-inset ring-line sm:p-4">
             <div key={STEPS[active].id} className="pt-enter-up grid min-h-[360px] overflow-hidden rounded-[12px] bg-white shadow-[var(--shadow-lift)] ring-1 ring-line">
               <Panel />
             </div>

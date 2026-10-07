@@ -45,7 +45,7 @@ export function RegionsEditor({ propertyId, initial, canWrite }: { propertyId: s
         });
       }}
     >
-      <fieldset disabled={!canWrite || pending} className="min-w-0">
+      <fieldset disabled={!canWrite || pending} className="min-w-0 [&_button]:scroll-mb-28 [&_input]:scroll-mb-28 [&_select]:scroll-mb-28">
         <legend className="sr-only">Regional notices</legend>
         {ORDER.map((fw) => {
           const r = regions[fw];

@@ -25,7 +25,7 @@ function CopyButton({ text, label }: { text: string; label: string }) {
         type="button"
         onClick={copy}
         aria-label={copied ? "Copied" : `Copy ${label}`}
-        className="inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+        className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md px-2.5 text-xs font-medium text-white/70 transition-colors hover:bg-white/10 hover:text-white max-sm:h-11 max-sm:min-w-11"
       >
         {copied ? <IconCheck size={14} /> : <IconCopy size={14} />}
         {copied ? "Copied" : "Copy"}
@@ -67,11 +67,27 @@ export function CodeTabs({ tabs }: { tabs: { label: string; title: string; langu
     refs.current[next]?.focus();
   };
 
+  // keep the selected tab fully visible inside the scrolling tab list
+  // (adjusts only the list's own scroll position, never the page's)
+  useEffect(() => {
+    const tab = refs.current[active];
+    const list = tab?.parentElement;
+    if (!tab || !list) return;
+    const fade = 32;
+    if (tab.offsetLeft < list.scrollLeft) list.scrollLeft = tab.offsetLeft;
+    else if (tab.offsetLeft + tab.offsetWidth > list.scrollLeft + list.clientWidth - fade) list.scrollLeft = tab.offsetLeft + tab.offsetWidth - list.clientWidth + fade;
+  }, [active]);
+
   const t = tabs[active];
   return (
     <div className="overflow-hidden rounded-[var(--radius-md)] bg-ink text-white ring-1 ring-black/5">
-      <div className="flex items-center justify-between gap-2 border-b border-white/10 pl-2 pr-1.5">
-        <div role="tablist" aria-label="Framework" className="flex min-w-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="flex items-center justify-between border-b border-white/10 pl-2 pr-1.5">
+        {/* scrolls sideways when the tabs don't fit; the fade on the right says there are more */}
+        <div
+          role="tablist"
+          aria-label="Framework"
+          className="relative flex min-w-0 flex-1 overflow-x-auto pr-6 [mask-image:linear-gradient(to_right,#000_calc(100%-2rem),transparent)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
           {tabs.map((tab, i) => (
             <button
               key={tab.label}
@@ -92,7 +108,7 @@ export function CodeTabs({ tabs }: { tabs: { label: string; title: string; langu
             </button>
           ))}
         </div>
-        <div className="shrink-0">
+        <div className="shrink-0 border-l border-white/10 pl-1.5">
           <CopyButton text={t.code} label={t.title} />
         </div>
       </div>

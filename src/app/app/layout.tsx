@@ -3,6 +3,7 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { site } from "@/lib/site";
 import { Shell } from "@/components/app/shell/shell";
+import { resolvePlatformRole } from "@/lib/auth/platform";
 import { requireUser } from "@/lib/auth/session";
 import { getStore } from "@/lib/store";
 
@@ -30,6 +31,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       org={{ id: org.id, name: org.name, plan: org.plan }}
       role={role}
       initialCollapsed={sidebarCollapsed}
+      staffConsole={resolvePlatformRole(user) !== null}
       orgs={orgs.filter((o) => o !== null).map((o) => ({ id: o.id, name: o.name }))}
       properties={properties
         .sort((a, b) => a.name.localeCompare(b.name))

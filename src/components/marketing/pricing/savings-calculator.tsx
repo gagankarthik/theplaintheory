@@ -120,11 +120,11 @@ export function SavingsCalculator() {
         </div>
 
         {plan.id === "enterprise" ? (
-          <Link href="/contact-sales" className="btn btn-pill btn-ink">
+          <Link href="/contact-sales" className="btn btn-pill btn-primary">
             Talk to sales about {compactNumber(pageviews)} pageviews
           </Link>
         ) : (
-          <Link href={plan.id === "free" ? "/signup" : `/signup?plan=${plan.id}`} className="btn btn-pill btn-ink">
+          <Link href={plan.id === "free" ? "/signup" : `/signup?plan=${plan.id}`} className="btn btn-pill btn-primary">
             {plan.id === "free" ? "Start free" : `Choose ${plan.name}`}
           </Link>
         )}

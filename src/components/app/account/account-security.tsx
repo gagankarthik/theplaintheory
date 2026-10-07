@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState, useTransition } from "react";
+import { useActionState, useEffect, useId, useState, useTransition } from "react";
 import {
   changePassword,
   confirmMfaEnrolment,
@@ -195,9 +195,18 @@ export interface SessionRow {
   mfaVerified: boolean;
 }
 
+/** Sessions listed before "Show all" (this browser is always among them). */
+const SESSIONS_SHOWN = 5;
+
 export function SessionsSection({ sessions }: { sessions: SessionRow[] }) {
   const toast = useToast();
   const [pending, start] = useTransition();
+  const [showAll, setShowAll] = useState(false);
+  const listId = useId();
+  // this browser first, then most recently active
+  const ordered = [...sessions].sort((a, b) => Number(b.current) - Number(a.current) || b.lastSeenAt.localeCompare(a.lastSeenAt));
+  const visible = showAll ? ordered : ordered.slice(0, SESSIONS_SHOWN);
+  const hidden = ordered.length - SESSIONS_SHOWN;
   const run = (fn: () => Promise<ActionResult>) =>
     start(async () => {
       const r = await fn();
@@ -217,8 +226,8 @@ export function SessionsSection({ sessions }: { sessions: SessionRow[] }) {
         ) : null
       }
     >
-      <ul className="divide-y divide-line">
-        {sessions.map((s) => (
+      <ul id={listId} className="divide-y divide-line">
+        {visible.map((s) => (
           <li key={s.id} className="flex flex-wrap items-center justify-between gap-3 py-4">
             <div className="min-w-0">
               <p className="flex flex-wrap items-center gap-2 text-sm font-bold">
@@ -231,13 +240,20 @@ export function SessionsSection({ sessions }: { sessions: SessionRow[] }) {
               </p>
             </div>
             {s.current ? null : (
-              <Button variant="quiet" size="sm" disabled={pending} onClick={() => run(() => revokeSession(s.id))}>
-                Sign out<span className="sr-only"> {s.device} session</span>
+              <Button variant="quiet" size="sm" className="max-sm:min-w-11" disabled={pending} onClick={() => run(() => revokeSession(s.id))}>
+                Sign out<span className="sr-only"> {s.device} session, last active {when(s.lastSeenAt)}</span>
               </Button>
             )}
           </li>
         ))}
       </ul>
+      {hidden > 0 ? (
+        <div className="border-t border-line pt-3">
+          <Button variant="quiet" size="sm" aria-expanded={showAll} aria-controls={listId} onClick={() => setShowAll((v) => !v)}>
+            {showAll ? "Show fewer sessions" : `Show all ${ordered.length} sessions`}
+          </Button>
+        </div>
+      ) : null}
     </SettingsSection>
   );
 }

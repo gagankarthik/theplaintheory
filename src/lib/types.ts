@@ -22,6 +22,11 @@ export interface User {
   loginFailures?: { count: number; windowStart: string };
   lockedUntil?: string;
   lastActiveAt?: string;
+  /**
+   * Plain Theory staff role for the platform console (/admin). Customers never have one; their access
+   * comes from org memberships. Emails in PLATFORM_SUPERADMINS always resolve to "superadmin".
+   */
+  platformRole?: "superadmin" | "support" | "analyst";
   createdAt: string;
 }
 
@@ -118,9 +123,17 @@ export interface AuditEvent {
   hash: string;
 }
 
+export type WorkspaceKind = "personal" | "organization";
+export const TEAM_SIZES = ["1-10", "11-50", "51-250", "251-1000", "1000+"] as const;
+export type TeamSize = (typeof TEAM_SIZES)[number];
+
 export interface Organization {
   id: string;
   name: string;
+  /** chosen at onboarding: a personal workspace or a company/agency organization */
+  kind?: WorkspaceKind;
+  /** headcount band, organizations only */
+  teamSize?: TeamSize;
   plan: PlanId;
   stripeCustomerId?: string;
   stripeSubscriptionId?: string;
@@ -130,6 +143,9 @@ export interface Organization {
   security?: { requireMfa: boolean };
   /** last run of the retention job across this organization's sites */
   retentionLastRunAt?: string;
+  /** set by Plain Theory staff: members can't use the dashboard until it's lifted */
+  suspendedAt?: string;
+  suspendedReason?: string;
   createdAt: string;
 }
 

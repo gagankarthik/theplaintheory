@@ -16,16 +16,14 @@ export default async function NewOrgPage() {
         <Link href="/app" className="flex min-h-11 items-center" aria-label="Back to dashboard">
           <Logo />
         </Link>
-        <Link href="/app" className="text-sm font-bold text-ink-2 hover:text-ink">
+        <Link href="/app" className="inline-flex min-h-11 items-center text-sm font-bold text-ink-2 hover:text-ink">
           Cancel
         </Link>
       </header>
-      <main className="container-page max-w-xl py-10">
-        <h1 className="text-2xl font-bold">New organization</h1>
-        <p className="mb-8 mt-2 text-base text-ink-2">Each organization has its own sites, team, billing and consent records.</p>
-        <div className="panel p-6 sm:p-8">
-          <OnboardingForm />
-        </div>
+      <main className="container-page max-w-3xl py-8 sm:py-12">
+        <h1 className="text-2xl font-bold">New workspace</h1>
+        <p className="mb-8 mt-2 text-base text-ink-2">Each workspace has its own sites, team, billing and consent records.</p>
+        <OnboardingForm />
       </main>
     </div>
   );

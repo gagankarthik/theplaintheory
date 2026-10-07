@@ -77,14 +77,14 @@ function ModuleCell({ m }: { m: Module }) {
 
 export function PlatformGrid() {
   return (
-    <Section id="platform" tone="paper" labelledBy="platform-title">
+    <Section id="platform" tone="white" labelledBy="platform-title">
       <SectionIntro
         id="platform-title"
         align="left"
         title="One platform, from the banner to the audit"
         lead="Each part shares the same configuration, the same receipts and the same API. Turn on what you need today and the rest is already wired."
       />
-      <ul className="pt-reveal mt-14 grid gap-px overflow-hidden rounded-[22px] border border-line bg-line md:mt-16 md:grid-cols-2 lg:grid-cols-3">
+      <ul data-gsap-stagger className="mt-14 grid gap-px overflow-hidden rounded-[22px] border border-line bg-line md:mt-16 md:grid-cols-2 lg:grid-cols-3">
         {MODULES.map((m) => (
           <ModuleCell key={m.title} m={m} />
         ))}

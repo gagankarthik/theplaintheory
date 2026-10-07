@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Magnetic } from "@/components/motion/magnetic";
 import type { ComponentProps, ReactNode } from "react";
 
 export type Tone = "white" | "paper" | "ink" | "brand";
@@ -102,31 +103,36 @@ export function Bezel({ children, tone = "light", className = "" }: { children: 
   );
 }
 
-/** Primary pill CTA with the arrow nested in its own circle, which nudges on hover. */
+/**
+ * Primary pill CTA with the arrow nested in its own circle, which nudges on hover. Ultramarine is the
+ * one action colour; on ink or ultramarine sections use tone="white".
+ */
 export function CtaButton({
   href,
   children,
-  tone = "ink",
+  tone = "brand",
   className = "",
 }: {
   href: string;
   children: ReactNode;
-  tone?: "ink" | "white";
+  tone?: "brand" | "white";
   className?: string;
 }) {
-  const shell = tone === "white" ? "bg-white text-ink hover:bg-brand-wash" : "bg-ink text-white hover:bg-ink-raised";
-  const knob = tone === "white" ? "bg-ink/[0.07]" : "bg-white/15";
+  const shell = tone === "white" ? "bg-white text-ink hover:bg-brand-wash" : "bg-brand text-white shadow-[0_10px_24px_-12px_rgba(46,43,214,0.7)] hover:bg-brand-ink";
+  const knob = tone === "white" ? "bg-brand/10 text-brand" : "bg-white/20";
   return (
-    <Link
-      href={href}
-      className={`group inline-flex h-12 items-center gap-3 rounded-full pl-5 pr-1.5 text-base font-medium tracking-[-0.01em] transition-[background-color,transform] duration-300 ease-[var(--ease-spring)] active:scale-[0.98] ${shell} ${className}`}
-    >
-      {children}
-      <span className={`grid size-9 place-items-center rounded-full transition-transform duration-300 ease-[var(--ease-spring)] group-hover:translate-x-0.5 group-hover:-translate-y-px group-hover:scale-105 ${knob}`}>
-        <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden>
-          <path d="M3.5 8h8.5M8.5 4.5 12 8l-3.5 3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </span>
-    </Link>
+    <Magnetic className="[&>*]:flex-1">
+      <Link
+        href={href}
+        className={`group inline-flex h-12 items-center gap-3 rounded-full pl-5 pr-1.5 text-base font-medium tracking-[-0.01em] transition-[background-color,scale] duration-300 ease-[var(--ease-spring)] active:scale-[0.98] ${shell} ${className}`}
+      >
+        {children}
+        <span data-magnetic-knob className={`grid size-9 place-items-center rounded-full transition-[scale] duration-300 ease-[var(--ease-spring)] group-hover:scale-105 ${knob}`}>
+          <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden>
+            <path d="M3.5 8h8.5M8.5 4.5 12 8l-3.5 3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </span>
+      </Link>
+    </Magnetic>
   );
 }

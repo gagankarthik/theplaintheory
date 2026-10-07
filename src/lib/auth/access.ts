@@ -17,6 +17,7 @@ export async function requireProperty(propertyId: string, permission: Permission
   if (!membership) notFound();
   assertCan(membership.role, permission);
   const org = property.orgId === ctx.org.id ? ctx.org : (await store.getOrg(property.orgId))!;
+  if (org.suspendedAt) redirect(`/suspended?org=${encodeURIComponent(org.id)}`);
   if (org.security?.requireMfa && !ctx.user.mfa) redirect("/app/account?mfa=required");
   return { ...ctx, org, role: membership.role, property, store };
 }

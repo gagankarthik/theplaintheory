@@ -250,7 +250,8 @@ async function main() {
   await fs.mkdir(path.join(DIR, "receipts"), { recursive: true });
 
   const created = new Date(Date.now() - DAYS * 864e5).toISOString();
-  const user = { id: id("usr"), email: DEMO.email, name: DEMO.name, passwordHash: await hashPassword(DEMO.password), createdAt: created };
+  // The demo user is also a Plain Theory superadmin locally, so the staff console (/admin) can be tried.
+  const user = { id: id("usr"), email: DEMO.email, name: DEMO.name, passwordHash: await hashPassword(DEMO.password), platformRole: "superadmin", createdAt: created };
   const teammate = { id: id("usr"), email: "rohan@acme.example", name: "Rohan Iyer", passwordHash: await hashPassword(DEMO.password), createdAt: created };
   const auditor = { id: id("usr"), email: "dpo@acme.example", name: "Meera Shah", passwordHash: await hashPassword(DEMO.password), createdAt: created };
   const ago = (mins) => new Date(Date.now() - mins * 60_000).toISOString();
@@ -386,6 +387,7 @@ async function main() {
   console.log(`  ${db.orgs.length} organizations, ${db.properties.length} sites, ${total.toLocaleString()} chained receipts over ${DAYS} days`);
   console.log(`  ${leaks.length} leak reports, ${deliveries.length} webhook deliveries, Hindi (reviewed) and Tamil (draft) on the storefront`);
   console.log(`  Sign in at /login as ${DEMO.email} / ${DEMO.password}`);
+  console.log(`  ${DEMO.email} is also a platform superadmin: open the staff console at /admin`);
   console.log(`  Other roles: rohan@acme.example (admin, two-factor on), dpo@acme.example (viewer), same password`);
   console.log(`  rohan's dev-only TOTP secret: ${ADMIN_TOTP_SECRET} (add it to any authenticator app)`);
   console.log(`  ${Object.values(audits).reduce((s, a) => s + a.length, 0)} audit events, ${db.sessions.length} other sessions`);

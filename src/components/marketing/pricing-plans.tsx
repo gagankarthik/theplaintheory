@@ -90,7 +90,7 @@ export function PricingPlans({
               <Price plan={plan} currency={currency} period={period} featured={featured} />
               <Link
                 href={CTA[plan.id].href}
-                className={`btn btn-pill mt-6 w-full ${featured ? "btn-white" : plan.id === "free" ? "btn-ghost" : "btn-ink"}`}
+                className={`btn btn-pill mt-6 w-full ${featured ? "btn-white" : "btn-ghost"}`}
               >
                 {CTA[plan.id].label}
               </Link>

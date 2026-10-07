@@ -80,7 +80,7 @@ export function DataTable<T>({
                     .map((c) => (
                       <div key={c.id} className="contents">
                         <dt className="text-xs leading-5 text-ink-3">{c.mobileLabel ?? c.header}</dt>
-                        <dd className="text-right tabular-nums">{c.cell(row)}</dd>
+                        <dd className="min-w-0 text-right tabular-nums [overflow-wrap:anywhere]">{c.cell(row)}</dd>
                       </div>
                     ))}
                 </dl>

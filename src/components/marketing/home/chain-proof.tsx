@@ -14,13 +14,6 @@ function signChain(): DemoReceipt[] {
   });
 }
 
-/** Public enforcement actions where the banner existed but didn't do its job. Sources cited inline. */
-const FINES = [
-  { who: "Healthline", amount: "$1.55M", why: "Banner shown, trackers not stopped", where: "California AG, 2025", href: "https://consently.net/blog/ccpa-enforcement-cases" },
-  { who: "Tractor Supply", amount: "$1.35M", why: "Global Privacy Control ignored", where: "CPPA, 2025", href: "https://www.retailtouchpoints.com/executive-viewpoints/honda-todd-snyder-and-now-tractor-supply-whos-next-privacy-fines-put-retail-reputation-at-risk/156031/" },
-  { who: "Shein", amount: "€150M", why: "Cookies set after \"Reject all\"", where: "CNIL, 2025", href: "https://www.cnil.fr/en/node/167505" },
-];
-
 const CAPABILITIES: { icon: (p: IconProps) => React.ReactNode; title: string; body: string }[] = [
   {
     icon: IconChain,
@@ -110,8 +103,8 @@ export function ChainProof() {
               Don&apos;t just show a banner. Prove it worked.
             </h2>
             <p className="mt-5 max-w-[46ch] text-lg text-white/75">
-              Regulators now fine banners that look compliant but don&apos;t block. Plain Theory records what happened and
-              tells you when something slips through.
+              When an auditor or the Data Protection Board asks, show them exactly what each visitor saw and chose, in a log
+              no one can quietly edit.
             </p>
           </div>
 
@@ -121,7 +114,7 @@ export function ChainProof() {
         </div>
 
         {/* What does the proving, in one even row */}
-        <ul className="mt-16 grid gap-x-8 gap-y-10 sm:grid-cols-2 lg:grid-cols-4">
+        <ul data-gsap-stagger className="mt-16 grid gap-x-8 gap-y-10 sm:grid-cols-2 lg:grid-cols-4">
           {CAPABILITIES.map((c) => {
             const Icon = c.icon;
             return (
@@ -136,31 +129,12 @@ export function ChainProof() {
           })}
         </ul>
 
-        {/* Why it matters: enforcement against banners that didn't work */}
-        <div className="mt-16 border-t border-white/10 pt-10">
-          <h3 className="text-sm font-medium text-white/70">Fined for banners that didn&apos;t do their job</h3>
-          <ul className="mt-5 grid gap-px overflow-hidden rounded-[14px] bg-white/10 sm:grid-cols-3">
-            {FINES.map((f) => (
-              <li key={f.who} className="bg-ink">
-                <a href={f.href} target="_blank" rel="noreferrer" className="group block h-full p-6 transition-colors hover:bg-white/[0.03]">
-                  <p className="display whitespace-nowrap text-[2rem] text-white lg:text-4xl">{f.amount}</p>
-                  <p className="mt-3 text-[15px] font-medium text-white">{f.who}</p>
-                  <p className="mt-1 text-sm text-white/70">{f.why}</p>
-                  <p className="mt-4 text-xs text-white/55 group-hover:text-white/80">
-                    {f.where}. Source <span aria-hidden>↗</span>
-                    <span className="sr-only">(opens in a new tab)</span>
-                  </p>
-                </a>
-              </li>
-            ))}
-          </ul>
-          <p className="mt-6 text-sm text-white/70">
-            Want the full picture?{" "}
-            <Link href="/security" className="font-medium text-white underline underline-offset-4">
-              How the log is built
-            </Link>
-          </p>
-        </div>
+        <p className="mt-16 border-t border-white/10 pt-8 text-sm text-white/70">
+          Want the full picture?{" "}
+          <Link href="/security" className="font-medium text-white underline underline-offset-4">
+            How the log is built
+          </Link>
+        </p>
       </div>
     </section>
   );

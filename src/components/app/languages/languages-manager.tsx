@@ -278,14 +278,14 @@ export function LanguagesManager({
             {!indianLanguages ? <p className="text-xs text-ink-3">{planName} plan: English and Hindi. Starter adds all 22.</p> : null}
           </div>
           <div className="relative overflow-x-auto" role="region" aria-label="Languages table" tabIndex={0}>
-          <table className="w-full min-w-[420px] text-left text-sm">
+          <table className="w-full text-left text-sm sm:min-w-[420px]">
             <caption className="sr-only">Languages for the {FRAMEWORK_META[framework].name} notice</caption>
             <thead className="border-b border-line bg-paper text-xs text-ink-3">
               <tr>
-                <th scope="col" className="px-5 py-2.5 font-medium">Language</th>
+                <th scope="col" className="py-2.5 pr-2 pl-4 font-medium sm:px-5">Language</th>
                 <th scope="col" className="hidden px-3 py-2.5 font-medium sm:table-cell">Draft</th>
-                <th scope="col" className="px-3 py-2.5 font-medium">Status</th>
-                <th scope="col" className="px-5 py-2.5 text-right font-medium">
+                <th scope="col" className="hidden px-3 py-2.5 font-medium sm:table-cell">Status</th>
+                <th scope="col" className="py-2.5 pr-4 pl-2 text-right font-medium sm:px-5">
                   <span className="sr-only">Actions</span>
                 </th>
               </tr>
@@ -293,15 +293,18 @@ export function LanguagesManager({
             <tbody className="divide-y divide-line">
               {group === "other" ? (
                 <tr>
-                  <th scope="row" className="px-5 py-3 font-normal">
+                  <th scope="row" className="py-3 pr-2 pl-4 font-normal sm:px-5">
                     <span className="block font-medium text-ink">English</span>
                     <span className="block text-xs text-ink-3">Default copy, edited in Banner</span>
+                    <span className="mt-1.5 block sm:hidden">
+                      <Badge tone="brand">Default</Badge>
+                    </span>
                   </th>
                   <td className="hidden px-3 py-3 text-ink-3 sm:table-cell">Source</td>
-                  <td className="px-3 py-3">
+                  <td className="hidden px-3 py-3 sm:table-cell">
                     <Badge tone="brand">Default</Badge>
                   </td>
-                  <td className="px-5 py-3 text-right">
+                  <td className="py-3 pr-4 pl-2 text-right sm:px-5">
                     <Button size="sm" variant="quiet" onClick={() => setPreview("en")} aria-pressed={preview === "en"}>
                       Preview
                     </Button>
@@ -315,18 +318,21 @@ export function LanguagesManager({
                   const hasDraft = Boolean(NOTICE_DRAFTS[l.code]) && (framework === "dpdpa" || framework === "generic");
                   return (
                     <tr key={l.code} className={preview === l.code ? "bg-brand-wash/40" : "hover:bg-paper"}>
-                      <th scope="row" className="px-5 py-3 font-normal">
+                      <th scope="row" className="py-3 pr-2 pl-4 font-normal sm:px-5">
                         <span className="block font-medium text-ink">{l.name}</span>
                         <span className="block text-xs text-ink-3" lang={l.code} dir={l.dir}>
                           {l.native}
                         </span>
+                        <span className="mt-1.5 block sm:hidden">
+                          <StatusBadge status={status} />
+                        </span>
                       </th>
                       <td className="hidden px-3 py-3 text-xs text-ink-3 sm:table-cell">{hasDraft ? "Machine-assisted" : "From English"}</td>
-                      <td className="px-3 py-3">
+                      <td className="hidden px-3 py-3 sm:table-cell">
                         <StatusBadge status={status} />
                       </td>
-                      <td className="px-5 py-3">
-                        <div className="flex justify-end gap-1.5">
+                      <td className="py-3 pr-4 pl-2 sm:px-5">
+                        <div className="flex flex-wrap justify-end gap-1.5">
                           {status === "none" ? (
                             locked(l) ? (
                               <span className="text-xs text-ink-3">Starter plan</span>
