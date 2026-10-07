@@ -9,10 +9,15 @@ import { id, verifyChain } from "@/lib/crypto";
 import { rightsSchema } from "@/lib/config-schema";
 import { DEFAULT_REASK_DAYS } from "@/lib/defaults";
 import { evaluateFairness } from "@/lib/fairness";
+import { buildConfigVersion } from "@/lib/config-versions";
 import { publishConfig, toPublicConfig } from "@/lib/publish";
-import { scanDomain, type ScanResult } from "@/lib/scan";
+import { rateLimiter, retryAfterText } from "@/lib/rate-limit";
+import { auditLiveSite } from "@/lib/site-audit";
+import type { SiteAuditResult } from "@/lib/site-audit/types";
 import { auditSite, persistConfig } from "@/lib/site-config";
-import type { AuditAction, BannerConfig, Tracker } from "@/lib/types";
+import { heldTrackers, statusOf } from "@/lib/trackers";
+import { writeTrackers } from "@/lib/tracker-writes";
+import type { BannerConfig, Tracker } from "@/lib/types";
 
 /* ---------------- site ---------------- */
 
@@ -94,10 +99,18 @@ export async function publishSite(propertyId: string): Promise<ActionResult> {
     }
     const dpo = org.dpo ? { name: org.dpo.name, email: org.dpo.email } : undefined;
     const { location } = await publishConfig(toPublicConfig(property, dpo));
+    // the snapshot keeps the approved inventory only: suggestions and ignored items were never live
+    const trackers = heldTrackers(property.trackers);
+    const publishedAt = new Date().toISOString();
+    // Keep an immutable copy of this version so every receipt can show the notice behind it.
+    // Write-once: re-publishing an unchanged version keeps the first snapshot.
+    await store.saveConfigVersion(
+      buildConfigVersion({ propertyId, version: property.config.version, config: property.config, trackers, publishedAt, publishedBy: ctx.user.id }),
+    );
     await store.updateProperty(propertyId, {
       publishedVersion: property.config.version,
-      publishedAt: new Date().toISOString(),
-      published: { config: property.config, trackers: property.trackers },
+      publishedAt,
+      published: { config: property.config, trackers },
     });
     await auditSite(ctx, "property.published", { version: property.config.version, fairnessScore: fairness.score });
     revalidatePath(`/app/sites/${propertyId}`, "layout");
@@ -116,21 +129,6 @@ const trackerSchema = z.object({
   pattern: z.string().trim().min(4, "The match pattern needs at least 4 characters, e.g. clarity.ms").max(200),
 });
 
-async function writeTrackers(
-  propertyId: string,
-  fn: (t: Tracker[]) => Tracker[],
-  audit: { action: AuditAction; metadata?: () => Record<string, string | number | boolean | null> },
-) {
-  const ctx = await requireProperty(propertyId, "property:write");
-  const { property, store } = ctx;
-  await store.updateProperty(propertyId, {
-    trackers: fn(property.trackers),
-    config: { ...property.config, version: property.config.version + 1 },
-  });
-  await auditSite(ctx, audit.action, audit.metadata?.());
-  revalidatePath(`/app/sites/${propertyId}`, "layout");
-}
-
 export async function addTracker(propertyId: string, _: ActionResult, form: FormData): Promise<ActionResult> {
   try {
     const parsed = trackerSchema.safeParse(Object.fromEntries(form));
@@ -139,8 +137,12 @@ export async function addTracker(propertyId: string, _: ActionResult, form: Form
     await writeTrackers(
       propertyId,
       (list) => {
-        dup = list.some((t) => t.pattern === parsed.data.pattern);
-        return dup ? list : [...list, { id: id("trk", 6), ...parsed.data }];
+        const same = list.find((t) => t.pattern === parsed.data.pattern);
+        dup = !!same && statusOf(same) === "approved";
+        if (dup) return list;
+        // a scan suggestion or an ignored item with this pattern becomes the approved, hand-named entry
+        if (same) return list.map((t) => (t === same ? { ...t, ...parsed.data, status: "approved" as const } : t));
+        return [...list, { id: id("trk", 6), ...parsed.data, status: "approved" as const, source: "manual" as const, kind: "script" as const }];
       },
       { action: "tracker.added", metadata: () => ({ name: parsed.data.name, category: parsed.data.category, duplicate: dup }) },
     );
@@ -150,8 +152,9 @@ export async function addTracker(propertyId: string, _: ActionResult, form: Form
   }
 }
 
-const CATEGORY = z.enum(["functional", "analytics", "marketing"]);
+const CATEGORY = z.enum(["essential", "functional", "analytics", "marketing"]);
 
+/** Change the category of any tracker; for one in review this sets what approving it will use. */
 export async function updateTrackerCategory(propertyId: string, trackerId: string, category: Tracker["category"]): Promise<ActionResult> {
   try {
     const cat = CATEGORY.parse(category);
@@ -174,15 +177,24 @@ export async function removeTracker(propertyId: string, trackerId: string): Prom
   }
 }
 
-export async function scanSite(propertyId: string): Promise<ScanResult> {
+/**
+ * Live site check: crawl the site's own saved domain (never an address from the client) and keep the
+ * report. Five runs per site per hour.
+ */
+export async function runSiteAudit(propertyId: string): Promise<SiteAuditResult> {
   try {
     const ctx = await requireProperty(propertyId, "property:write");
-    const result = await scanDomain(ctx.property.domain);
-    await auditSite(ctx, "tracker.scan_run", { ok: result.ok });
-    return result;
+    const limit = await rateLimiter("siteAudit").consume(ctx.property.id);
+    if (!limit.ok) return { ok: false, error: `This site has been checked 5 times in the last hour. Try again in ${retryAfterText(limit.retryAfterMs)}.` };
+    const report = await auditLiveSite({ propertyId: ctx.property.id, domain: ctx.property.domain, runBy: ctx.user.id });
+    await ctx.store.saveSiteAudit(ctx.property.id, report);
+    const s = report.summary;
+    await auditSite(ctx, "site.audit_run", { pages: report.pages.filter((p) => p.kind !== "robots").length, pass: s.pass, warn: s.warn, fail: s.fail, unknown: s.unknown });
+    revalidatePath(`/app/sites/${propertyId}/dpdp`);
+    return { ok: true, report };
   } catch (e) {
     const r = failure(e);
-    return { ok: false, error: r?.error ?? "The scan failed." };
+    return { ok: false, error: r?.error ?? "The check failed. Try again." };
   }
 }
 
@@ -195,7 +207,7 @@ export async function addScannedTrackers(propertyId: string, found: Omit<Tracker
       (list) => {
         const fresh = clean.filter((f) => !list.some((t) => t.pattern === f.pattern));
         added = fresh.length;
-        return [...list, ...fresh.map((f) => ({ id: id("trk", 6), ...f }))];
+        return [...list, ...fresh.map((f) => ({ id: id("trk", 6), ...f, status: "approved" as const, source: "scan" as const, kind: "script" as const }))];
       },
       { action: "tracker.added", metadata: () => ({ fromScan: true, added }) },
     );
@@ -217,6 +229,10 @@ export async function verifyPropertyChain(propertyId: string): Promise<ChainChec
     const ctx = await requireProperty(propertyId, "logs:export");
     const result = verifyChain(await ctx.store.listReceipts(propertyId), ctx.property.retentionCheckpoint);
     await auditSite(ctx, "logs.chain_verified", { ok: result.ok, checked: result.checked });
+    // Shown as "last verified" on the consent log's chain strip.
+    await ctx.store.updateProperty(propertyId, {
+      lastChainCheck: { at: verifiedAt, ok: result.ok, checked: result.checked, ...(result.ok ? {} : { brokenAt: result.brokenAt }) },
+    });
     return { ...result, verifiedAt };
   } catch (e) {
     return { ok: false, checked: 0, error: failure(e)?.error, verifiedAt };

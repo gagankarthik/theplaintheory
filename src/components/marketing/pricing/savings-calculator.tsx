@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useId, useState } from "react";
-import { currencyInfo } from "@/lib/plans";
+import { currencyInfo, type Plan } from "@/lib/plans";
 import { PER_DOMAIN_EUR, PER_DOMAIN_SOURCE, compactNumber, formatEur, formatMoney, quote, recommendPlan } from "./billing";
 import { useBilling } from "./use-billing";
 
@@ -13,12 +13,12 @@ const PAGEVIEW_STOPS = [5_000, 10_000, 25_000, 50_000, 100_000, 250_000, 500_000
  * Compares Plain Theory's per-account price with per-domain pricing. The per-domain figure is an
  * estimate from one cited public price; both currencies are shown as-is rather than converted.
  */
-export function SavingsCalculator() {
+export function SavingsCalculator({ plans }: { plans: Plan[] }) {
   const { currency, period } = useBilling();
   const [sites, setSites] = useState(5);
   const [stop, setStop] = useState(4); // 100k
   const pageviews = PAGEVIEW_STOPS[stop];
-  const plan = recommendPlan(sites, pageviews);
+  const plan = recommendPlan(sites, pageviews, plans);
   const q = quote(plan, currency, period);
   const perDomain = sites * PER_DOMAIN_EUR;
   const sitesId = useId();

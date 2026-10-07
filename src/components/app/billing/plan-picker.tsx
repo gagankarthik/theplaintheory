@@ -11,10 +11,7 @@ import type { PlanId } from "@/lib/types";
 
 type Interval = "monthly" | "annual";
 
-/** Annual billing is ten months for twelve. */
-const yearly = (m: number) => m * 10;
-
-function Price({ plan, currency, interval }: { plan: Plan; currency: Currency; interval: Interval }) {
+export function Price({ plan, currency, interval }: { plan: Plan; currency: Currency; interval: Interval }) {
   const monthly = planPrice(plan, currency);
   if (monthly === null) return <span className="text-xl font-semibold">Custom</span>;
   const fmt = (n: number) => formatPrice(n, currency);
@@ -25,7 +22,8 @@ function Price({ plan, currency, interval }: { plan: Plan; currency: Currency; i
         <span className="text-sm text-ink-3">forever</span>
       </span>
     );
-  const perMonth = interval === "annual" ? yearly(monthly) / 12 : monthly;
+  const year = planPrice(plan, currency, "annual") ?? monthly * 10;
+  const perMonth = interval === "annual" ? year / 12 : monthly;
   return (
     <span className="block">
       <span className="flex items-baseline gap-1">
@@ -33,7 +31,7 @@ function Price({ plan, currency, interval }: { plan: Plan; currency: Currency; i
         <span className="text-sm text-ink-3">per month{currency === "inr" ? " + GST" : currency === "usd" ? "" : " + VAT"}</span>
       </span>
       <span className="mt-1 block text-xs text-ink-3">
-        {interval === "annual" ? `${fmt(yearly(monthly))} billed yearly, 2 months free` : "Billed monthly, cancel any time"}
+        {interval === "annual" ? `${fmt(year)} billed yearly` : "Billed monthly, cancel any time"}
       </span>
     </span>
   );
@@ -79,13 +77,13 @@ export function PlanPicker({
         </div>
       </div>
 
-      <ul className="grid overflow-hidden rounded-lg border border-line bg-line md:grid-cols-2 xl:grid-cols-4" style={{ gap: 1 }}>
+      <ul className="grid overflow-hidden rounded-[16px] border border-line bg-line md:grid-cols-2 xl:grid-cols-4" style={{ gap: 1 }}>
         {plans.map((p) => {
           const isCurrent = p.id === current;
           const upgrade = rank(p.id) > rank(current);
           const canBuy = purchasable[p.id]?.[interval];
           return (
-            <li key={p.id} className={`flex flex-col bg-surface p-6 ${isCurrent ? "shadow-[inset_0_0_0_2px_var(--color-ink)]" : ""}`}>
+            <li key={p.id} className={`flex flex-col p-6 ${isCurrent ? "bg-brand-wash/30 shadow-[inset_0_0_0_2px_var(--color-brand)]" : "bg-surface"}`}>
               <div className="flex items-center justify-between gap-2">
                 <h3 className="text-base font-semibold">{p.name}</h3>
                 {isCurrent ? <Badge tone="brand">Current</Badge> : null}
@@ -97,7 +95,7 @@ export function PlanPicker({
               <ul className="mt-5 flex-1 space-y-2 text-sm">
                 {p.features.map((f) => (
                   <li key={f} className="flex gap-2">
-                    <IconCheck size={16} className="mt-0.5 shrink-0 text-jade" />
+                    <IconCheck size={16} className="mt-0.5 shrink-0 text-brand" />
                     {f}
                   </li>
                 ))}

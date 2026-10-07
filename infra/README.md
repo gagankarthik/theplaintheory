@@ -1,93 +1,65 @@
 # The Plain Theory: AWS infrastructure (CDK v2)
 
-The Next.js app runs anywhere. This CDK app provisions the AWS pieces it switches to in production:
+The full design (accounts, naming, tags, tables, identity, roles) is in
+[`docs/architecture/platform-architecture.md`](../docs/architecture/platform-architecture.md). This file covers deployment.
 
-| Stack | What it creates | Feeds env var |
+The app runs on **Vercel** (functions in `bom1`, beside ap-south-1). It reaches AWS through **OIDC federation**,
+so there are no access keys. One deploy creates one stage (`prod`, `staging` or `dev`) in one account.
+
+| Stack | Creates | Env vars it feeds |
 |---|---|---|
-| `PlainTheory-<stage>-Data` | DynamoDB single table (on-demand, PITR, KMS CMK, TTL `expiresAt`, `GSI1`), optional receipt archive | `DYNAMO_TABLE`, `AWS_REGION` |
-| `PlainTheory-<stage>-Delivery` | Private S3 bucket + CloudFront (OAC, HTTP/2+3, Brotli), geo-header CloudFront Function, SDK upload | `CONFIG_BUCKET`, `CLOUDFRONT_DISTRIBUTION_ID`, `NEXT_PUBLIC_CDN_URL` |
-| `PlainTheory-<stage>-Auth` | Cognito user pool (email sign-in, 12+ char passwords, optional TOTP MFA) and app client | `COGNITO_CLIENT_ID`, `COGNITO_REGION` |
-| `PlainTheory-<stage>-App` | Least-privilege IAM role for the app runtime (Amplify compute role or ECS task role) | — |
+| `PlainTheory-{Stage}-Data` | KMS key and six DynamoDB tables: `core`, `receipts`, `telemetry`, `audit`, `leads`, `ephemeral`. Optional receipt archive (Kinesis → Firehose → S3 Object Lock → Athena) | `DYNAMO_TABLE_*`, `AWS_REGION` |
+| `PlainTheory-{Stage}-Identity` | Cognito `customers` pool (self sign-up, optional TOTP) and `staff` pool (invite-only, TOTP required, groups `platform-*`) | `COGNITO_CUSTOMER_*`, `COGNITO_STAFF_*`, `COGNITO_REGION` |
+| `PlainTheory-{Stage}-Delivery` | Private S3 config bucket and CloudFront (OAC, HTTP/3, Brotli, geo headers); uploads the SDK | `CONFIG_BUCKET`, `CLOUDFRONT_DISTRIBUTION_ID`, `NEXT_PUBLIC_CDN_URL` |
+| `PlainTheory-{Stage}-Mail` | SES domain identity (DKIM, custom MAIL FROM), configuration set | `MAIL_FROM` |
+| `PlainTheory-{Stage}-Access` | Vercel OIDC provider; roles `pt-{stage}-vercel-runtime` (dashboard, staff console) and `pt-{stage}-vercel-ingest` (public endpoints) | `AWS_ROLE_ARN`, `AWS_INGEST_ROLE_ARN` |
+| `PlainTheory-{Stage}-Observability` | SNS alerts topic, DynamoDB throttle and error alarms, monthly budget on the stage tag | none |
+
+Every resource is named `pt-{stage}-{regionCode}-{component}` and carries the tags `Project`, `Environment`,
+`Component`, `Owner`, `CostCenter`, `DataClassification`, `Compliance`, `ManagedBy` and `Repository`. Synth fails if
+any taggable resource is missing one.
 
 ## Deploy
 
+Use the dedicated accounts: `plaintheory-nonprod` for `staging`/`dev` and `plaintheory-prod` for `prod`.
+
 ```bash
-# at the repo root: build the SDK the Delivery stack uploads
-npm run sdk:build
+npm run sdk:build            # at the repo root: the Delivery stack uploads public/sdk
 
-cd infra
-npm install
+cd infra && npm install
 npx cdk bootstrap aws://<account>/ap-south-1
-npx cdk deploy --all \
-  -c stage=prod \
-  -c dataRegion=ap-south-1 \
-  -c cdnDomain=cdn.theplaintheory.com \
-  -c certificateArn=arn:aws:acm:us-east-1:<account>:certificate/<id> \
-  -c archive=true
+npx cdk diff  -c stage=staging -c vercelTeam=<team-slug> -c sesDomain=theplaintheory.in -c alertEmail=<you>
+npx cdk deploy --all -c stage=staging -c vercelTeam=<team-slug> -c sesDomain=theplaintheory.in -c alertEmail=<you>
 ```
 
-`npx cdk synth` works without credentials and is a good check before a deploy.
+| Context | Meaning |
+|---|---|
+| `stage` | `prod`, `staging` or `dev` |
+| `dataRegion` | default `ap-south-1` |
+| `vercelTeam`, `vercelProject` | OIDC trust. Prod trusts the `production` environment, staging trusts `preview`, dev trusts `development` |
+| `oidcProviderArn` | Reuse the account's Vercel OIDC provider if another stage already created it |
+| `sesDomain`, `sesVerified` | Create the SES identity; once DNS verifies, redeploy with `-c sesVerified=true` so Cognito sends through SES |
+| `cdnDomain`, `certificateArn` | Custom CDN domain; the ACM certificate must be in us-east-1 |
+| `alertEmail`, `monthlyBudgetUsd` | Alarm and budget recipients; budget defaults to 200 (prod) or 50 |
+| `archive` | `true` streams receipts to the S3 archive |
 
-### Data residency (DPDPA)
+`npx cdk synth` needs no AWS calls, which makes it a good check before any deploy.
 
-Every stack deploys to `dataRegion`. For India-pinned tenants, use `ap-south-1` (Mumbai) or `ap-south-2` (Hyderabad).
-For EU-pinned tenants, deploy a second stage (`-c stage=eu -c dataRegion=eu-central-1`) and point those
-tenants' app instance at it. CloudFront is global, but it only serves the public banner config and the SDK.
-No personal data passes through it.
+After the first deploy:
+1. Add the DKIM and MAIL FROM records from the Mail stack outputs to DNS.
+2. Request SES production access for the account.
+3. Activate the `Project`, `Environment` and `Component` cost allocation tags in Billing.
+4. Invite the first staff member: `npm run staff:invite -- you@theplaintheory.in "Your Name" superadmin` (creates them in the staff pool, in `platform-superadmin`; Cognito emails a temporary password, and the first sign-in at `/admin/login` sets a new password and an authenticator app).
 
-## Single-table design
+## Vercel
 
-```
-PK              SK                      GSI1PK            GSI1SK
-USER#<id>       PROFILE                 EMAIL#<email>     USER
-ORG#<id>        PROFILE
-ORG#<id>        MEMBER#<userId>         USER#<userId>     ORG#<id>
-ORG#<id>        INVITE#<id>             EMAIL#<email>     INVITE#<id>
-ORG#<id>        PROP#<id>               PROP#<id>         PROFILE
-PROP#<id>       PROFILE (pointer)       SITEKEY#<key>     PROP
-PROP#<id>       CHAIN#HEAD
-PROP#<id>       RCPT#<seq, 12 digits>
-PROP#<id>       DAY#<yyyy-mm-dd>
-```
-
-- **Receipts** are append-only. `appendReceipt` writes `RCPT#<seq>` and advances `CHAIN#HEAD` in one
-  conditional transaction, so two concurrent writers can never fork the hash chain.
-- **Retention**: set `expiresAt` (epoch seconds) on receipts according to the plan's retention. DynamoDB TTL deletes
-  them, and the archive (below) keeps the long-term copy.
-- **Visitor lookups** (`GET /api/v1/receipts/:visitorId`) scan a property's receipts today. At scale, add
-  `GSI2 (GSI2PK = PROP#<id>#V#<visitorId>, GSI2SK = RCPT#<seq>)`.
-
-## Receipt archive (`-c archive=true`)
-
-DynamoDB → Kinesis Data Stream → Firehose → S3 (`receipts/dt=YYYY-MM-DD/`, GZIP, KMS) → Glue table
-`plain_theory_<stage>.receipt_stream` with partition projection, ready for Athena. The bucket has Object Lock
-(governance, 2 years), so exported audit evidence can't be silently rewritten.
-
-```sql
-SELECT dynamodb.NewImage['action'], count(*)
-FROM plain_theory_prod.receipt_stream
-WHERE dt BETWEEN '2026-09-01' AND '2026-09-30'
-GROUP BY 1;
-```
+Set the stack outputs as env vars per Vercel environment (Production → prod outputs; Preview → staging outputs),
+plus `vercel.json` `"regions": ["bom1"]`. App secrets (`SESSION_SECRET`, `IP_HASH_SALT`, `INTERNAL_CRON_SECRET`,
+Stripe keys) stay in Vercel's encrypted env vars. The app builds its AWS clients with
+`awsCredentialsProvider({ roleArn: process.env.AWS_ROLE_ARN })` from `@vercel/oidc-aws-credentials-provider`.
 
 ## Edge geo headers
 
-`functions/geo-headers.js` runs on viewer-response for `c/*`. It copies `CloudFront-Viewer-Country` and
-`-Region` into `x-plain-country` / `x-plain-region` and exposes them over CORS. The SDK reads them to choose
-GDPR, CCPA, DPDPA or the default notice. One cached object serves every country, so there's no per-country
-cache fragmentation.
-
-## Hosting the dashboard
-
-Create an Amplify Hosting app from the repository (Next.js SSR is detected automatically), attach the
-`plain-theory-<stage>-app` role as the compute role, and set:
-
-```
-STORE_DRIVER=dynamodb          DYNAMO_TABLE=<DataStack output>
-AUTH_DRIVER=cognito            COGNITO_CLIENT_ID=<AuthStack output>   COGNITO_REGION=<region>
-PUBLISH_DRIVER=s3              CONFIG_BUCKET=<DeliveryStack output>   CLOUDFRONT_DISTRIBUTION_ID=<output>
-NEXT_PUBLIC_CDN_URL=<CdnUrl>   AWS_REGION=<dataRegion>
-SESSION_SECRET=<32+ random bytes>   IP_HASH_SALT=<random>   NEXT_PUBLIC_SITE_URL=https://app.theplaintheory.com
-```
-
-ECS Fargate works the same way: use the role as the task role and pass the same environment.
+`functions/geo-headers.js` runs on viewer-response for `c/*`. It copies `CloudFront-Viewer-Country` and `-Region`
+into `x-plain-country` and `x-plain-region`, and exposes them over CORS. The SDK reads them to choose the GDPR,
+CCPA, DPDPA or default notice from one cached object.

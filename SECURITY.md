@@ -2,7 +2,7 @@
 
 ## Reporting a vulnerability
 
-Email **security@theplaintheory.com** with a description, steps to reproduce and the affected URL or component. Please don't open a public issue.
+Email **security@theplaintheory.in** with a description, steps to reproduce and the affected URL or component. Please don't open a public issue.
 
 - We acknowledge reports within 2 business days.
 - We give you an initial assessment within 5 business days.
@@ -11,7 +11,7 @@ Email **security@theplaintheory.com** with a description, steps to reproduce and
 
 ## Scope
 
-In scope: theplaintheory.com, the dashboard, the public consent API (`/api/v1/*`), the consent script (`plain-consent.js`) and the framework packages in `packages/`.
+In scope: theplaintheory.in, the dashboard, the public consent API (`/api/v1/*`), the consent script (`plain-consent.js`) and the framework packages in `packages/`.
 
 Out of scope: denial-of-service testing, social engineering, physical attacks, and reports from automated scanners without a demonstrated impact.
 

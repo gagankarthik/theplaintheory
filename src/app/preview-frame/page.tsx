@@ -13,6 +13,8 @@ export const metadata: Metadata = {
 export default function PreviewFrame() {
   return (
     <div className="min-h-screen bg-white text-ink-2" style={{ fontFamily: "system-ui, sans-serif" }}>
+      {/* the frame scrolls inside the builder: keep its scrollbar as quiet as the app's */}
+      <style>{"html{scrollbar-width:thin;scrollbar-color:#d0d4de transparent}"}</style>
       <header className="flex items-center justify-between border-b border-line px-6 py-4">
         <div className="h-5 w-28 rounded bg-line-strong" />
         <div className="hidden gap-5 sm:flex">

@@ -21,7 +21,7 @@ Owners are roles. Assign names in [information-security-policy.md](information-s
 
 | ID | Criterion | Control | Type | Implementation | Evidence | Owner | Frequency |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| AC-01 | CC6.1 | Role-based access: owner, admin, viewer; checked server-side on every page, action and API route | Product | `src/lib/auth/rbac.ts`, `access.ts`, `route-guard.ts` | Role matrix, code, audit events `member.role_changed` | Eng lead | Continuous |
+| AC-01 | CC6.1 | Role-based access: owner, admin, editor, auditor, viewer; checked server-side on every page, action and API route | Product | `src/lib/auth/rbac.ts`, `access.ts`, `route-guard.ts` | Role matrix, code, audit events `member.role_changed` | Eng lead | Continuous |
 | AC-02 | CC6.1 | Two-factor sign-in (TOTP) with single-use recovery codes; secrets AES-256-GCM encrypted at rest | Product | `src/lib/auth/totp.ts`, `mfa.ts`, `secret-box.ts`, `src/app/(auth)/login/verify` | `auth.mfa_enabled` events, access review MFA column | Eng lead | Continuous |
 | AC-03 | CC6.1 | Organization can require MFA; un-enrolled members are blocked from the app and exports until they enrol | Product | `requireUser`, `guardOrg`, `guardProperty`, `src/app/app/layout.tsx`; Settings › Sign-in security | `org.security_updated` events, /app/security | Owner (customer); Security lead (our own org) | Continuous |
 | AC-04 | CC6.1 | Sessions: server-side records, 30-minute idle and 12-hour absolute timeout, revocation, rotation at sign-in, MFA and password change | Product | `src/lib/auth/session.ts`, `token.ts`, `src/proxy.ts` | Account › Where you're signed in; `auth.session_revoked` events; tests | Eng lead | Continuous |

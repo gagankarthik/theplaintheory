@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { MfaSection, PasswordSection, SessionsSection } from "@/components/app/account/account-security";
 import { PageHeader } from "@/components/app/shell/page-header";
+import { passwordHint } from "@/lib/auth/provider";
 import { requireUser, sessionProblem } from "@/lib/auth/session";
 import { parseUserAgent } from "@/lib/geo";
 import { getStore } from "@/lib/store";
@@ -38,7 +39,7 @@ export default async function AccountPage(props: PageProps<"/app/account">) {
           orgRequiring={requiring?.name}
         />
         <SessionsSection sessions={sessions} />
-        <PasswordSection mfa={Boolean(user.mfa)} changedAt={user.passwordChangedAt} managedExternally={process.env.AUTH_DRIVER === "cognito"} />
+        <PasswordSection mfa={Boolean(user.mfa)} changedAt={user.passwordChangedAt} hint={passwordHint()} />
       </div>
     </>
   );

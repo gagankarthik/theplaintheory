@@ -4,6 +4,7 @@ import { CheckList } from "@/components/app/compliance/check-list";
 import { PageHeader } from "@/components/app/shell/page-header";
 import { ButtonLink } from "@/components/app/ui/button";
 import { EmptyState } from "@/components/app/ui/empty-state";
+import { StatStrip } from "@/components/app/ui/stat-strip";
 import { IconLock, Logo } from "@/components/icons";
 import { DownloadJson } from "@/components/app/evidence/download-json";
 import { formatInt } from "@/lib/analytics";
@@ -60,7 +61,7 @@ export default async function EvidencePage(props: PageProps<"/app/sites/[propert
       <>
         <PageHeader title="Evidence Pack" description="One document an auditor can rely on: verified chain, the exact notice shown, signals honoured and leaks found." />
         <EmptyState
-          icon={<IconLock size={28} />}
+          icon={<IconLock size={24} />}
           title="Available on Growth and above"
           action={
             <ButtonLink href="/app/billing" variant="primary">
@@ -76,13 +77,14 @@ export default async function EvidencePage(props: PageProps<"/app/sites/[propert
 
   const { pack, digest } = await buildEvidencePack({ property, org, plan, user, store });
   const failing = pack.fairness.checks.filter((c) => c.severity === "fail").length;
+  const checkpoint = pack.retention.checkpoint;
 
   return (
     <>
       <div className="print:hidden">
         <PageHeader
           title="Evidence Pack"
-          description="Generated now from your live records. Print it or save it as PDF for an auditor, or download the signed JSON."
+          description="Built just now from your live records, for an auditor. Save it as PDF or download the signed JSON."
           actions={
             <>
               <DownloadJson
@@ -92,6 +94,41 @@ export default async function EvidencePage(props: PageProps<"/app/sites/[propert
               <PrintButton />
             </>
           }
+        />
+        <StatStrip
+          label="Evidence at a glance"
+          stats={[
+            {
+              href: `/app/sites/${property.id}/logs`,
+              label: "Receipts covered",
+              value: formatInt(pack.chain.checked),
+              note: !pack.chain.checked ? "None yet" : checkpoint ? `From #${formatInt(checkpoint.seq + 1)} to the newest` : "Every receipt since the first",
+            },
+            {
+              label: "Chain",
+              value: !pack.chain.checked ? "—" : pack.chain.ok ? "Verified" : `Broken at #${formatInt(pack.chain.brokenAt ?? 0)}`,
+              note: pack.chain.checked ? "Re-hashed for this pack" : "Starts with the first receipt",
+              tone: !pack.chain.checked ? undefined : pack.chain.ok ? "good" : "bad",
+            },
+            {
+              href: `/app/sites/${property.id}/leaks?range=30`,
+              label: "Leaks, last 30 days",
+              value: !pack.banner.version && !pack.leaks.requests ? "—" : formatInt(pack.leaks.requests),
+              note: pack.leaks.requests
+                ? `${formatInt(pack.leaks.groups.length)} issue${pack.leaks.groups.length === 1 ? "" : "s"} listed in the pack`
+                : pack.banner.version
+                  ? "Nothing fired after a refusal"
+                  : "Starts when your banner is live",
+              tone: pack.leaks.requests ? "bad" : undefined,
+            },
+            {
+              label: "Retention",
+              value: `${formatInt(pack.retention.logRetentionDays)} days`,
+              note: checkpoint
+                ? `${formatInt(checkpoint.removedCount)} older receipts removed, chain kept`
+                : `${pack.plan.name} plan, nothing removed yet`,
+            },
+          ]}
         />
       </div>
 

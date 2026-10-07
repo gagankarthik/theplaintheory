@@ -4,10 +4,12 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { failure, invalid, type ActionResult } from "@/lib/action-result";
 import { recordAudit } from "@/lib/audit";
-import { PLATFORM_ROLE_INFO, PLATFORM_ROLES, staffChangeProblem } from "@/lib/auth/platform";
-import { requireStaffAction } from "@/lib/auth/staff";
+import { PLATFORM_ROLE_INFO, PLATFORM_ROLES, staffChangeProblem, type PlatformRole, type StaffChange } from "@/lib/auth/platform";
+import { isCognito, providerSignOutEverywhere } from "@/lib/auth/provider";
+import { requireStaffAction, revokeStaffSessions } from "@/lib/auth/staff";
+import { LEAD_STATUSES, STATUS_LABEL, TOPIC_LABEL, leadReference } from "@/lib/lead-options";
 import { recordPlatformAudit } from "@/lib/platform/audit";
-import { loadStaff } from "@/lib/platform/data";
+import type { PlatformAuditAction } from "@/lib/platform/types";
 import { PLANS, planById } from "@/lib/plans";
 import { getStore } from "@/lib/store";
 import { emailSchema } from "@/lib/validation";
@@ -18,7 +20,8 @@ import type { PlanId } from "@/lib/types";
  * the platform audit trail before reporting success, and returns an ActionResult for the form.
  */
 
-const actorOf = (ctx: Awaited<ReturnType<typeof requireStaffAction>>) => ({ userId: ctx.user.id, email: ctx.user.email, role: ctx.role });
+/** The platform audit actor: the signed-in staff-pool identity. */
+const actorOf = (ctx: Awaited<ReturnType<typeof requireStaffAction>>) => ({ sub: ctx.staff.sub, email: ctx.staff.email, role: ctx.role });
 const idSchema = (what: string) => z.string().trim().min(1, `Missing ${what}.`).max(64);
 const reasonSchema = z.string().trim().min(5, "Give a reason of at least 5 characters. It's shown to the customer's members.").max(300, "Keep the reason under 300 characters.");
 
@@ -53,7 +56,7 @@ export async function changeOrgPlan(_: ActionResult, form: FormData): Promise<Ac
       metadata: { from, to: parsed.data.plan, note: parsed.data.note || null, stripeSubscription: Boolean(org.stripeSubscriptionId) },
     });
     // The customer's own audit trail shows the change too, attributed to Plain Theory staff.
-    await recordAudit({ orgId: org.id, actor: { system: "plain-theory-staff" }, action: "billing.plan_changed", target: { type: "org", id: org.id, label: org.name }, metadata: { from, to: parsed.data.plan, by: ctx.user.email } });
+    await recordAudit({ orgId: org.id, actor: { system: "plain-theory-staff" }, action: "billing.plan_changed", target: { type: "org", id: org.id, label: org.name }, metadata: { from, to: parsed.data.plan, by: ctx.staff.email } });
     return done(`${org.name} moved from ${planById(from).name} to ${planById(parsed.data.plan).name}.`);
   } catch (e) {
     return failure(e);
@@ -132,64 +135,193 @@ export async function revokeAllSessions(_: ActionResult, form: FormData): Promis
     const store = await getStore();
     const user = await store.getUser(parsed.data.userId);
     if (!user) return { error: "That user no longer exists." };
-    // Revoking your own sessions keeps this browser signed in.
-    const self = user.id === ctx.user.id;
-    const n = await store.revokeUserSessions(user.id, new Date().toISOString(), self ? ctx.session.sid : undefined);
-    await recordPlatformAudit({ actor: actorOf(ctx), action: "user.sessions_revoked", target: { type: "user", id: user.id, label: user.email }, metadata: { revoked: n, keptCurrent: self } });
-    return done(n === 0 ? `${user.email} had no active sessions.` : `Signed ${user.email} out of ${n} session${n === 1 ? "" : "s"}${self ? " (this browser stays signed in)" : ""}.`);
-  } catch (e) {
-    return failure(e);
-  }
-}
-
-/* ---------------- staff ---------------- */
-
-const grantSchema = z.object({
-  email: emailSchema("Enter their email, like name@theplaintheory.com."),
-  role: z.enum(["superadmin", "support", "analyst"] satisfies typeof PLATFORM_ROLES, "Pick a staff role."),
-});
-
-export async function grantStaffRole(_: ActionResult, form: FormData): Promise<ActionResult> {
-  try {
-    const ctx = await requireStaffAction("staff:manage");
-    const parsed = grantSchema.safeParse({ email: String(form.get("email") ?? ""), role: form.get("role") });
-    if (!parsed.success) return invalid(parsed.error);
-    const store = await getStore();
-    const email = parsed.data.email.toLowerCase();
-    const user = await store.getUserByEmail(email);
-    if (!user) return { error: `No account uses ${email}. They need to sign up first.`, fieldErrors: { email: ["No account uses this email yet."] } };
-    const staff = await loadStaff();
-    const current = staff.find((s) => s.userId === user.id) ?? null;
-    const problem = staffChangeProblem({ actorUserId: ctx.user.id, target: current, next: parsed.data.role, staff });
-    if (problem) return { error: problem };
-    await store.updateUser(user.id, { platformRole: parsed.data.role });
+    // Customer sessions only: staff console sessions live under "staff:<sub>" and aren't touched.
+    const n = await store.revokeUserSessions(user.id, new Date().toISOString());
+    // With Cognito, revoke its refresh tokens for the user as well.
+    const providerNote = await providerSignOutEverywhere(user.email);
     await recordPlatformAudit({
       actor: actorOf(ctx),
-      action: current ? "staff.role_changed" : "staff.granted",
+      action: "user.sessions_revoked",
       target: { type: "user", id: user.id, label: user.email },
-      metadata: { from: current?.role ?? null, to: parsed.data.role },
+      metadata: { revoked: n, cognitoSignOut: isCognito() ? (providerNote ? "failed" : "ok") : "skipped" },
     });
-    const label = PLATFORM_ROLE_INFO[parsed.data.role].label;
-    return done(current ? `${user.email} is now ${label}.` : `${user.email} joined the staff as ${label}.`);
+    return done(
+      (n === 0 ? `${user.email} had no active sessions.` : `Signed ${user.email} out of ${n} session${n === 1 ? "" : "s"}.`) + providerNote,
+    );
   } catch (e) {
     return failure(e);
   }
 }
 
-export async function revokeStaffRole(_: ActionResult, form: FormData): Promise<ActionResult> {
+/* ---------------- contact requests ---------------- */
+
+const leadStatusSchema = z.object({
+  leadId: z.string().trim().regex(/^lead_[A-Za-z0-9_-]{4,40}$/, "Missing request."),
+  status: z.enum(LEAD_STATUSES, "Pick a status."),
+});
+
+export async function setLeadStatus(_: ActionResult, form: FormData): Promise<ActionResult> {
+  try {
+    const ctx = await requireStaffAction("leads:manage");
+    const parsed = leadStatusSchema.safeParse({ leadId: form.get("leadId"), status: form.get("status") });
+    if (!parsed.success) return invalid(parsed.error);
+    const store = await getStore();
+    const lead = await store.getLead(parsed.data.leadId);
+    if (!lead) return { error: "That request no longer exists." };
+    const from = lead.status ?? "new";
+    const to = parsed.data.status;
+    if (from === to) return { error: `This request is already ${STATUS_LABEL[to].toLowerCase()}.` };
+    const updated = await store.updateLeadStatus(lead.id, to);
+    if (!updated) return { error: "That request no longer exists." };
+    const topic = lead.topic ?? "sales";
+    // The label names the request, not the person: the audit trail doesn't need the sender's details.
+    await recordPlatformAudit({
+      actor: actorOf(ctx),
+      action: "lead.status_changed",
+      target: { type: "lead", id: lead.id, label: `${TOPIC_LABEL[topic]} request ${leadReference(lead.id)}` },
+      metadata: { from, to, topic },
+    });
+    return done(`${leadReference(lead.id)} is now ${STATUS_LABEL[to].toLowerCase()}.`);
+  } catch (e) {
+    return failure(e);
+  }
+}
+
+/* ---------------- staff (the staff Cognito pool) ---------------- */
+
+type StaffCtx = Awaited<ReturnType<typeof requireStaffAction>>;
+
+const roleSchema = z.enum(PLATFORM_ROLES as [PlatformRole, ...PlatformRole[]], "Pick a staff role.");
+const subSchema = z.object({ sub: z.string().trim().regex(/^[0-9a-f-]{36}$/i, "Missing staff member.") });
+
+/**
+ * Load the staff list from the pool and check the change against the guards (not yourself, never the
+ * last superadmin). The list is read fresh for every change so the guards see the current state.
+ */
+async function staffTarget(ctx: StaffCtx, sub: string, change: StaffChange) {
+  const { listStaffAccounts } = await import("@/lib/auth/staff-cognito");
+  const staff = await listStaffAccounts();
+  const target = staff.find((s) => s.sub === sub) ?? null;
+  const problem = staffChangeProblem({ actorSub: ctx.staff.sub, target, change, staff });
+  return problem || !target ? { ok: false as const, error: problem ?? "That person isn't on the staff list." } : { ok: true as const, target };
+}
+
+function staffAudit(ctx: StaffCtx, action: PlatformAuditAction, t: { sub: string; email: string }, metadata?: Record<string, string | number | boolean | null>) {
+  return recordPlatformAudit({ actor: actorOf(ctx), action, target: { type: "staff", id: t.sub, label: t.email }, metadata });
+}
+
+const inviteSchema = z.object({
+  email: emailSchema("Enter their work email, like name@theplaintheory.in."),
+  name: z.string().trim().min(2, "Enter their full name.").max(100, "Keep the name under 100 characters."),
+  role: roleSchema,
+});
+
+/** Invite someone: Cognito e-mails them a temporary password; they choose a password and set up an authenticator at /admin/login. */
+export async function inviteStaffMember(_: ActionResult, form: FormData): Promise<ActionResult> {
   try {
     const ctx = await requireStaffAction("staff:manage");
-    const parsed = userSchema.safeParse({ userId: form.get("userId") });
+    const parsed = inviteSchema.safeParse({ email: String(form.get("email") ?? ""), name: String(form.get("name") ?? ""), role: form.get("role") });
     if (!parsed.success) return invalid(parsed.error);
-    const staff = await loadStaff();
-    const target = staff.find((s) => s.userId === parsed.data.userId) ?? null;
-    const problem = staffChangeProblem({ actorUserId: ctx.user.id, target, next: null, staff });
-    if (problem) return { error: problem };
-    const store = await getStore();
-    await store.updateUser(target!.userId, { platformRole: undefined });
-    // Their open console sessions lose access on the next request: the role is read from the store each time.
-    await recordPlatformAudit({ actor: actorOf(ctx), action: "staff.revoked", target: { type: "user", id: target!.userId, label: target!.email }, metadata: { from: target!.role } });
-    return done(`${target!.email} no longer has staff access.`);
+    const { inviteStaff } = await import("@/lib/auth/staff-cognito");
+    const email = parsed.data.email.toLowerCase();
+    const r = await inviteStaff({ email, name: parsed.data.name, role: parsed.data.role });
+    if (!r.ok) return { error: r.error, ...(/already has/.test(r.error) ? { fieldErrors: { email: [r.error] } } : {}) };
+    await staffAudit(ctx, "staff.invited", { sub: r.sub, email }, { role: parsed.data.role });
+    return done(`Invited ${email} as ${PLATFORM_ROLE_INFO[parsed.data.role].label}. Cognito has emailed them a temporary password, valid for 1 day.`);
+  } catch (e) {
+    return failure(e);
+  }
+}
+
+export async function changeStaffRole(_: ActionResult, form: FormData): Promise<ActionResult> {
+  try {
+    const ctx = await requireStaffAction("staff:manage");
+    const parsed = subSchema.extend({ role: roleSchema }).safeParse({ sub: form.get("sub"), role: form.get("role") });
+    if (!parsed.success) return invalid(parsed.error);
+    const t = await staffTarget(ctx, parsed.data.sub, { kind: "role", next: parsed.data.role });
+    if (!t.ok) return { error: t.error };
+    const { setStaffRole } = await import("@/lib/auth/staff-cognito");
+    const r = await setStaffRole(t.target.username, t.target.role, parsed.data.role);
+    if (!r.ok) return { error: r.error };
+    // The role is read at sign-in, so end their console sessions: the new role applies when they sign back in.
+    const ended = await revokeStaffSessions(t.target.sub);
+    await staffAudit(ctx, "staff.role_changed", t.target, { from: t.target.role, to: parsed.data.role, sessionsEnded: ended });
+    return done(`${t.target.email} is now ${PLATFORM_ROLE_INFO[parsed.data.role].label}.${ended ? " They were signed out and get the new role when they sign back in." : ""}`);
+  } catch (e) {
+    return failure(e);
+  }
+}
+
+export async function resendStaffInvite(_: ActionResult, form: FormData): Promise<ActionResult> {
+  try {
+    const ctx = await requireStaffAction("staff:manage");
+    const parsed = subSchema.safeParse({ sub: form.get("sub") });
+    if (!parsed.success) return invalid(parsed.error);
+    const t = await staffTarget(ctx, parsed.data.sub, { kind: "resend_invite" });
+    if (!t.ok) return { error: t.error };
+    if (t.target.status !== "FORCE_CHANGE_PASSWORD") return { error: `${t.target.email} has already signed in. Use Reset password instead.` };
+    const cognito = await import("@/lib/auth/staff-cognito");
+    const r = await cognito.resendStaffInvite(t.target.username);
+    if (!r.ok) return { error: r.error };
+    await staffAudit(ctx, "staff.invite_resent", t.target);
+    return done(`Sent ${t.target.email} a new temporary password, valid for 1 day.`);
+  } catch (e) {
+    return failure(e);
+  }
+}
+
+export async function resetStaffPassword(_: ActionResult, form: FormData): Promise<ActionResult> {
+  try {
+    const ctx = await requireStaffAction("staff:manage");
+    const parsed = subSchema.safeParse({ sub: form.get("sub") });
+    if (!parsed.success) return invalid(parsed.error);
+    const t = await staffTarget(ctx, parsed.data.sub, { kind: "reset_password" });
+    if (!t.ok) return { error: t.error };
+    if (!t.target.enabled) return { error: `Enable ${t.target.email} first, then reset their password.` };
+    const cognito = await import("@/lib/auth/staff-cognito");
+    const r = await cognito.resetStaffPassword(t.target.username);
+    if (!r.ok) return { error: r.error };
+    const ended = await revokeStaffSessions(t.target.sub);
+    await staffAudit(ctx, "staff.password_reset", t.target, { sessionsEnded: ended });
+    return done(`${t.target.email} was signed out and emailed a temporary password. Their authenticator app stays set up.`);
+  } catch (e) {
+    return failure(e);
+  }
+}
+
+export async function setStaffEnabled(_: ActionResult, form: FormData): Promise<ActionResult> {
+  try {
+    const ctx = await requireStaffAction("staff:manage");
+    const parsed = subSchema.extend({ enabled: z.enum(["true", "false"]) }).safeParse({ sub: form.get("sub"), enabled: form.get("enabled") });
+    if (!parsed.success) return invalid(parsed.error);
+    const enable = parsed.data.enabled === "true";
+    const t = await staffTarget(ctx, parsed.data.sub, { kind: enable ? "enable" : "disable" });
+    if (!t.ok) return { error: t.error };
+    const cognito = await import("@/lib/auth/staff-cognito");
+    const r = await cognito.setStaffEnabled(t.target.username, enable);
+    if (!r.ok) return { error: r.error };
+    const ended = enable ? 0 : await revokeStaffSessions(t.target.sub);
+    await staffAudit(ctx, enable ? "staff.enabled" : "staff.disabled", t.target, enable ? undefined : { sessionsEnded: ended });
+    return done(enable ? `${t.target.email} can sign in to the console again.` : `${t.target.email} is disabled and was signed out of the console.`);
+  } catch (e) {
+    return failure(e);
+  }
+}
+
+export async function removeStaffMember(_: ActionResult, form: FormData): Promise<ActionResult> {
+  try {
+    const ctx = await requireStaffAction("staff:manage");
+    const parsed = subSchema.safeParse({ sub: form.get("sub") });
+    if (!parsed.success) return invalid(parsed.error);
+    const t = await staffTarget(ctx, parsed.data.sub, { kind: "remove" });
+    if (!t.ok) return { error: t.error };
+    const cognito = await import("@/lib/auth/staff-cognito");
+    await cognito.staffGlobalSignOut(t.target.username);
+    const r = await cognito.deleteStaff(t.target.username);
+    if (!r.ok) return { error: r.error };
+    const ended = await revokeStaffSessions(t.target.sub);
+    await staffAudit(ctx, "staff.removed", t.target, { role: t.target.role, sessionsEnded: ended });
+    return done(`${t.target.email} no longer has a staff account.`);
   } catch (e) {
     return failure(e);
   }

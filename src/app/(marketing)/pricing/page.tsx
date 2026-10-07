@@ -8,7 +8,8 @@ import { Pledges } from "@/components/marketing/pricing/pledges";
 import { BillingControls, PricingCards } from "@/components/marketing/pricing/pricing-explorer";
 import { SavingsCalculator } from "@/components/marketing/pricing/savings-calculator";
 import { Section, SectionIntro } from "@/components/marketing/primitives";
-import { CURRENCIES, PLANS, planPrice } from "@/lib/plans";
+import { CURRENCIES, planPrice } from "@/lib/plans";
+import { getLivePlans } from "@/lib/stripe-catalog";
 import { sdkSizeLabel } from "@/lib/sdk-size";
 import { absoluteUrl, site } from "@/lib/site";
 
@@ -46,8 +47,12 @@ const FAQ: FaqItem[] = [
   },
 ];
 
-export default function PricingPage() {
-  const offers = PLANS.flatMap((p) =>
+/** Prices come live from Stripe; the page regenerates every five minutes to pick up changes. */
+export const revalidate = 300;
+
+export default async function PricingPage() {
+  const plans = await getLivePlans();
+  const offers = plans.flatMap((p) =>
     [
       ...CURRENCIES.map((c) => {
         const price = planPrice(p, c.id);
@@ -87,7 +92,7 @@ export default function PricingPage() {
 
       <div className="relative -mt-14 pb-20 md:-mt-20 md:pb-24">
         <div className="container-page">
-          <PricingCards />
+          <PricingCards plans={plans} />
         </div>
       </div>
 
@@ -112,7 +117,7 @@ export default function PricingPage() {
           lead="Move the sliders to match your setup. We'll suggest the smallest plan that fits and show it next to per-domain pricing."
         />
         <div className="mt-12">
-          <SavingsCalculator />
+          <SavingsCalculator plans={plans} />
         </div>
       </Section>
 

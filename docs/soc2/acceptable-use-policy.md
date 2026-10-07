@@ -27,7 +27,7 @@
   approved tools. Don't browse it out of curiosity. The audit trail and CloudTrail record access.
 - Don't copy customer data to personal devices, personal cloud storage, or third-party services that
   aren't on the vendor register. That includes AI assistants unless they're approved for that data.
-- Use the seeded demo data (`npm run seed`) for development and screenshots, never production data.
+- Use test accounts you create locally (or the staging environment) for development and screenshots, never production data.
 
 ## Communication and AI tools
 
@@ -43,7 +43,7 @@ harassment.
 
 ## Reporting
 
-Report suspected incidents, phishing and policy breaches to `security@theplaintheory.com` without
+Report suspected incidents, phishing and policy breaches to `security@theplaintheory.in` without
 delay. Good-faith reports are never penalised.
 
 ---

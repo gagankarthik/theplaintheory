@@ -1,4 +1,5 @@
 import "server-only";
+import { staffUserKey } from "../auth/staff-token";
 import { requestContext } from "../request-context";
 import { getStore } from "../store";
 import type { PlatformAuditAction, PlatformAuditEvent } from "./types";
@@ -11,7 +12,8 @@ const FORBIDDEN_META = /secret|password|token|code|key|hash/i;
  * reporting success, and a failed write fails the action.
  */
 export async function recordPlatformAudit(input: {
-  actor: { userId: string; email: string; role: string };
+  /** the signed-in staff identity (staff pool sub, email and role at the time) */
+  actor: { sub: string; email: string; role: string };
   action: PlatformAuditAction;
   target: PlatformAuditEvent["target"];
   metadata?: PlatformAuditEvent["metadata"];
@@ -24,7 +26,7 @@ export async function recordPlatformAudit(input: {
     metadata[k] = typeof v === "string" ? v.slice(0, 300) : v;
   }
   return store.appendPlatformAudit({
-    actorUserId: input.actor.userId,
+    actorUserId: staffUserKey(input.actor.sub),
     actorEmail: input.actor.email,
     actorRole: input.actor.role,
     action: input.action,

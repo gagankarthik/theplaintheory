@@ -6,6 +6,7 @@ import { PLATFORM_AUDIT_GENESIS, hashPlatformAudit } from "../platform/audit-cha
 import type { PlatformAuditEvent } from "../platform/types";
 import type {
   AuditEvent,
+  ConfigVersion,
   ConsentReceipt,
   Invite,
   Lead,
@@ -18,7 +19,9 @@ import type {
   User,
   WebhookDelivery,
 } from "../types";
-import type { AuditDraft, AuditQuery, ReceiptDraft, ReceiptQuery, Store } from "./types";
+import type { SiteAuditReport } from "../site-audit/types";
+import { SCAN_KEEP, type ScanReport } from "../trackers";
+import { SITE_AUDIT_KEEP, type AuditDraft, type AuditQuery, type LeadQuery, type ReceiptDraft, type ReceiptQuery, type Store } from "./types";
 
 /**
  * File-backed store for local development and single-node demos.
@@ -35,6 +38,14 @@ interface Db {
   leaks?: LeakReport[];
   deliveries?: WebhookDelivery[];
   sessions?: SessionRecord[];
+  /** live site check reports, the newest SITE_AUDIT_KEEP per site */
+  siteAudits?: SiteAuditReport[];
+  /** immutable published-config snapshots, one per site and version */
+  configVersions?: ConfigVersion[];
+  /** tracker scan reports, the newest SCAN_KEEP per site, oldest first */
+  scans?: ScanReport[];
+  /** Stripe webhook event ids already handled, with when they were claimed */
+  stripeEvents?: { id: string; at: string }[];
 }
 
 const DIR = process.env.LOCAL_DATA_DIR ?? path.join(process.cwd(), ".data");
@@ -77,7 +88,7 @@ const mtimeOf = async () => {
 };
 
 async function load(): Promise<Db> {
-  // Reload when something else rewrote the file (e.g. `npm run seed` while the dev server runs),
+  // Reload when something else rewrote the file (e.g. another process editing it while the dev server runs),
   // and drop cached chain heads with it so new receipts never link to a stale head.
   const mtime = await mtimeOf();
   if (state.cache && mtime === state.cacheMtime) return state.cache;
@@ -358,6 +369,9 @@ export const localStore: Store = {
     await mutate((db) => {
       db.properties = db.properties.filter((p) => p.id !== pid);
       db.counters = db.counters.filter((c) => c.propertyId !== pid);
+      if (db.siteAudits) db.siteAudits = db.siteAudits.filter((a) => a.propertyId !== pid);
+      if (db.configVersions) db.configVersions = db.configVersions.filter((v) => v.propertyId !== pid);
+      if (db.scans) db.scans = db.scans.filter((s) => s.propertyId !== pid);
     });
     await fs.rm(receiptFile(pid), { force: true });
   },
@@ -444,6 +458,24 @@ export const localStore: Store = {
   async countRecentLeads(ipHash, sinceIso) {
     return ((await load()).leads ?? []).filter((l) => l.ipHash === ipHash && l.createdAt >= sinceIso).length;
   },
+  async listLeads({ status, topic, limit = 200 }: LeadQuery = {}) {
+    return ((await load()).leads ?? [])
+      .filter((l) => (!status || (l.status ?? "new") === status) && (!topic || (l.topic ?? "sales") === topic))
+      .sort((a, b) => (a.createdAt === b.createdAt ? b.id.localeCompare(a.id) : b.createdAt.localeCompare(a.createdAt)))
+      .slice(0, limit);
+  },
+  async getLead(leadId) {
+    return ((await load()).leads ?? []).find((l) => l.id === leadId) ?? null;
+  },
+  async updateLeadStatus(leadId, status) {
+    return mutate((db) => {
+      const l = (db.leads ?? []).find((x) => x.id === leadId);
+      if (!l) return null;
+      l.status = status;
+      l.updatedAt = new Date().toISOString();
+      return l;
+    });
+  },
 
   async recordPageview(propertyId, day, kind) {
     await mutate((db) => {
@@ -457,5 +489,73 @@ export const localStore: Store = {
     return (await load()).counters
       .filter((c) => c.propertyId === propertyId && c.day >= fromDay && c.day <= toDay)
       .sort((a, b) => a.day.localeCompare(b.day));
+  },
+
+  async claimStripeEvent(eventId) {
+    return mutate((db) => {
+      const cutoff = new Date(Date.now() - 30 * 864e5).toISOString();
+      db.stripeEvents = (db.stripeEvents ?? []).filter((e) => e.at > cutoff);
+      if (db.stripeEvents.some((e) => e.id === eventId)) return false;
+      db.stripeEvents.push({ id: eventId, at: new Date().toISOString() });
+      return true;
+    });
+  },
+  async releaseStripeEvent(eventId) {
+    await mutate((db) => {
+      db.stripeEvents = (db.stripeEvents ?? []).filter((e) => e.id !== eventId);
+    });
+  },
+
+  async saveSiteAudit(propertyId, report) {
+    await mutate((db) => {
+      const mine = (db.siteAudits ?? []).filter((a) => a.propertyId === propertyId);
+      const drop = new Set(mine.slice(0, Math.max(0, mine.length + 1 - SITE_AUDIT_KEEP)).map((a) => a.id));
+      db.siteAudits = [...(db.siteAudits ?? []).filter((a) => !drop.has(a.id)), { ...report, propertyId }];
+    });
+  },
+  async listSiteAudits(propertyId, limit) {
+    if (limit < 1) return [];
+    return ((await load()).siteAudits ?? []).filter((a) => a.propertyId === propertyId).reverse().slice(0, limit);
+  },
+
+  async saveConfigVersion(v) {
+    return mutate((db) => {
+      const list = (db.configVersions ??= []);
+      // write once: an existing snapshot is never replaced
+      if (list.some((x) => x.propertyId === v.propertyId && x.version === v.version)) return false;
+      list.push(structuredClone(v));
+      return true;
+    });
+  },
+  async getConfigVersion(propertyId, version) {
+    const hit = ((await load()).configVersions ?? []).find((x) => x.propertyId === propertyId && x.version === version);
+    return hit ? structuredClone(hit) : null;
+  },
+  async listConfigVersions(propertyId, limit) {
+    if (limit < 1) return [];
+    return ((await load()).configVersions ?? [])
+      .filter((x) => x.propertyId === propertyId)
+      .sort((a, b) => b.version - a.version)
+      .slice(0, limit)
+      .map((x) => structuredClone(x));
+  },
+  async getReceipt(propertyId, seq) {
+    return (await readReceipts(propertyId)).find((r) => r.seq === seq) ?? null;
+  },
+
+  async saveScan(report) {
+    await mutate((db) => {
+      const mine = (db.scans ?? []).filter((s) => s.propertyId === report.propertyId);
+      const drop = new Set(mine.slice(0, Math.max(0, mine.length + 1 - SCAN_KEEP)).map((s) => s.id));
+      db.scans = [...(db.scans ?? []).filter((s) => !drop.has(s.id)), structuredClone(report)];
+    });
+  },
+  async listScans(propertyId, limit) {
+    if (limit < 1) return [];
+    return ((await load()).scans ?? [])
+      .filter((s) => s.propertyId === propertyId)
+      .reverse()
+      .slice(0, limit)
+      .map((s) => structuredClone(s));
   },
 };

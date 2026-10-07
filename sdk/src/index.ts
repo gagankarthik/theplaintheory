@@ -18,7 +18,7 @@ const safePath = (p: string) =>
 
 /**
  * plain-consent.js — The Plain Theory consent SDK.
- *   <script src="https://cdn.theplaintheory.com/sdk/v1/plain-consent.js" data-site="pk_..."></script>
+ *   <script src="https://cdn.theplaintheory.in/sdk/v1/plain-consent.js" data-site="pk_..."></script>
  * Must be the first script in <head> so it can hold trackers before they load.
  */
 type Listener = (s: ConsentState) => void;

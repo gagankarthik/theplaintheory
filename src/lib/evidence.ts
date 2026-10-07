@@ -10,6 +10,7 @@ import { dpdpReadiness, type ReadinessItem } from "./readiness";
 import { regionLabel } from "./regions";
 import type { Store } from "./store";
 import type { BannerConfig, Framework, Organization, Property, User } from "./types";
+import { heldTrackers } from "./trackers";
 
 /**
  * Compliance Evidence Pack: everything an auditor needs about one site's consent, in one document.
@@ -79,7 +80,7 @@ export async function buildEvidencePack(input: { property: Property; org: Organi
   const leaks = await store.listLeaks(property.id, new Date(now.getTime() - 30 * 86_400_000).toISOString());
   // Evidence describes what visitors actually saw: the published snapshot, not unpublished drafts.
   const live = property.published?.config ?? property.config;
-  const liveTrackers = property.published?.trackers ?? property.trackers;
+  const liveTrackers = heldTrackers(property.published?.trackers ?? property.trackers);
   const fairness = evaluateFairness(live, { dpoEmail: org.dpo?.email });
   const readiness = dpdpReadiness(property, org, plan);
 

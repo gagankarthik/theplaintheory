@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
 import { saveRegions } from "@/app/app/sites/[propertyId]/actions";
 import { Button } from "@/components/app/ui/button";
@@ -7,6 +8,8 @@ import { SettingsRow, SettingsSection } from "@/components/app/ui/settings";
 import { Switch } from "@/components/app/ui/switch";
 import { Segmented } from "@/components/app/ui/tabs";
 import { useToast } from "@/components/app/ui/toast";
+import { Select } from "@/components/app/ui/select";
+import { formatInt, formatPct } from "@/lib/analytics";
 import { FRAMEWORK_META } from "@/lib/defaults";
 import type { BannerConfig, Framework } from "@/lib/types";
 
@@ -27,7 +30,28 @@ const LANGUAGES = [
   { value: "es", label: "Spanish" },
 ];
 
-export function RegionsEditor({ propertyId, initial, canWrite }: { propertyId: string; initial: BannerConfig["regions"]; canWrite: boolean }) {
+/** Banner decisions from one region's visitors over the last 30 days, read from consent receipts. */
+export interface RegionStats {
+  decisions: number;
+  accepted: number;
+}
+
+function activity(s: RegionStats | undefined) {
+  if (!s?.decisions) return "No decisions in the last 30 days.";
+  return `${formatInt(s.decisions)} decision${s.decisions === 1 ? "" : "s"} in the last 30 days, ${formatPct(s.accepted / s.decisions)} accepted all.`;
+}
+
+export function RegionsEditor({
+  propertyId,
+  initial,
+  stats,
+  canWrite,
+}: {
+  propertyId: string;
+  initial: BannerConfig["regions"];
+  stats?: Partial<Record<Framework, RegionStats>>;
+  canWrite: boolean;
+}) {
   const [regions, setRegions] = useState(initial);
   const [pending, start] = useTransition();
   const toast = useToast();
@@ -51,7 +75,16 @@ export function RegionsEditor({ propertyId, initial, canWrite }: { propertyId: s
           const r = regions[fw];
           const meta = FRAMEWORK_META[fw];
           return (
-            <SettingsSection key={fw} title={`${meta.name}: ${meta.region}`} description={meta.law}>
+            <SettingsSection
+              key={fw}
+              title={`${meta.name}: ${meta.region}`}
+              description={
+                <>
+                  {meta.law}
+                  <span className="block tabular-nums">{activity(stats?.[fw])}</span>
+                </>
+              }
+            >
               <SettingsRow label="Who sees it" description={WHO[fw]}>
                 <Switch
                   label={r.enabled ? "Shown to these visitors" : "Turned off"}
@@ -80,19 +113,27 @@ export function RegionsEditor({ propertyId, initial, canWrite }: { propertyId: s
                   ]}
                 />
                 {r.model === "opt-out" && (fw === "gdpr" || fw === "dpdpa") ? (
-                  <p role="alert" className="mt-2 text-xs font-bold text-rose">
+                  <p role="alert" className="mt-2 text-xs font-semibold text-rose">
                     {meta.name} requires opt-in consent. Switch back to opt-in before publishing.
                   </p>
                 ) : null}
               </SettingsRow>
-              <SettingsRow label="Language" htmlFor={`lang-${fw}`}>
-                <select id={`lang-${fw}`} className="field max-w-xs" value={r.language} onChange={(e) => update(fw, { language: e.target.value })}>
-                  {LANGUAGES.map((l) => (
-                    <option key={l.value} value={l.value}>
-                      {l.label}
-                    </option>
-                  ))}
-                </select>
+              <SettingsRow
+                label="Default language"
+                htmlFor={`lang-${fw}`}
+                description={
+                  <>
+                    The language this notice is written in. Translations live in{" "}
+                    <Link href={`/app/sites/${propertyId}/languages`} className="font-medium text-brand underline underline-offset-2">
+                      Languages
+                    </Link>
+                    .
+                  </>
+                }
+              >
+                <div className="max-w-xs">
+                  <Select id={`lang-${fw}`} value={r.language} onValueChange={(language) => update(fw, { language })} options={LANGUAGES.map((l) => ({ value: l.value, label: l.label }))} />
+                </div>
               </SettingsRow>
             </SettingsSection>
           );

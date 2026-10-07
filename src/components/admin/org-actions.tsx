@@ -80,7 +80,7 @@ export function OrgActions({
                 rows={3}
                 required
                 maxLength={300}
-                placeholder="e.g. Payment overdue since 1 October. Contact billing@theplaintheory.com."
+                placeholder="e.g. Payment overdue since 1 October. Contact billing@theplaintheory.in."
                 error={state?.fieldErrors?.reason}
               />
             )}

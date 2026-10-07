@@ -6,10 +6,12 @@ import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import * as s3deploy from "aws-cdk-lib/aws-s3-deployment";
 import type { Construct } from "constructs";
+import type { Naming } from "./naming";
+import { tagComponent } from "./tags";
 
 export interface DeliveryStackProps extends StackProps {
-  stage: string;
-  /** e.g. cdn.theplaintheory.com; leave empty to use the *.cloudfront.net domain */
+  naming: Naming;
+  /** e.g. cdn.theplaintheory.in; leave empty to use the *.cloudfront.net domain */
   cdnDomain?: string;
   /** ACM certificate in us-east-1 for cdnDomain */
   certificateArn?: string;
@@ -27,8 +29,12 @@ export class DeliveryStack extends Stack {
 
   constructor(scope: Construct, id: string, props: DeliveryStackProps) {
     super(scope, id, props);
+    const { naming } = props;
+    // Serves only the public SDK and published banner configs: no personal data passes through.
+    tagComponent(this, "delivery", "public");
 
     this.bucket = new s3.Bucket(this, "ConfigBucket", {
+      bucketName: naming.bucket("config", this.account),
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       encryption: s3.BucketEncryption.S3_MANAGED,
       enforceSSL: true,
@@ -41,6 +47,7 @@ export class DeliveryStack extends Stack {
     const geoFn = new cloudfront.Function(this, "GeoHeaders", {
       code: cloudfront.FunctionCode.fromFile({ filePath: path.join(__dirname, "../functions/geo-headers.js") }),
       runtime: cloudfront.FunctionRuntime.JS_2_0,
+      functionName: naming.global("geo-headers"),
       comment: "Adds x-plain-country / x-plain-region for region-aware banners",
     });
 
@@ -78,7 +85,7 @@ export class DeliveryStack extends Stack {
     const cert = props.certificateArn ? acm.Certificate.fromCertificateArn(this, "Cert", props.certificateArn) : undefined;
 
     this.distribution = new cloudfront.Distribution(this, "Cdn", {
-      comment: `Plain Theory consent delivery (${props.stage})`,
+      comment: naming.global("cdn"),
       httpVersion: cloudfront.HttpVersion.HTTP2_AND_3,
       priceClass: cloudfront.PriceClass.PRICE_CLASS_ALL,
       // With a custom domain: TLS 1.2 minimum, TLS 1.3 negotiated with every client that supports it.

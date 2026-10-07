@@ -29,7 +29,7 @@ export default function CookiePolicyPage() {
       <h2 id="summary">In short</h2>
       <p>
         We use a handful of first-party cookies and browser storage entries to sign you in, keep your account secure and remember
-        a few settings. We don&apos;t use advertising cookies, our page-view analytics (Vercel Web Analytics) works without cookies,
+        a few settings. We don&apos;t use advertising cookies, our page-view analytics and page-speed measurement (Vercel Web Analytics and Speed Insights) work without cookies,
         and nothing on our site tracks you across other websites.
       </p>
 
@@ -95,7 +95,7 @@ export default function CookiePolicyPage() {
       <h2 id="not-used">What we don&apos;t use</h2>
       <ul>
         <li>no advertising or retargeting cookies, and no social media pixels;</li>
-        <li>no analytics cookies: Vercel Web Analytics counts page views without cookies or identifiers, and we use no session recording;</li>
+        <li>no analytics cookies: Vercel Web Analytics counts page views and Vercel Speed Insights measures page speed, both without cookies or identifiers, and we use no session recording;</li>
         <li>no cookies that track you across other websites;</li>
         <li>no third-party cookies of any kind.</li>
       </ul>

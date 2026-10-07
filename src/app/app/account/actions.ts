@@ -7,7 +7,7 @@ import { failure, invalid, type ActionResult } from "@/lib/action-result";
 import { recordUserAudit } from "@/lib/audit";
 import { registerFailure } from "@/lib/auth/lockout";
 import { beginEnrolment, confirmEnrolment, disableMfa, regenerateRecoveryCodes, verifySecondFactor } from "@/lib/auth/mfa";
-import { setPassword } from "@/lib/auth/provider";
+import { isCognito, passwordProblem, providerSignOutEverywhere, setPassword } from "@/lib/auth/provider";
 import { createSession, destroySession, requireUser } from "@/lib/auth/session";
 import { verifyPassword } from "@/lib/crypto";
 import { getStore } from "@/lib/store";
@@ -128,9 +128,11 @@ export async function signOutOtherSessions(): Promise<ActionResult> {
   try {
     const { user, session } = await me();
     const n = await (await getStore()).revokeUserSessions(user.id, new Date().toISOString(), session.sid);
+    // With Cognito, its refresh tokens go too (the app's own session here stays signed in).
+    const providerNote = await providerSignOutEverywhere(user.email);
     if (n) await recordUserAudit(user.id, user.email, "auth.session_revoked", { sessions: n, scope: "all-others" });
     revalidatePath("/app/account");
-    return { ok: n ? `Signed out of ${n} other session${n > 1 ? "s" : ""}.` : "No other sessions were signed in." };
+    return { ok: (n ? `Signed out of ${n} other session${n > 1 ? "s" : ""}.` : "No other sessions were signed in.") + providerNote };
   } catch (e) {
     return failure(e);
   }
@@ -150,7 +152,6 @@ const passwordSchema = z
 export async function changePassword(_: ActionResult, form: FormData): Promise<ActionResult> {
   try {
     const { user, session } = await me();
-    if (process.env.AUTH_DRIVER === "cognito") return { error: "Your sign-in provider manages passwords. Use Forgot password on the sign-in page." };
     const parsed = passwordSchema.safeParse({
       current: form.get("current"),
       next: form.get("next"),
@@ -158,6 +159,7 @@ export async function changePassword(_: ActionResult, form: FormData): Promise<A
       code: form.get("code") ?? undefined,
     });
     if (!parsed.success) return invalid(parsed.error);
+    if (isCognito()) return await changeCognitoPassword(user, session, parsed.data);
     if (!user.passwordHash || !(await verifyPassword(parsed.data.current, user.passwordHash))) {
       await countFailure(user);
       return { error: "Your current password isn't right.", fieldErrors: { current: ["Your current password isn't right."] } };
@@ -180,4 +182,54 @@ export async function changePassword(_: ActionResult, form: FormData): Promise<A
   } catch (e) {
     return failure(e);
   }
+}
+
+const CURRENT_WRONG = "Your current password isn't right.";
+
+/**
+ * Cognito: prove the current password with InitiateAuth, then ChangePassword with that sign-in's
+ * access token. The app's policy (password-policy.ts plus the pool's composition rule) is checked
+ * first so problems show inline; afterwards every Cognito token is revoked and other app sessions end.
+ */
+async function changeCognitoPassword(
+  user: User,
+  session: { sid: string; orgId?: string },
+  input: { current: string; next: string; code?: string },
+): Promise<ActionResult> {
+  const weak = passwordProblem(input.next, user.email);
+  if (weak) return { error: weak, fieldErrors: { next: [weak] } };
+  if (input.next === input.current) return { error: "Choose a password you haven't used here before.", fieldErrors: { next: ["Choose a password you haven't used here before."] } };
+
+  const { cognitoAuthenticate, cognitoChangePassword, cognitoGlobalSignOut } = await import("@/lib/auth/cognito");
+  const auth = await cognitoAuthenticate(user.email, input.current);
+  if (!auth.ok) {
+    if (auth.failure.kind === "invalid_credentials") {
+      await countFailure(user);
+      return { error: CURRENT_WRONG, fieldErrors: { current: [CURRENT_WRONG] } };
+    }
+    return { error: auth.failure.message };
+  }
+  if (user.mfa) {
+    if (!input.code) return { error: "Enter a code from your authenticator app.", fieldErrors: { code: ["Enter the 6-digit code."] } };
+    if (!(await verifySecondFactor(user, input.code)).ok) {
+      await countFailure(user);
+      return { error: MISMATCH, fieldErrors: { code: [MISMATCH] } };
+    }
+  }
+  const changed = await cognitoChangePassword(auth.accessToken, input.current, input.next);
+  if (!changed.ok) {
+    const f = changed.failure;
+    return f.kind === "password_policy" ? { error: f.message, fieldErrors: { next: [f.message] } } : { error: f.message };
+  }
+  // Every Cognito refresh token (including the one from the check above) stops working.
+  await cognitoGlobalSignOut(user.email);
+
+  const store = await getStore();
+  await store.updateUser(user.id, { passwordChangedAt: new Date().toISOString() });
+  const revoked = await store.revokeUserSessions(user.id, new Date().toISOString(), session.sid);
+  await recordUserAudit(user.id, user.email, "auth.password_changed", { otherSessionsRevoked: revoked });
+  // New credentials, new session id.
+  await createSession({ userId: user.id, email: user.email, orgId: session.orgId }, { mfaVerified: Boolean(user.mfa) });
+  revalidatePath("/app/account");
+  return { ok: revoked ? `Password changed. ${revoked} other session${revoked > 1 ? "s were" : " was"} signed out.` : "Password changed." };
 }

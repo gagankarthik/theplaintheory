@@ -1,34 +1,95 @@
 "use client";
 
-import { useActionState, useOptimistic, useState, useTransition } from "react";
-import { addScannedTrackers, addTracker, removeTracker, scanSite, updateTrackerCategory } from "@/app/app/sites/[propertyId]/actions";
+import { useActionState, useEffect, useOptimistic, useState, useTransition } from "react";
+import { addTracker, removeTracker, updateTrackerCategory } from "@/app/app/sites/[propertyId]/actions";
+import { approveTrackers, ignoreTrackers, restoreTracker, scanTrackers } from "@/app/app/sites/[propertyId]/tracker-actions";
 import { Badge } from "@/components/app/ui/badge";
 import { Button } from "@/components/app/ui/button";
 import { DataTable, type Column } from "@/components/app/ui/data-table";
+import { Dialog } from "@/components/app/ui/dialog";
 import { SelectField, TextField } from "@/components/app/ui/field";
+import { Select } from "@/components/app/ui/select";
+import { StatStrip } from "@/components/app/ui/stat-strip";
 import { SubmitButton } from "@/components/app/ui/submit-button";
+import { TabPanel, Tabs } from "@/components/app/ui/tabs";
 import { FormMessage, useToast } from "@/components/app/ui/toast";
-import { CATEGORY_ICONS, IconScan, IconTrash } from "@/components/icons";
+import { CATEGORY_ICONS, IconAlert, IconCheck, IconChevronDown, IconClock, IconPlus, IconScan, IconTrash } from "@/components/icons";
 import type { ActionResult } from "@/lib/action-result";
-import type { ScanResult } from "@/lib/scan";
-import type { Tracker } from "@/lib/types";
+import { statusOf, suggested } from "@/lib/trackers";
+import type { CategoryId, Tracker, TrackerStatus } from "@/lib/types";
 
-type Category = Tracker["category"];
-const CATEGORIES: { value: Exclude<Category, "essential">; label: string }[] = [
-  { value: "analytics", label: "Analytics" },
-  { value: "marketing", label: "Marketing" },
-  { value: "functional", label: "Preferences" },
-];
-const labelOf = (c: Category) => CATEGORIES.find((x) => x.value === c)?.label ?? c;
+export interface ScanSummary {
+  id: string;
+  finishedAt: string;
+  status: "ok" | "failed";
+  error?: string;
+  /** pages read */
+  pages: number;
+  findings: number;
+  /** findings the database didn't know */
+  unknown: number;
+}
 
-type Op = { type: "remove"; id: string } | { type: "category"; id: string; category: Category };
+const CATEGORY_LABEL: Record<CategoryId, string> = { essential: "Essential", functional: "Preferences", analytics: "Analytics", marketing: "Marketing" };
+const CATEGORY_HINT: Record<CategoryId, string> = {
+  essential: "Always runs. Listed, never held.",
+  functional: "Held until visitors allow preferences.",
+  analytics: "Held until visitors allow analytics.",
+  marketing: "Held until visitors allow marketing.",
+};
+const CATEGORY_OPTIONS = (["analytics", "marketing", "functional", "essential"] as const).map((c) => {
+  const Icon = CATEGORY_ICONS[c];
+  return { value: c as CategoryId, label: CATEGORY_LABEL[c], description: CATEGORY_HINT[c], icon: <Icon size={15} /> };
+});
+const MANUAL_OPTIONS = CATEGORY_OPTIONS.filter((o) => o.value !== "essential").map(({ value, label, icon }) => ({ value, label, icon }));
 
-export function TrackersManager({ propertyId, trackers, canWrite }: { propertyId: string; trackers: Tracker[]; canWrite: boolean }) {
+const KIND_LABEL: Record<NonNullable<Tracker["kind"]>, string> = { script: "Script", cookie: "Cookie", iframe: "Embed", pixel: "Pixel" };
+
+type Op = { type: "remove"; id: string } | { type: "category"; id: string; category: CategoryId } | { type: "status"; ids: string[]; status: TrackerStatus; category?: CategoryId };
+
+/** "7 Oct 2026", in UTC so server and browser render the same text */
+function day(iso: string) {
+  return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+}
+
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
+function when(iso: string) {
+  return new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+/** "/pricing" from a full URL; "/" for the homepage */
+function pathOf(url: string) {
+  try {
+    const u = new URL(url);
+    return u.pathname === "" ? "/" : u.pathname;
+  } catch {
+    return url;
+  }
+}
+
+export function TrackersManager({
+  propertyId,
+  domain,
+  trackers,
+  scans,
+  canWrite,
+  knownCount,
+}: {
+  propertyId: string;
+  domain: string;
+  trackers: Tracker[];
+  scans: ScanSummary[];
+  canWrite: boolean;
+  knownCount: number;
+}) {
   const toast = useToast();
   const [, start] = useTransition();
-  const [optimistic, apply] = useOptimistic(trackers, (list: Tracker[], op: Op) =>
-    op.type === "remove" ? list.filter((t) => t.id !== op.id) : list.map((t) => (t.id === op.id ? { ...t, category: op.category } : t)),
-  );
+  const [optimistic, apply] = useOptimistic(trackers, (list: Tracker[], op: Op) => {
+    if (op.type === "remove") return list.filter((t) => t.id !== op.id);
+    if (op.type === "category") return list.map((t) => (t.id === op.id ? { ...t, category: op.category } : t));
+    return list.map((t) => (op.ids.includes(t.id) ? { ...t, status: op.status, category: op.category ?? t.category } : t));
+  });
   const run = (op: Op, action: () => Promise<ActionResult>) =>
     start(async () => {
       apply(op);
@@ -37,6 +98,20 @@ export function TrackersManager({ propertyId, trackers, canWrite }: { propertyId
       else if (r?.ok) toast(r.ok);
     });
 
+  const byStatus = (s: TrackerStatus) => optimistic.filter((t) => statusOf(t) === s);
+  const review = byStatus("review");
+  const approved = byStatus("approved");
+  const ignored = byStatus("ignored");
+  const ready = suggested(optimistic);
+
+  const [tab, setTab] = useState<TrackerStatus>(review.length || !approved.length ? "review" : "approved");
+  const [adding, setAdding] = useState(false);
+
+  const approve = (t: Tracker) => {
+    if (!t.category) return toast(`Choose a category for ${t.name} first.`, "error");
+    run({ type: "status", ids: [t.id], status: "approved" }, () => approveTrackers(propertyId, [t.id]));
+  };
+
   const columns: Column<Tracker>[] = [
     {
       id: "name",
@@ -44,40 +119,80 @@ export function TrackersManager({ propertyId, trackers, canWrite }: { propertyId
       sortValue: (t) => t.name.toLowerCase(),
       cell: (t) => (
         <>
-          <span className="font-bold">{t.name}</span>
+          <span className="font-semibold">{t.name}</span>
+          {t.kind && t.kind !== "script" ? <span className="ml-1.5 text-xs text-ink-3">{KIND_LABEL[t.kind]}</span> : null}
           <span className="block break-all font-mono text-xs text-ink-3">{t.pattern}</span>
         </>
       ),
     },
     {
-      id: "category",
-      header: "Held until consent to",
-      mobileLabel: "Held until consent to",
-      sortValue: (t) => t.category,
-      cell: (t) => {
-        const Icon = CATEGORY_ICONS[t.category];
-        return canWrite ? (
-          <label className="inline-flex items-center gap-2">
-            <span className="sr-only">Category for {t.name}</span>
-            <Icon size={16} className="text-ink-3" />
-            <select
-              className="field h-9 w-auto py-0 pr-8 text-sm max-sm:h-11"
-              value={t.category}
-              onChange={(e) => run({ type: "category", id: t.id, category: e.target.value as Category }, () => updateTrackerCategory(propertyId, t.id, e.target.value as Category))}
-            >
-              {CATEGORIES.map((c) => (
-                <option key={c.value} value={c.value}>
-                  {c.label}
-                </option>
-              ))}
-            </select>
-          </label>
+      id: "vendor",
+      header: "Vendor",
+      sortValue: (t) => (t.vendor ?? "~").toLowerCase(),
+      cell: (t) =>
+        t.vendor ? (
+          <span className="block max-w-[15rem] text-left">
+            <span className="text-ink">{t.vendor}</span>
+            {t.purpose ? <span className="block text-xs leading-snug text-ink-3">{t.purpose}</span> : null}
+          </span>
         ) : (
-          <Badge tone="held" icon={<Icon size={14} />}>
-            {labelOf(t.category)}
+          <span className="text-ink-3">{t.source === "scan" ? "Unknown" : "Not set"}</span>
+        ),
+    },
+    {
+      id: "category",
+      header: "Category",
+      sortValue: (t) => t.category ?? "~",
+      cell: (t) => {
+        if (canWrite) {
+          return (
+            <div className="w-44 max-sm:ml-auto">
+              <Select<CategoryId>
+                size="sm"
+                aria-label={`Category for ${t.name}`}
+                placeholder="Choose category"
+                value={t.category ?? undefined}
+                options={CATEGORY_OPTIONS}
+                menuWidth={256}
+                onValueChange={(category) => run({ type: "category", id: t.id, category }, () => updateTrackerCategory(propertyId, t.id, category))}
+              />
+            </div>
+          );
+        }
+        if (!t.category) return <span className="text-ink-3">Unclassified</span>;
+        const Icon = CATEGORY_ICONS[t.category];
+        return (
+          <Badge tone="neutral" icon={<Icon size={14} />}>
+            {CATEGORY_LABEL[t.category]}
           </Badge>
         );
       },
+    },
+    {
+      id: "party",
+      header: "Party",
+      sortValue: (t) => t.party ?? "~",
+      cell: (t) => (t.party ? <Badge tone="neutral">{t.party === "first" ? "First party" : "Third party"}</Badge> : <span className="text-ink-3">–</span>),
+    },
+    {
+      id: "found",
+      header: "Found on",
+      sortValue: (t) => t.pageCount ?? -1,
+      cell: (t) =>
+        t.pageCount ? (
+          <span className="block min-w-0">
+            <span className="tabular-nums">
+              {t.pageCount} page{t.pageCount === 1 ? "" : "s"}
+            </span>
+            {t.foundOn?.[0] ? (
+              <span className="block max-w-[12rem] truncate font-mono text-xs text-ink-3 max-sm:ml-auto" title={t.foundOn.join("\n")}>
+                {pathOf(t.foundOn[0])}
+              </span>
+            ) : null}
+          </span>
+        ) : (
+          <span className="text-ink-3">{t.source === "scan" ? "Not seen in last scan" : "Added by hand"}</span>
+        ),
     },
     ...(canWrite
       ? [
@@ -86,177 +201,331 @@ export function TrackersManager({ propertyId, trackers, canWrite }: { propertyId
             header: <span className="sr-only">Actions</span>,
             mobileLabel: "Actions",
             align: "right" as const,
-            cell: (t: Tracker) => (
-              <Button variant="quiet" size="sm" aria-label={`Remove ${t.name}`} onClick={() => run({ type: "remove", id: t.id }, () => removeTracker(propertyId, t.id))}>
-                <IconTrash size={16} />
-                <span className="sm:sr-only">Remove</span>
-              </Button>
-            ),
+            cell: (t: Tracker) => <RowActions t={t} onApprove={approve} run={run} propertyId={propertyId} />,
           },
         ]
       : []),
   ];
 
-  return (
-    <div className="space-y-10">
-      {canWrite ? <Scanner propertyId={propertyId} existing={trackers.map((t) => t.pattern)} /> : null}
+  const lastScan = scans[0];
+  const tabs: { value: TrackerStatus; label: string; rows: Tracker[] }[] = [
+    { value: "review", label: "To review", rows: review },
+    { value: "approved", label: "Approved", rows: approved },
+    { value: "ignored", label: "Ignored", rows: ignored },
+  ];
+  const heldCount = approved.filter((t) => t.category && t.category !== "essential").length;
 
-      <section aria-labelledby="trackers-h" className="space-y-4">
-        <div>
-          <h2 id="trackers-h" className="text-lg font-bold">
-            Held trackers
-          </h2>
-          <p className="text-sm text-ink-3">Scripts whose address contains a pattern below wait until the visitor consents to that category.</p>
+  const empty: Record<TrackerStatus, string> = {
+    review: lastScan ? "Nothing to review. New trackers from your next scan appear here." : "Scan your site to find trackers. What we find waits here for you to approve or ignore.",
+    approved: "No approved trackers yet. Approve suggestions from To review, or add one by hand.",
+    ignored: "Nothing ignored. Trackers you ignore stay here so later scans don't suggest them again.",
+  };
+  const footer: Record<TrackerStatus, string> = {
+    review: "Nothing here is held until you approve it.",
+    approved: "Changes take effect when you publish.",
+    ignored: "Not held, and not suggested again by scans.",
+  };
+  const lastOk = scans.find((s) => s.status === "ok");
+
+  return (
+    <div className="space-y-8">
+      <StatStrip
+        label="Tracker inventory at a glance"
+        className=""
+        stats={[
+          { label: "Approved", value: String(approved.length), note: `${heldCount} held until consent` },
+          {
+            label: "To review",
+            value: String(review.length),
+            note: ready.length ? `${ready.length} with a suggested category` : review.length ? "Each needs a category" : "Nothing waiting",
+            tone: review.length ? "warn" : undefined,
+          },
+          { label: "Ignored", value: String(ignored.length), note: "Not suggested again" },
+          lastScan?.status === "failed"
+            ? { label: "Last scan", value: "Failed", note: day(lastScan.finishedAt), tone: "bad" as const }
+            : {
+                label: "Last scan",
+                value: lastOk ? day(lastOk.finishedAt) : "No scan yet",
+                note: lastOk ? `${plural(lastOk.pages, "page")} read, ${lastOk.findings} found${lastOk.unknown ? ` (${lastOk.unknown} unknown)` : ""}` : "Scan to find trackers",
+              },
+        ]}
+      />
+
+      <ScanCard propertyId={propertyId} domain={domain} scans={scans} canWrite={canWrite} knownCount={knownCount} onScanned={(added) => added > 0 && setTab("review")} />
+
+      <section aria-labelledby="inventory-h" className="space-y-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 id="inventory-h" className="text-lg font-semibold">
+              Tracker inventory
+            </h2>
+            <p className="text-sm text-ink-3">Approve what you use, ignore what you don&apos;t. Only approved trackers are published.</p>
+          </div>
+          {canWrite ? (
+            <div className="flex flex-wrap gap-2">
+              {tab === "review" && ready.length ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    run({ type: "status", ids: ready.map((t) => t.id), status: "approved" }, () =>
+                      approveTrackers(
+                        propertyId,
+                        ready.map((t) => t.id),
+                      ),
+                    )
+                  }
+                >
+                  <IconCheck size={16} />
+                  Approve all suggested ({ready.length})
+                </Button>
+              ) : null}
+              <Button variant="ghost" size="sm" onClick={() => setAdding(true)}>
+                <IconPlus size={16} />
+                Add manually
+              </Button>
+            </div>
+          ) : null}
         </div>
-        <DataTable
-          caption="Held trackers"
-          rows={optimistic}
-          columns={columns}
-          rowKey={(t) => t.id}
-          initialSort={{ id: "name", dir: "ascending" }}
-          minWidth={560}
-          empty="No trackers yet. Scan your site or add one below."
-          footer={`${optimistic.length} tracker${optimistic.length === 1 ? "" : "s"}. Changes take effect when you publish.`}
-        />
+
+        <div>
+          <Tabs<TrackerStatus>
+            idBase="trk"
+            label="Trackers by status"
+            value={tab}
+            onChange={setTab}
+            items={tabs.map((t) => ({
+              value: t.value,
+              label: (
+                <>
+                  {t.label} <span className="ml-0.5 tabular-nums text-ink-3">({t.rows.length})</span>
+                </>
+              ),
+            }))}
+          />
+          {tabs
+            .filter((t) => t.value === tab)
+            .map((t) => (
+              <TabPanel key={t.value} idBase="trk" value={t.value}>
+                <div className="pt-4">
+                  {t.value === "review" && ready.length ? (
+                    <p className="mb-3 text-sm text-ink-2">
+                      {ready.length} of {review.length} matched a known vendor and have a suggested category. Check them, then approve. The rest need a category from you.
+                    </p>
+                  ) : null}
+                  <DataTable
+                    caption={`${t.label} trackers`}
+                    rows={t.rows}
+                    columns={columns}
+                    rowKey={(r) => r.id}
+                    initialSort={{ id: "name", dir: "ascending" }}
+                    minWidth={canWrite ? 960 : 760}
+                    empty={empty[t.value]}
+                    footer={t.rows.length ? footer[t.value] : undefined}
+                  />
+                </div>
+              </TabPanel>
+            ))}
+        </div>
       </section>
 
-      {canWrite ? <AddTrackerForm propertyId={propertyId} /> : null}
+      <ScanHistory scans={scans} />
+
+      {canWrite ? (
+        <Dialog open={adding} onClose={() => setAdding(false)} title="Add a tracker by hand" description="For scripts a scan can't see, such as ones loaded after sign-in." width={480}>
+          <AddTrackerForm propertyId={propertyId} onDone={() => setAdding(false)} />
+        </Dialog>
+      ) : null}
     </div>
   );
 }
 
-function AddTrackerForm({ propertyId }: { propertyId: string }) {
-  const [state, action] = useActionState<ActionResult, FormData>(addTracker.bind(null, propertyId), null);
+function RowActions({
+  t,
+  onApprove,
+  run,
+  propertyId,
+}: {
+  t: Tracker;
+  onApprove: (t: Tracker) => void;
+  run: (op: Op, action: () => Promise<ActionResult>) => void;
+  propertyId: string;
+}) {
+  const s = statusOf(t);
+  const ignore = () => run({ type: "status", ids: [t.id], status: "ignored" }, () => ignoreTrackers(propertyId, [t.id]));
+  const remove = (
+    <Button variant="quiet" size="sm" aria-label={`Remove ${t.name}`} title="Remove" onClick={() => run({ type: "remove", id: t.id }, () => removeTracker(propertyId, t.id))}>
+      <IconTrash size={16} />
+      <span className="sm:sr-only">Remove</span>
+    </Button>
+  );
   return (
-    <section aria-labelledby="add-tracker-h" className="border-t border-line pt-8">
-      <h2 id="add-tracker-h" className="text-lg font-bold">
-        Add a tracker by hand
-      </h2>
-      <p className="mb-5 text-sm text-ink-3">For scripts the scanner can&apos;t see, such as ones loaded after sign-in.</p>
-      <form action={action} className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)_200px_auto] md:items-start" noValidate>
-        <TextField id="t-name" name="name" label="Name" placeholder="Microsoft Clarity" error={state?.fieldErrors?.name} />
-        <TextField id="t-pattern" name="pattern" label="Script address contains" placeholder="clarity.ms" controlClassName="font-mono" error={state?.fieldErrors?.pattern} />
-        <SelectField id="t-category" name="category" label="Category" defaultValue="analytics" options={CATEGORIES} error={state?.fieldErrors?.category} />
-        <div className="md:pt-[26px]">
-          <SubmitButton pending="Adding" className="w-full md:w-auto">
-            Add tracker
-          </SubmitButton>
+    <div className="flex flex-wrap justify-end gap-1">
+      {s === "review" ? (
+        <>
+          <Button variant="ghost" size="sm" aria-label={`Approve ${t.name}`} onClick={() => onApprove(t)}>
+            Approve
+          </Button>
+          <Button variant="quiet" size="sm" aria-label={`Ignore ${t.name}`} onClick={ignore}>
+            Ignore
+          </Button>
+        </>
+      ) : null}
+      {s === "approved" ? (
+        <>
+          <Button variant="quiet" size="sm" aria-label={`Ignore ${t.name}`} onClick={ignore}>
+            Ignore
+          </Button>
+          {remove}
+        </>
+      ) : null}
+      {s === "ignored" ? (
+        <>
+          <Button variant="ghost" size="sm" aria-label={`Restore ${t.name} to review`} onClick={() => run({ type: "status", ids: [t.id], status: "review" }, () => restoreTracker(propertyId, t.id))}>
+            Restore
+          </Button>
+          {remove}
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+function ScanCard({
+  propertyId,
+  domain,
+  scans,
+  canWrite,
+  knownCount,
+  onScanned,
+}: {
+  propertyId: string;
+  domain: string;
+  scans: ScanSummary[];
+  canWrite: boolean;
+  knownCount: number;
+  onScanned: (added: number) => void;
+}) {
+  const [scanning, startScan] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
+  const last = scans[0];
+  // a failed latest scan shows its reason until the next run
+  const shownError = error ?? (last?.status === "failed" ? (last.error ?? "The last scan failed.") : null);
+
+  const scan = () =>
+    startScan(async () => {
+      setError(null);
+      const r = await scanTrackers(propertyId);
+      if (!r.ok) {
+        setError(r.error);
+        return;
+      }
+      const n = r.report.findings.length;
+      toast(`Scan finished: ${n} item${n === 1 ? "" : "s"} found, ${r.added} new to review.`);
+      onScanned(r.added);
+    });
+
+  return (
+    <section aria-labelledby="scan-h" className="overflow-hidden rounded-[16px] border border-line bg-surface">
+      <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+        <div className="min-w-0">
+          <h2 id="scan-h" className="text-lg font-semibold">
+            Scan {domain}
+          </h2>
+          <p className="max-w-[62ch] text-sm text-ink-3">
+            We read up to 10 pages of your site and check every script, embed, pixel and cookie against {knownCount} known trackers. Takes up to 25 seconds.
+          </p>
         </div>
-      </form>
-      <div className="mt-4">
-        <FormMessage state={state && !state.fieldErrors ? state : null} />
+        {canWrite ? (
+          <Button loading={scanning} loadingLabel="Scanning" onClick={scan} className="shrink-0 max-sm:w-full">
+            <IconScan size={18} />
+            Scan now
+          </Button>
+        ) : null}
+      </div>
+      <div aria-live="polite">
+        {scanning ? (
+          <p className="border-t border-line px-5 py-3 text-sm text-ink-2 sm:px-6">Reading your pages. New trackers will appear under To review.</p>
+        ) : shownError ? (
+          <p role="alert" className="flex gap-2 border-t border-line px-5 py-3 text-sm text-ink sm:px-6">
+            <IconAlert size={18} className="mt-0.5 shrink-0 text-rose" aria-hidden />
+            <span>
+              <span className="font-medium">The scan didn&apos;t finish.</span> {shownError}
+            </span>
+          </p>
+        ) : null}
       </div>
     </section>
   );
 }
 
-function Scanner({ propertyId, existing }: { propertyId: string; existing: string[] }) {
-  const [result, setResult] = useState<ScanResult | null>(null);
-  const [picked, setPicked] = useState<Set<string>>(new Set());
-  const [scanning, startScan] = useTransition();
-  const [adding, startAdd] = useTransition();
-  const toast = useToast();
-  const fresh = result?.ok ? result.found.filter((f) => !existing.includes(f.pattern)) : [];
-
+function ScanHistory({ scans }: { scans: ScanSummary[] }) {
+  if (!scans.length) return null;
   return (
-    <section aria-labelledby="scan-h" className="rounded-lg border border-line bg-surface">
-      <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 id="scan-h" className="text-lg font-bold">
-            Scan your site
-          </h2>
-          <p className="text-sm text-ink-3">We load your homepage and look for known analytics and ad scripts. Takes up to 8 seconds.</p>
-        </div>
-        <Button
-          loading={scanning}
-          loadingLabel="Scanning"
-          onClick={() =>
-            startScan(async () => {
-              const r = await scanSite(propertyId);
-              setResult(r);
-              if (r.ok) setPicked(new Set(r.found.filter((f) => !existing.includes(f.pattern)).map((f) => f.pattern)));
-            })
-          }
-        >
-          <IconScan size={18} />
-          Scan now
-        </Button>
-      </div>
+    <details className="group rounded-[16px] border border-line bg-surface">
+      <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-[16px] px-5 py-3 text-sm font-semibold hover:bg-paper focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand sm:px-6 [&::-webkit-details-marker]:hidden">
+        <span className="flex items-center gap-2">
+          <IconClock size={16} className="text-ink-3" aria-hidden />
+          Scan history
+          <span className="font-normal text-ink-3">(last {scans.length})</span>
+        </span>
+        <IconChevronDown size={16} className="text-ink-3 transition-transform group-open:rotate-180" aria-hidden />
+      </summary>
+      <ol className="divide-y divide-line border-t border-line">
+        {scans.map((s) => (
+          <li key={s.id} className="flex flex-col gap-1 px-5 py-3 text-sm sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-6">
+            <time dateTime={s.finishedAt} className="tabular-nums text-ink-2" suppressHydrationWarning>
+              {when(s.finishedAt)}
+            </time>
+            {s.status === "ok" ? (
+              <span className="text-ink-2">
+                {s.pages} page{s.pages === 1 ? "" : "s"} read, {s.findings} found{s.unknown ? `, ${s.unknown} unknown` : ""}
+              </span>
+            ) : (
+              <span className="flex items-start gap-1.5 text-ink-2">
+                <IconAlert size={16} className="mt-0.5 shrink-0 text-rose" aria-hidden />
+                <span>
+                  <span className="font-medium text-ink">Failed:</span> {s.error ?? "Unknown error."}
+                </span>
+              </span>
+            )}
+          </li>
+        ))}
+      </ol>
+    </details>
+  );
+}
 
-      <div aria-live="polite">
-        {result && !result.ok ? (
-          <p role="alert" className="border-t border-line px-5 py-4 text-sm text-rose">
-            {result.error}
-          </p>
-        ) : null}
-        {result?.ok ? (
-          <div className="border-t border-line px-5 py-4">
-            <p className="mb-3 text-sm text-ink-2">
-              Checked {result.scripts} script{result.scripts === 1 ? "" : "s"} on {result.url}.{" "}
-              {result.found.length === 0
-                ? "No known trackers found."
-                : fresh.length === 0
-                  ? "Every tracker found is already held."
-                  : `${fresh.length} new tracker${fresh.length === 1 ? "" : "s"} found.`}
-            </p>
-            {fresh.length ? (
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  startAdd(async () => {
-                    const r = await addScannedTrackers(
-                      propertyId,
-                      fresh.filter((f) => picked.has(f.pattern)).map(({ name, category, pattern }) => ({ name, category, pattern })),
-                    );
-                    if (r?.error) toast(r.error, "error");
-                    else {
-                      toast(r?.ok ?? "Added.");
-                      setResult(null);
-                    }
-                  });
-                }}
-              >
-                <fieldset>
-                  <legend className="sr-only">Trackers to hold</legend>
-                  <ul className="divide-y divide-line rounded-md border border-line">
-                    {fresh.map((f) => (
-                      <li key={f.pattern}>
-                        <label className="flex min-h-11 cursor-pointer items-start gap-3 px-3 py-2.5 hover:bg-paper">
-                          <input
-                            type="checkbox"
-                            className="mt-1 size-4 accent-brand"
-                            checked={picked.has(f.pattern)}
-                            onChange={(e) =>
-                              setPicked((s) => {
-                                const n = new Set(s);
-                                if (e.target.checked) n.add(f.pattern);
-                                else n.delete(f.pattern);
-                                return n;
-                              })
-                            }
-                          />
-                          <span className="min-w-0 flex-1">
-                            <span className="text-sm font-bold">{f.name}</span>{" "}
-                            <Badge tone="held" className="ml-1 align-middle">
-                              {labelOf(f.category)}
-                            </Badge>
-                            <span className="mt-0.5 block truncate font-mono text-xs text-ink-3">{f.evidence}</span>
-                          </span>
-                        </label>
-                      </li>
-                    ))}
-                  </ul>
-                </fieldset>
-                <div className="mt-3 flex justify-end">
-                  <Button type="submit" loading={adding} loadingLabel="Adding" disabled={picked.size === 0}>
-                    Hold {picked.size} selected
-                  </Button>
-                </div>
-              </form>
-            ) : null}
-          </div>
-        ) : null}
+function AddTrackerForm({ propertyId, onDone }: { propertyId: string; onDone: () => void }) {
+  const [state, action] = useActionState<ActionResult, FormData>(addTracker.bind(null, propertyId), null);
+  const toast = useToast();
+  useEffect(() => {
+    if (state?.ok) {
+      toast(state.ok);
+      onDone();
+    }
+  }, [state, toast, onDone]);
+  return (
+    <form action={action} className="space-y-4" noValidate>
+      <TextField id="t-name" name="name" label="Name" placeholder="Microsoft Clarity" error={state?.fieldErrors?.name} />
+      <TextField
+        id="t-pattern"
+        name="pattern"
+        label="Script address contains"
+        hint="A host or part of the address, e.g. clarity.ms"
+        placeholder="clarity.ms"
+        controlClassName="font-mono"
+        error={state?.fieldErrors?.pattern}
+      />
+      <SelectField<CategoryId> id="t-category" name="category" label="Hold until consent to" defaultValue="analytics" options={MANUAL_OPTIONS} error={state?.fieldErrors?.category} />
+      <FormMessage state={state && !state.fieldErrors && state.error ? state : null} />
+      <div className="flex justify-end gap-2 pt-2">
+        <Button variant="quiet" onClick={onDone}>
+          Cancel
+        </Button>
+        <SubmitButton pending="Adding">Add tracker</SubmitButton>
       </div>
-    </section>
+    </form>
   );
 }

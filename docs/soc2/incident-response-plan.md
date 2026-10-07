@@ -18,7 +18,7 @@ systems. For example:
 - loss of availability of the consent API or banner delivery;
 - a lost or stolen laptop with access to company systems.
 
-Anyone who suspects an incident reports it immediately to `security@theplaintheory.com` and the
+Anyone who suspects an incident reports it immediately to `security@theplaintheory.in` and the
 Security lead by phone or chat. Don't investigate alone, and don't delete anything.
 
 ## Severity

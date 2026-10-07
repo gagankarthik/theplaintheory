@@ -91,8 +91,8 @@ export function DataTable<T>({
       </ul>
       <div className="hidden overflow-x-auto sm:block" tabIndex={0} role="region" aria-label={caption}>
         <table className="w-full text-left text-sm" style={{ minWidth }}>
-          <caption className={captionHidden ? "sr-only" : "px-5 pt-4 text-left text-base font-bold"}>{caption}</caption>
-          <thead className="border-b border-line bg-paper text-xs text-ink-3">
+          <caption className={captionHidden ? "sr-only" : "px-5 pt-4 text-left text-base font-semibold"}>{caption}</caption>
+          <thead className="border-b border-line bg-paper/60 text-xs text-ink-3">
             <tr>
               {columns.map((c) => {
                 const active = sort?.id === c.id;
@@ -102,7 +102,7 @@ export function DataTable<T>({
                     key={c.id}
                     scope="col"
                     aria-sort={c.sortValue ? (active ? sort!.dir : "none") : undefined}
-                    className={`px-4 py-3 font-bold first:pl-5 last:pr-5 ${right ? "text-right" : ""}`}
+                    className={`px-4 py-3 font-medium first:pl-5 last:pr-5 ${right ? "text-right" : ""}`}
                   >
                     {c.sortValue ? (
                       <button

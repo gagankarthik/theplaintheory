@@ -7,7 +7,11 @@ export type ComplianceSlug = (typeof COMPLIANCE_SLUGS)[number];
 export const MARKETING_ROUTES: { path: string; priority: number; changeFrequency: "weekly" | "monthly" | "yearly"; updated: string }[] = [
   { path: "/", priority: 1, changeFrequency: "weekly", updated: "2026-10-06" },
   { path: "/pricing", priority: 0.9, changeFrequency: "monthly", updated: "2026-10-06" },
-  { path: "/contact-sales", priority: 0.7, changeFrequency: "yearly", updated: "2026-10-06" },
+  { path: "/contact", priority: 0.7, changeFrequency: "yearly", updated: "2026-10-07" },
+  { path: "/contact-sales", priority: 0.7, changeFrequency: "yearly", updated: "2026-10-07" },
+  { path: "/contact/support", priority: 0.6, changeFrequency: "yearly", updated: "2026-10-07" },
+  { path: "/contact/partners", priority: 0.5, changeFrequency: "yearly", updated: "2026-10-07" },
+  { path: "/contact/enterprise", priority: 0.6, changeFrequency: "yearly", updated: "2026-10-07" },
   { path: "/docs", priority: 0.8, changeFrequency: "weekly", updated: "2026-10-06" },
   ...COMPLIANCE_SLUGS.map((s) => ({ path: `/compliance/${s}`, priority: 0.8, changeFrequency: "monthly" as const, updated: "2026-10-06" })),
   { path: "/security", priority: 0.7, changeFrequency: "monthly", updated: "2026-10-06" },

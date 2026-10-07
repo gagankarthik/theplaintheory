@@ -12,7 +12,7 @@ import { PlatformGrid } from "@/components/marketing/home/platform-grid";
 import { ProductTour } from "@/components/marketing/home/product-tour";
 import { JsonLd } from "@/components/marketing/json-ld";
 import { Section } from "@/components/marketing/primitives";
-import { PLANS } from "@/lib/plans";
+import { getLivePlans } from "@/lib/stripe-catalog";
 import { sdkSizeKb } from "@/lib/sdk-size";
 import { absoluteUrl, site } from "@/lib/site";
 
@@ -58,7 +58,11 @@ const faq = (sizeKb: string): FaqItem[] => [
   },
 ];
 
-export default function HomePage() {
+/** Structured-data prices come live from Stripe. */
+export const revalidate = 300;
+
+export default async function HomePage() {
+  const plans = await getLivePlans();
   const sizeKb = sdkSizeKb();
   const items = faq(sizeKb);
   return (
@@ -87,7 +91,7 @@ export default function HomePage() {
               applicationCategory: "BusinessApplication",
               operatingSystem: "Web",
               description: site.description,
-              offers: PLANS.filter((p) => p.priceMonthly !== null).map((p) => ({
+              offers: plans.filter((p) => p.priceMonthly !== null).map((p) => ({
                 "@type": "Offer",
                 name: p.name,
                 price: p.priceMonthly,

@@ -2,7 +2,6 @@ import "server-only";
 import { cache } from "react";
 import { isLocked } from "../auth/lockout";
 import { sessionProblem } from "../auth/session";
-import { isBootstrapSuperadmin, resolvePlatformRole, type PlatformRole, type StaffMember } from "../auth/platform";
 import { PLANS, planById } from "../plans";
 import { getStore } from "../store";
 import type { Organization, PlanId, Role, User } from "../types";
@@ -33,7 +32,6 @@ export interface UserSummary {
   name: string;
   email: string;
   orgs: { id: string; name: string; role: Role }[];
-  platformRole: PlatformRole | null;
   mfa: boolean;
   lastActiveAt?: string;
   locked: boolean;
@@ -71,7 +69,6 @@ export const loadSnapshot = cache(async () => {
     name: u.name,
     email: u.email,
     orgs: userOrgs.get(u.id) ?? [],
-    platformRole: resolvePlatformRole(u),
     mfa: Boolean(u.mfa),
     lastActiveAt: u.lastActiveAt,
     locked: isLocked(u, now),
@@ -168,23 +165,4 @@ export async function loadUserDetail(userId: string) {
   const orgs = await Promise.all(memberships.map(async (m) => ({ membership: m, org: await store.getOrg(m.orgId) })));
   const now = Date.now();
   return { user, orgs, sessions: sessions.map((s) => ({ ...s, problem: sessionProblem(s, now) })), locked: isLocked(user, now) };
-}
-
-/** Everyone with an effective platform role, bootstrap superadmins included when they have an account. */
-export async function loadStaff(): Promise<(StaffMember & { name: string; mfa: boolean; lastActiveAt?: string })[]> {
-  const store = await getStore();
-  const users = await store.listUsers();
-  return users
-    .map((u) => ({ u, role: resolvePlatformRole(u) }))
-    .filter((x): x is { u: User; role: PlatformRole } => x.role !== null)
-    .map(({ u, role }) => ({
-      userId: u.id,
-      email: u.email,
-      name: u.name,
-      role,
-      bootstrap: isBootstrapSuperadmin(u.email),
-      mfa: Boolean(u.mfa),
-      lastActiveAt: u.lastActiveAt,
-    }))
-    .sort((a, b) => a.email.localeCompare(b.email));
 }

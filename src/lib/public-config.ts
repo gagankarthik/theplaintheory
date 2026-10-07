@@ -1,3 +1,4 @@
+import { sdkTrackers } from "./trackers";
 import type { Framework, Property } from "./types";
 
 // Client-safe: used by the server publisher, the builder preview and the SDK contract.
@@ -37,7 +38,8 @@ export function toPublicConfig(p: Property, dpo?: { name: string; email: string 
     theme: p.config.theme,
     categories: p.config.categories,
     regions,
-    trackers: p.trackers.map((t) => ({ p: t.pattern, c: t.category })),
+    // approved trackers only: suggestions in review and ignored ones never reach visitors
+    trackers: sdkTrackers(p.trackers),
     policyUrl: p.config.policyUrl,
     headless: p.config.headless,
     gcm: p.config.googleConsentMode,

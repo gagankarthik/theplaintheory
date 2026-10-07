@@ -50,14 +50,14 @@ export function Dialog({
         (opener.current as HTMLElement | null)?.focus?.();
       }}
       onClick={(e) => e.target === ref.current && onClose()}
-      className="m-auto rounded-xl border border-line bg-surface p-0 text-ink shadow-float backdrop:bg-ink/45"
+      className="scroll-thin m-auto rounded-xl border border-line bg-surface p-0 text-ink shadow-float backdrop:bg-ink/45"
       style={{ width: `min(${width}px, calc(100vw - 2rem))` }}
     >
       {open ? (
         <>
           <div className="flex items-start justify-between gap-4 border-b border-line px-6 py-4">
             <div>
-              <h2 id={`${id}-t`} className="text-lg font-bold">
+              <h2 id={`${id}-t`} className="text-lg font-semibold">
                 {title}
               </h2>
               {description ? (

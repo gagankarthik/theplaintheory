@@ -1,35 +1,35 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { verifyPropertyChain, type ChainCheck } from "@/app/app/sites/[propertyId]/actions";
-import { Badge, type BadgeTone } from "@/components/app/ui/badge";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useMemo, useTransition } from "react";
+import { verifyPropertyChain } from "@/app/app/sites/[propertyId]/actions";
+import { Badge } from "@/components/app/ui/badge";
 import { Button } from "@/components/app/ui/button";
 import { DataTable, type Column } from "@/components/app/ui/data-table";
-import { IconChain } from "@/components/icons";
+import { useToast } from "@/components/app/ui/toast";
+import { IconChain, IconChevronRight } from "@/components/icons";
 import { formatInt } from "@/lib/analytics";
 import { FRAMEWORK_META } from "@/lib/defaults";
-import type { CategoryId, ConsentAction, ConsentReceipt } from "@/lib/types";
+import type { CategoryId, ConsentReceipt } from "@/lib/types";
+import { ACTION, CAT_SHORT, utcShort as time } from "./receipt-labels";
 
-const ACTION: Record<ConsentAction, { label: string; tone: BadgeTone }> = {
-  accept_all: { label: "Accepted all", tone: "released" },
-  reject_all: { label: "Rejected all", tone: "declined" },
-  custom: { label: "Chose some", tone: "neutral" },
-  revoke: { label: "Withdrew", tone: "declined" },
-  dismiss: { label: "Dismissed", tone: "neutral" },
-};
-const CAT_SHORT: Record<CategoryId, string> = { essential: "Essential", functional: "Preferences", analytics: "Analytics", marketing: "Marketing" };
-
-const time = (iso: string) =>
-  new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", second: "2-digit", timeZone: "UTC" }) + " UTC";
-
-const columns: Column<ConsentReceipt>[] = [
+const columns = (propertyId: string): Column<ConsentReceipt>[] => [
   {
     id: "seq",
     header: "Receipt",
     sortValue: (r) => r.seq,
     cell: (r) => (
       <>
-        <span className="font-bold tabular-nums">#{formatInt(r.seq)}</span>
+        {/* The link's ::after covers the whole row, so any click on it opens the receipt; it is the row's one tab stop. */}
+        <Link
+          href={`/app/sites/${propertyId}/logs/${r.seq}`}
+          className="inline-flex min-h-6 items-center gap-1 rounded font-semibold tabular-nums text-ink after:absolute after:inset-0 after:content-[''] hover:text-brand hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+        >
+          #{formatInt(r.seq)}
+          <span className="sr-only">, open proof of consent</span>
+          <IconChevronRight size={14} aria-hidden className="text-ink-3" />
+        </Link>
         <time dateTime={r.timestamp} className="block text-xs text-ink-3">
           {time(r.timestamp)}
         </time>
@@ -44,7 +44,7 @@ const columns: Column<ConsentReceipt>[] = [
       <ul className="flex flex-wrap gap-1" aria-label="Categories">
         {(Object.keys(CAT_SHORT) as CategoryId[]).map((c) => (
           <li key={c}>
-            <Badge tone={r.categories[c] ? "released" : "held"} icon={<span aria-hidden className="text-[10px]">{r.categories[c] ? "✓" : "–"}</span>}>
+            <Badge tone={r.categories[c] ? "released" : "held"} icon={<span aria-hidden className="text-2xs">{r.categories[c] ? "✓" : "–"}</span>}>
               {CAT_SHORT[c]}
               <span className="sr-only">{r.categories[c] ? " allowed" : " held"}</span>
             </Badge>
@@ -53,7 +53,21 @@ const columns: Column<ConsentReceipt>[] = [
       </ul>
     ),
   },
-  { id: "notice", header: "Notice", sortValue: (r) => r.framework, cell: (r) => FRAMEWORK_META[r.framework].name },
+  {
+    id: "notice",
+    header: "Notice",
+    sortValue: (r) => r.framework,
+    cell: (r) => (
+      <>
+        <span>{FRAMEWORK_META[r.framework].name}</span>
+        {r.language || r.gpc || r.automated ? (
+          <span className="block text-xs text-ink-3">
+            {[r.language ? `Shown in ${r.language}` : "", r.gpc ? "GPC honoured" : "", r.automated ? "Automated browser" : ""].filter(Boolean).join(" · ")}
+          </span>
+        ) : null}
+      </>
+    ),
+  },
   {
     id: "where",
     header: "Visitor",
@@ -79,34 +93,47 @@ const columns: Column<ConsentReceipt>[] = [
   },
 ];
 
-export function LogsTable({ rows, footer }: { rows: ConsentReceipt[]; footer: React.ReactNode }) {
-  return <DataTable caption="Consent receipts, newest first" rows={rows} columns={columns} rowKey={(r) => r.id} minWidth={880} empty="No receipts in this range." footer={footer} />;
+export function LogsTable({ propertyId, rows, footer, empty = "No receipts in this range." }: { propertyId: string; rows: ConsentReceipt[]; footer: React.ReactNode; empty?: React.ReactNode }) {
+  const cols = useMemo(() => columns(propertyId), [propertyId]);
+  return (
+    <DataTable
+      caption="Consent receipts, newest first"
+      rows={rows}
+      columns={cols}
+      rowKey={(r) => r.id}
+      minWidth={880}
+      empty={empty}
+      footer={footer}
+      rowClassName={() => "relative cursor-pointer"}
+    />
+  );
 }
 
-export function VerifyChain({ propertyId }: { propertyId: string }) {
-  const [result, setResult] = useState<ChainCheck | null>(null);
+/**
+ * Re-hashes the whole chain on demand. The result is saved on the site as its last check, so the
+ * "Chain" number above the log updates on refresh; a toast says what was found.
+ */
+export function VerifyChainButton({ propertyId }: { propertyId: string }) {
   const [pending, start] = useTransition();
+  const toast = useToast();
+  const router = useRouter();
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-      <Button variant="ghost" loading={pending} loadingLabel="Verifying" onClick={() => start(async () => setResult(await verifyPropertyChain(propertyId)))}>
-        <IconChain size={18} />
-        Verify chain
-      </Button>
-      <p aria-live="polite" className="text-sm">
-        {result ? (
-          result.ok ? (
-            <span className="text-jade">
-              <strong>Intact.</strong> All {formatInt(result.checked)} receipts link correctly; none were altered or removed.
-            </span>
-          ) : result.error ? (
-            <span className="text-rose">{result.error}</span>
-          ) : (
-            <span className="text-rose">
-              <strong>Broken at receipt #{formatInt(result.brokenAt ?? 0)}.</strong> A record was changed or removed after it was written. Export the log and contact support.
-            </span>
-          )
-        ) : null}
-      </p>
-    </div>
+    <Button
+      variant="ghost"
+      loading={pending}
+      loadingLabel="Verifying"
+      onClick={() =>
+        start(async () => {
+          const r = await verifyPropertyChain(propertyId);
+          if (r.ok) toast(`Chain intact. All ${formatInt(r.checked)} receipts link correctly; none were altered or removed.`);
+          else if (r.error) toast(r.error, "error");
+          else toast(`Chain broken at receipt #${formatInt(r.brokenAt ?? 0)}. A record was changed or removed after it was written. Export the log and contact support.`, "error");
+          router.refresh();
+        })
+      }
+    >
+      <IconChain size={18} />
+      Verify chain
+    </Button>
   );
 }

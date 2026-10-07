@@ -6,6 +6,7 @@ import type * as kinesis from "aws-cdk-lib/aws-kinesis";
 import type * as kms from "aws-cdk-lib/aws-kms";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import { Construct } from "constructs";
+import type { Naming } from "./naming";
 
 /**
  * DynamoDB change stream -> Kinesis -> Firehose -> S3 (partitioned by day) -> Glue table for Athena.
@@ -15,11 +16,14 @@ import { Construct } from "constructs";
 export class ReceiptArchive extends Construct {
   readonly bucket: s3.Bucket;
 
-  constructor(scope: Construct, id: string, props: { stream: kinesis.Stream; key: kms.Key; stage: string }) {
+  constructor(scope: Construct, id: string, props: { stream: kinesis.Stream; key: kms.Key; naming: Naming }) {
     super(scope, id);
     const stack = Stack.of(this);
 
+    const glueDb = `pt_${props.naming.stage}_receipts`;
+
     this.bucket = new s3.Bucket(this, "Bucket", {
+      bucketName: props.naming.bucket("archive", stack.account),
       encryption: s3.BucketEncryption.KMS,
       encryptionKey: props.key,
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
@@ -31,12 +35,16 @@ export class ReceiptArchive extends Construct {
       removalPolicy: RemovalPolicy.RETAIN,
     });
 
-    const role = new iam.Role(this, "FirehoseRole", { assumedBy: new iam.ServicePrincipal("firehose.amazonaws.com") });
+    const role = new iam.Role(this, "FirehoseRole", {
+      roleName: props.naming.global("archive-firehose"),
+      assumedBy: new iam.ServicePrincipal("firehose.amazonaws.com"),
+    });
     props.stream.grantRead(role);
     this.bucket.grantReadWrite(role);
     props.key.grantEncryptDecrypt(role);
 
     new firehose.CfnDeliveryStream(this, "Delivery", {
+      deliveryStreamName: props.naming.name("receipts-archive"),
       deliveryStreamType: "KinesisStreamAsSource",
       kinesisStreamSourceConfiguration: { kinesisStreamArn: props.stream.streamArn, roleArn: role.roleArn },
       extendedS3DestinationConfiguration: {
@@ -52,13 +60,13 @@ export class ReceiptArchive extends Construct {
 
     const db = new glue.CfnDatabase(this, "Db", {
       catalogId: stack.account,
-      databaseInput: { name: `plain_theory_${props.stage}` },
+      databaseInput: { name: glueDb },
     });
 
     // Raw DynamoDB stream records ({ eventName, dynamodb: { NewImage: {...} } }); query NewImage fields in Athena.
     const table = new glue.CfnTable(this, "Receipts", {
       catalogId: stack.account,
-      databaseName: `plain_theory_${props.stage}`,
+      databaseName: glueDb,
       tableInput: {
         name: "receipt_stream",
         tableType: "EXTERNAL_TABLE",

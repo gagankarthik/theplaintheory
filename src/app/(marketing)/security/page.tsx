@@ -3,8 +3,7 @@ import { ARCHIVE_SCENE, IsoScene } from "@/components/illustrations/iso-scene";
 import { FinalCta } from "@/components/marketing/final-cta";
 import { PageHero } from "@/components/marketing/page-hero";
 import { Section } from "@/components/marketing/primitives";
-import { ROLE_INFO } from "@/lib/auth/rbac";
-import type { Role } from "@/lib/types";
+import { ROLES, ROLE_INFO } from "@/lib/auth/rbac";
 
 export const metadata = pageMetadata({
   title: "Security",
@@ -95,12 +94,10 @@ const GROUPS: { id: string; title: string; summary: string; controls: Control[] 
         detail:
           "Two-factor sign-in with an authenticator app, which owners can require for everyone. Sessions end after 30 minutes idle or 12 hours, and can be revoked from any device. Passwords need 12+ characters, are hashed with scrypt (or handled by Amazon Cognito), and repeated failures lock the account.",
       },
-      { term: "Audit trail", detail: "Sign-ins, access changes, settings, publishing and exports are recorded in a hash-chained log that owners and admins can verify and export." },
+      { term: "Audit trail", detail: "Sign-ins, access changes, settings, publishing and exports are recorded in a hash-chained log that owners, admins and auditors can verify and export." },
     ],
   },
 ];
-
-const ROLES: Role[] = ["owner", "admin", "viewer"];
 
 export default function SecurityPage() {
   return (
@@ -147,11 +144,11 @@ export default function SecurityPage() {
             <h2 id="access-h" className="display text-[2rem] sm:text-[2.25rem]">
               Who can do what
             </h2>
-            <p className="mt-4 max-w-[38ch] text-ink-2">Every organization has three roles. Each permission is checked on the server, not just hidden in the interface.</p>
+            <p className="mt-4 max-w-[38ch] text-ink-2">Every organization has five roles, from owner to read-only viewer. Each permission is checked on the server, not just hidden in the interface.</p>
           </div>
-          <ul className="grid gap-px overflow-hidden rounded-[var(--radius-lg)] border border-line bg-line sm:grid-cols-3 lg:col-span-8">
+          <ul className="grid gap-px overflow-hidden rounded-[var(--radius-lg)] border border-line bg-line sm:grid-cols-2 lg:col-span-8">
             {ROLES.map((r) => (
-              <li key={r} className="bg-surface p-6">
+              <li key={r} className="bg-surface p-6 sm:last:col-span-2">
                 <p className="font-semibold capitalize">{r}</p>
                 <p className="mt-2 text-sm leading-relaxed text-ink-2">{ROLE_INFO[r]}</p>
               </li>
@@ -185,8 +182,8 @@ export default function SecurityPage() {
               <dt className="font-semibold">Report a vulnerability</dt>
               <dd className="text-[15px] leading-relaxed text-white/70">
                 Email{" "}
-                <a href="mailto:security@theplaintheory.com" className="font-medium text-white underline underline-offset-4">
-                  security@theplaintheory.com
+                <a href="mailto:security@theplaintheory.in" className="font-medium text-white underline underline-offset-4">
+                  security@theplaintheory.in
                 </a>
                 . We acknowledge reports within two business days and won&apos;t take legal action against good-faith research.
               </dd>

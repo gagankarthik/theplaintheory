@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { PrintButton } from "@/components/app/logs/print-button";
 import { ButtonLink } from "@/components/app/ui/button";
 import { Logo } from "@/components/icons";
-import { formatInt, formatPct, outcomeOf, rangeDays, summarize } from "@/lib/analytics";
+import { formatInt, formatPct, rangeDays, summarize } from "@/lib/analytics";
 import { requireProperty } from "@/lib/auth/access";
 import { verifyChain } from "@/lib/crypto";
 import { FRAMEWORK_META } from "@/lib/defaults";
@@ -12,6 +12,14 @@ import { regionLabel } from "@/lib/regions";
 export const metadata: Metadata = { title: "Audit report" };
 
 const LISTED = 500;
+
+const DECISION_LABEL: Record<string, string> = {
+  accept_all: "Accepted all",
+  custom: "Chose some",
+  reject_all: "Rejected all",
+  revoke: "Withdrew",
+  dismiss: "Dismissed",
+};
 
 export default async function AuditReportPage(props: PageProps<"/app/sites/[propertyId]/logs/report">) {
   const { propertyId } = await props.params;
@@ -49,7 +57,7 @@ export default async function AuditReportPage(props: PageProps<"/app/sites/[prop
 
       <header className="flex items-start justify-between gap-6 border-b-2 border-ink pb-6">
         <div>
-          <h1 className="text-2xl font-bold">Consent audit report</h1>
+          <h1 className="text-2xl font-semibold">Consent audit report</h1>
           <p className="mt-1 text-base text-ink-2">
             {property.domain}, last 90 days ({days[0]} to {days[days.length - 1]})
           </p>
@@ -58,7 +66,7 @@ export default async function AuditReportPage(props: PageProps<"/app/sites/[prop
       </header>
 
       <section aria-labelledby="r-chain" className="border-b border-line py-6">
-        <h2 id="r-chain" className="text-lg font-bold">
+        <h2 id="r-chain" className="text-lg font-semibold">
           Record integrity
         </h2>
         <p className={`mt-2 text-base ${chain.ok ? "text-jade" : "text-rose"}`}>
@@ -71,7 +79,7 @@ export default async function AuditReportPage(props: PageProps<"/app/sites/[prop
       </section>
 
       <section aria-labelledby="r-facts" className="border-b border-line py-6">
-        <h2 id="r-facts" className="mb-3 text-lg font-bold">
+        <h2 id="r-facts" className="mb-3 text-lg font-semibold">
           Controller details
         </h2>
         <dl className="grid gap-x-8 gap-y-2 text-sm sm:grid-cols-[200px_1fr]">
@@ -85,16 +93,16 @@ export default async function AuditReportPage(props: PageProps<"/app/sites/[prop
       </section>
 
       <section aria-labelledby="r-sum" className="border-b border-line py-6">
-        <h2 id="r-sum" className="mb-3 text-lg font-bold">
+        <h2 id="r-sum" className="mb-3 text-lg font-semibold">
           Decisions in the period
         </h2>
         <table className="w-full text-sm">
           <caption className="sr-only">Decision totals</caption>
           <thead className="text-left text-xs text-ink-3">
             <tr>
-              <th scope="col" className="py-1.5 font-bold">Outcome</th>
-              <th scope="col" className="py-1.5 text-right font-bold">Receipts</th>
-              <th scope="col" className="py-1.5 text-right font-bold">Share</th>
+              <th scope="col" className="py-1.5 font-semibold">Outcome</th>
+              <th scope="col" className="py-1.5 text-right font-semibold">Receipts</th>
+              <th scope="col" className="py-1.5 text-right font-semibold">Share</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
@@ -116,20 +124,24 @@ export default async function AuditReportPage(props: PageProps<"/app/sites/[prop
             </tr>
           </tbody>
         </table>
-        <p className="mt-3 text-sm text-ink-2">
-          By notice:{" "}
-          {s.byFramework.map((f, i) => (
-            <span key={f.key}>
-              {i ? ", " : ""}
-              {FRAMEWORK_META[f.key as keyof typeof FRAMEWORK_META]?.name ?? f.key} {formatInt(f.total)}
-            </span>
-          ))}
-          .
-        </p>
+        {s.byFramework.length ? (
+          <p className="mt-3 text-sm text-ink-2">
+            By notice:{" "}
+            {s.byFramework.map((f, i) => (
+              <span key={f.key}>
+                {i ? ", " : ""}
+                {FRAMEWORK_META[f.key as keyof typeof FRAMEWORK_META]?.name ?? f.key} {formatInt(f.total)}
+              </span>
+            ))}
+            .
+          </p>
+        ) : (
+          <p className="mt-3 text-sm text-ink-2">No consent decisions were recorded in this period.</p>
+        )}
       </section>
 
       <section aria-labelledby="r-list" className="py-6">
-        <h2 id="r-list" className="text-lg font-bold">
+        <h2 id="r-list" className="text-lg font-semibold">
           Receipts
         </h2>
         <p className="mb-3 text-sm text-ink-3">
@@ -140,12 +152,12 @@ export default async function AuditReportPage(props: PageProps<"/app/sites/[prop
           <caption className="sr-only">Receipts in the period</caption>
           <thead className="text-left text-ink-3">
             <tr>
-              <th scope="col" className="py-1 pr-2 font-bold">#</th>
-              <th scope="col" className="py-1 pr-2 font-bold">Time (UTC)</th>
-              <th scope="col" className="py-1 pr-2 font-bold">Decision</th>
-              <th scope="col" className="py-1 pr-2 font-bold">Allowed</th>
-              <th scope="col" className="py-1 pr-2 font-bold">Notice</th>
-              <th scope="col" className="py-1 font-bold">Hash</th>
+              <th scope="col" className="py-1 pr-2 font-semibold">#</th>
+              <th scope="col" className="py-1 pr-2 font-semibold">Time (UTC)</th>
+              <th scope="col" className="py-1 pr-2 font-semibold">Decision</th>
+              <th scope="col" className="py-1 pr-2 font-semibold">Allowed</th>
+              <th scope="col" className="py-1 pr-2 font-semibold">Notice</th>
+              <th scope="col" className="py-1 font-semibold">Hash</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
@@ -153,7 +165,7 @@ export default async function AuditReportPage(props: PageProps<"/app/sites/[prop
               <tr key={r.id} className="break-inside-avoid">
                 <td className="py-1 pr-2 tabular-nums">{r.seq}</td>
                 <td className="py-1 pr-2 tabular-nums">{r.timestamp.replace("T", " ").slice(0, 19)}</td>
-                <td className="py-1 pr-2">{outcomeOf(r.action) ?? r.action}</td>
+                <td className="py-1 pr-2">{DECISION_LABEL[r.action] ?? r.action}</td>
                 <td className="py-1 pr-2">
                   {Object.entries(r.categories)
                     .filter(([, v]) => v)

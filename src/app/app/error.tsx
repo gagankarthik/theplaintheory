@@ -10,7 +10,7 @@ export default function AppError({ error, reset }: { error: Error & { digest?: s
   const forbidden = /role doesn't allow/i.test(error.message);
   return (
     <div role="alert" className="max-w-xl py-10">
-      <h1 className="text-xl font-bold">{forbidden ? "You don't have access to this" : "This page didn't load"}</h1>
+      <h1 className="text-xl font-semibold">{forbidden ? "You don't have access to this" : "This page didn't load"}</h1>
       <p className="mt-2 text-base text-ink-2">
         {forbidden ? error.message : "Something failed on our side while loading this page. Your data is safe. Try again, and if it keeps happening, contact support with the reference below."}
       </p>

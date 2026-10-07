@@ -13,6 +13,7 @@ import { FREE_LANGUAGES, LANGUAGES, type LanguageInfo } from "@/lib/i18n/languag
 import { DRAFT_DISCLAIMER, NOTICE_DRAFTS } from "@/lib/i18n/notice-drafts";
 import { toPublicConfig } from "@/lib/public-config";
 import type { BannerCopy, CategoryId, Framework, LanguageCode, NoticeTranslation, Property } from "@/lib/types";
+import { LockedAction, type UpgradeOffer } from "@/components/app/billing/upgrade-dialog";
 
 const FRAMEWORKS: Framework[] = ["dpdpa", "gdpr", "ccpa", "generic"];
 const COPY_FIELDS: { key: keyof BannerCopy; label: string; long?: boolean; max: number }[] = [
@@ -201,6 +202,7 @@ export function LanguagesManager({
   canWrite,
   indianLanguages,
   planName,
+  upgrade,
 }: {
   property: Property;
   dpo?: { name: string; email: string };
@@ -208,6 +210,8 @@ export function LanguagesManager({
   /** plan allows Eighth Schedule languages beyond Hindi */
   indianLanguages: boolean;
   planName: string;
+  /** plans that add the Indian languages, for the locked rows' upgrade dialog */
+  upgrade?: UpgradeOffer;
 }) {
   const [framework, setFramework] = useState<Framework>("dpdpa");
   const [group, setGroup] = useState<"indian" | "other">("indian");
@@ -335,7 +339,19 @@ export function LanguagesManager({
                         <div className="flex flex-wrap justify-end gap-1.5">
                           {status === "none" ? (
                             locked(l) ? (
-                              <span className="text-xs text-ink-3">Starter plan</span>
+                              upgrade && canWrite ? (
+                                <LockedAction
+                                  size="sm"
+                                  variant="ghost"
+                                  label="Add"
+                                  title={`Add ${l.name} and the other Indian languages`}
+                                  reason={`The ${planName} plan includes English and Hindi. DPDPA lets visitors read the notice in any of the 22 Eighth Schedule languages.`}
+                                  unlocks={() => "All 22 Eighth Schedule languages"}
+                                  offer={upgrade}
+                                />
+                              ) : (
+                                <span className="text-xs text-ink-3">Paid plans</span>
+                              )
                             ) : canWrite ? (
                               <Button
                                 size="sm"

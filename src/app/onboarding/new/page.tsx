@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Logo } from "@/components/icons";
 import { getSignedInUser } from "@/lib/auth/session";
+import { getLivePlans } from "@/lib/stripe-catalog";
 import { OnboardingForm } from "../form";
 
 export const metadata: Metadata = { title: "New organization", robots: { index: false, follow: false } };
@@ -20,10 +21,10 @@ export default async function NewOrgPage() {
           Cancel
         </Link>
       </header>
-      <main className="container-page max-w-3xl py-8 sm:py-12">
+      <main className="container-page max-w-4xl py-8 sm:py-12">
         <h1 className="text-2xl font-bold">New workspace</h1>
         <p className="mb-8 mt-2 text-base text-ink-2">Each workspace has its own sites, team, billing and consent records.</p>
-        <OnboardingForm />
+        <OnboardingForm plans={(await getLivePlans()).filter((p) => p.id !== "enterprise")} />
       </main>
     </div>
   );

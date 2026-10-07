@@ -3,18 +3,19 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
-import { signOut } from "@/app/app/actions";
+import { staffSignOut } from "@/app/admin/login/actions";
 import { BrandMark } from "@/components/brand/logo";
 import { Dropdown, menuItemClass } from "@/components/app/shell/dropdown";
 import { ToastProvider } from "@/components/app/ui/toast";
-import { IconChain, IconOverview, IconShieldCheck, IconSignOut, IconSites, IconTeam, type IconProps } from "@/components/icons";
+import { IconChain, IconMail, IconOverview, IconShieldCheck, IconSignOut, IconSites, IconTeam, type IconProps } from "@/components/icons";
 
-export type AdminNavId = "overview" | "orgs" | "users" | "staff" | "audit";
+export type AdminNavId = "overview" | "orgs" | "users" | "requests" | "staff" | "audit";
 
 const NAV: { id: AdminNavId; href: string; label: string; icon: (p: IconProps) => React.ReactNode; exact?: boolean }[] = [
   { id: "overview", href: "/admin", label: "Overview", icon: IconOverview, exact: true },
   { id: "orgs", href: "/admin/orgs", label: "Organizations", icon: IconSites },
   { id: "users", href: "/admin/users", label: "Users", icon: IconTeam },
+  { id: "requests", href: "/admin/requests", label: "Requests", icon: IconMail },
   { id: "staff", href: "/admin/staff", label: "Our team", icon: IconShieldCheck },
   { id: "audit", href: "/admin/audit", label: "Audit log", icon: IconChain },
 ];
@@ -54,9 +55,6 @@ export function AdminShell({ user, roleLabel, nav, children }: { user: { name: s
             </span>
             <span className="ml-1 hidden truncate text-sm text-white/70 md:inline">All customer data. Every change is audited.</span>
             <div className="ml-auto flex shrink-0 items-center gap-1">
-              <Link href="/app" className="hidden h-9 items-center rounded-[8px] px-3 text-sm text-white/80 transition-colors hover:bg-ink-raised hover:text-white sm:inline-flex">
-                Back to dashboard
-              </Link>
               <Dropdown
                 label="Staff account menu"
                 align="right"
@@ -76,7 +74,7 @@ export function AdminShell({ user, roleLabel, nav, children }: { user: { name: s
                   </>
                 }
               >
-                {(close) => (
+                {() => (
                   <>
                     <div className="px-2.5 pb-2 pt-1.5">
                       <p className="truncate text-sm font-medium text-ink">{user.name}</p>
@@ -84,11 +82,7 @@ export function AdminShell({ user, roleLabel, nav, children }: { user: { name: s
                       <p className="mt-1 text-xs text-ink-3">Staff role: {roleLabel}</p>
                     </div>
                     <div className="my-1 h-px bg-line" />
-                    <Link href="/app" role="menuitem" tabIndex={-1} onClick={close} className={menuItemClass}>
-                      Back to dashboard
-                    </Link>
-                    <div className="my-1 h-px bg-line" />
-                    <form action={signOut}>
+                    <form action={staffSignOut}>
                       <button type="submit" role="menuitem" tabIndex={-1} className={menuItemClass}>
                         <IconSignOut size={16} /> Sign out
                       </button>
@@ -144,7 +138,7 @@ export function AdminShell({ user, roleLabel, nav, children }: { user: { name: s
               </ul>
             </nav>
             <p className="border-t border-line px-5 py-4 text-xs leading-5 text-ink-3">
-              You&apos;re signed in as Plain Theory staff. Customers can&apos;t see this console.
+              Signed in with your staff account. Sessions end after 1 hour idle or 8 hours.
             </p>
           </aside>
           <main id="main" tabIndex={-1} className="min-w-0 flex-1 overflow-x-clip outline-none">

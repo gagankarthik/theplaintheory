@@ -18,7 +18,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body>
         {/* Injected into the server HTML <head> and run before any Next.js code */}
-        <Script src="https://cdn.theplaintheory.com/sdk/v1/plain-consent.js" data-site="pk_live_YOUR_SITE_KEY" strategy="beforeInteractive" />
+        <Script src="https://cdn.theplaintheory.in/sdk/v1/plain-consent.js" data-site="pk_live_YOUR_SITE_KEY" strategy="beforeInteractive" />
         <PlainConsentProvider siteKey="pk_live_YOUR_SITE_KEY">{children}</PlainConsentProvider>
       </body>
     </html>

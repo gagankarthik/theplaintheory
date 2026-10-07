@@ -85,7 +85,8 @@ export async function getSession(): Promise<Session | null> {
   if (!claims) return null;
   const store = await getStore();
   const rec = await store.getSessionRecord(claims.sid);
-  if (sessionProblem(rec) || rec!.userId !== claims.userId) return null;
+  // Staff console sessions (kind "staff", staff.ts) never count as a customer session.
+  if (sessionProblem(rec) || rec!.userId !== claims.userId || rec!.kind === "staff") return null;
   const now = Date.now();
   if (now - Date.parse(rec!.lastSeenAt) > TOUCH_AFTER_MS) {
     const iso = new Date(now).toISOString();

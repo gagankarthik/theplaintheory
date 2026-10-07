@@ -46,7 +46,7 @@ function RecoveryCodes({ codes }: { codes: string[] }) {
   const href = `data:text/plain;charset=utf-8,${encodeURIComponent(`Plain Theory recovery codes\nEach code works once.\n\n${text}\n`)}`;
   return (
     <div className="rounded-lg border-[1.5px] border-dashed border-amber-bright bg-amber-wash p-4">
-      <p className="text-sm font-bold text-amber">Save these recovery codes now. They won&apos;t be shown again.</p>
+      <p className="text-sm font-semibold text-amber">Save these recovery codes now. They won&apos;t be shown again.</p>
       <p className="mt-1 text-sm text-ink-2">Each one signs you in once if you lose your phone. Store them in your password manager.</p>
       <ol className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1 font-mono text-sm text-ink" aria-label="Recovery codes">
         {codes.map((c) => (
@@ -55,7 +55,7 @@ function RecoveryCodes({ codes }: { codes: string[] }) {
       </ol>
       <div className="mt-3 flex flex-wrap gap-2">
         <CopyButton value={text} label="Copy codes" />
-        <a href={href} download="plain-theory-recovery-codes.txt" className="inline-flex h-9 items-center rounded-md px-3 text-sm font-bold text-ink-2 hover:bg-paper hover:text-ink">
+        <a href={href} download="plain-theory-recovery-codes.txt" className="inline-flex h-9 items-center rounded-md px-3 text-sm font-semibold text-ink-2 hover:bg-paper hover:text-ink">
           Download .txt
         </a>
       </div>
@@ -73,7 +73,7 @@ export function MfaSection({ enabled, enabledAt, recoveryLeft, required, orgRequ
     >
       {required && !enabled ? (
         <div role="alert" className="my-4 rounded-md bg-amber-wash px-4 py-3 text-sm text-amber">
-          <strong>{orgRequiring ?? "Your organization"} requires two-factor sign-in.</strong> Set it up below to keep using Plain Theory.
+          <strong className="font-semibold">{orgRequiring ?? "Your organization"} requires two-factor sign-in.</strong> Set it up below to keep using Plain Theory.
         </div>
       ) : null}
       {enabled ? <MfaOn enabledAt={enabledAt!} recoveryLeft={recoveryLeft} locked={Boolean(orgRequiring)} orgRequiring={orgRequiring} /> : <MfaEnrol />}
@@ -114,13 +114,13 @@ function MfaEnrol() {
         <div className="space-y-3">
           <div>
             <p className="label" id="mfa-key-label">Setup key</p>
-            <p aria-labelledby="mfa-key-label" className="select-all break-all rounded-md border border-line bg-paper px-3 py-2.5 font-mono text-[15px] tracking-wider text-ink">
+            <p aria-labelledby="mfa-key-label" className="select-all break-all rounded-md border border-line bg-paper px-3 py-2.5 font-mono text-base tracking-wider text-ink">
               {grouped}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <CopyButton value={setup.secret} label="Copy key" />
-            <a href={setup.uri} className="inline-flex h-9 items-center rounded-md px-3 text-sm font-bold text-brand-ink hover:bg-paper">
+            <a href={setup.uri} className="inline-flex h-9 items-center rounded-md px-3 text-sm font-semibold text-brand-ink hover:bg-paper">
               Open in authenticator app
             </a>
           </div>
@@ -230,7 +230,7 @@ export function SessionsSection({ sessions }: { sessions: SessionRow[] }) {
         {visible.map((s) => (
           <li key={s.id} className="flex flex-wrap items-center justify-between gap-3 py-4">
             <div className="min-w-0">
-              <p className="flex flex-wrap items-center gap-2 text-sm font-bold">
+              <p className="flex flex-wrap items-center gap-2 text-sm font-semibold">
                 {s.device}
                 {s.current ? <Badge tone="brand">This browser</Badge> : null}
                 {s.mfaVerified ? <Badge tone="neutral">Two-factor</Badge> : null}
@@ -260,20 +260,13 @@ export function SessionsSection({ sessions }: { sessions: SessionRow[] }) {
 
 /* ---------------- password ---------------- */
 
-export function PasswordSection({ mfa, changedAt, managedExternally }: { mfa: boolean; changedAt?: string; managedExternally: boolean }) {
+export function PasswordSection({ mfa, changedAt, hint }: { mfa: boolean; changedAt?: string; hint: string }) {
   const [state, action] = useActionState<ActionResult, FormData>(changePassword, null);
   const toast = useToast();
   const fe = state?.fieldErrors;
   useEffect(() => {
     if (state?.ok) toast(state.ok);
   }, [state, toast]);
-  if (managedExternally) {
-    return (
-      <SettingsSection title="Password" description="Your sign-in provider manages your password. Use Forgot password on the sign-in page to change it.">
-        <span />
-      </SettingsSection>
-    );
-  }
   return (
     <SettingsSection title="Password" description={`${changedAt ? `Last changed ${when(changedAt)}. ` : ""}Changing it signs out your other sessions.`}>
       <form key={state?.ok ?? "form"} action={action} className="py-5" noValidate>
@@ -285,14 +278,16 @@ export function PasswordSection({ mfa, changedAt, managedExternally }: { mfa: bo
             type="password"
             label="New password"
             autoComplete="new-password"
-            hint="At least 12 characters. Avoid common passwords and your email name."
+            hint={hint}
             error={fe?.next}
           />
           <TextField id="pw-confirm" name="confirm" type="password" label="Confirm new password" autoComplete="new-password" error={fe?.confirm} />
           {mfa ? <CodeField id="pw-code" error={fe?.code} /> : null}
           {state?.error && !fe ? <FormMessage state={state} /> : null}
           <div>
-            <SubmitButton pending="Changing">Change password</SubmitButton>
+            <SubmitButton pending="Changing" variant="ghost">
+              Change password
+            </SubmitButton>
           </div>
         </div>
       </form>

@@ -63,7 +63,7 @@ export function Tabs<T extends string>({
             aria-controls={`${idBase}-panel-${t.value}`}
             tabIndex={active ? 0 : -1}
             onClick={() => onChange(t.value)}
-            className={`relative h-11 shrink-0 rounded-t-md px-3 text-sm font-bold transition-colors ${active ? "text-ink" : "text-ink-3 hover:bg-paper hover:text-ink"}`}
+            className={`relative h-11 shrink-0 rounded-t-md px-3 text-sm font-semibold transition-colors ${active ? "text-ink" : "text-ink-3 hover:bg-paper hover:text-ink"}`}
           >
             {t.label}
             <span aria-hidden className={`absolute inset-x-2 bottom-0 h-[2.5px] rounded-t-full bg-brand transition-opacity ${active ? "opacity-100" : "opacity-0"}`} />
@@ -114,7 +114,7 @@ export function Segmented<T extends string>({
             tabIndex={active ? 0 : -1}
             title={o.title}
             onClick={() => onChange(o.value)}
-            className={`inline-flex min-w-7 shrink-0 items-center justify-center gap-1.5 rounded-[7px] font-bold transition-colors ${size === "sm" ? "h-7 px-2.5 text-xs" : "h-8 px-3 text-xs"} ${
+            className={`inline-flex min-w-7 shrink-0 items-center justify-center gap-1.5 rounded-[7px] font-semibold transition-colors ${size === "sm" ? "h-7 px-2.5 text-xs" : "h-8 px-3 text-xs"} ${
               active ? "bg-surface text-ink shadow-[0_1px_2px_rgb(11_16_32/.14)]" : "text-ink-3 hover:bg-line hover:text-ink"
             }`}
           >

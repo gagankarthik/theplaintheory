@@ -1,6 +1,6 @@
 /** Code samples for the docs. Kept in sync with packages/* and sdk/src by hand; see packages/README.md. */
 
-export const CDN = "https://cdn.theplaintheory.com/sdk/v1/plain-consent.js";
+export const CDN = "https://cdn.theplaintheory.in/sdk/v1/plain-consent.js";
 const KEY = "pk_live_YOUR_SITE_KEY";
 
 type Snippet = { label: string; title: string; language: string; code: string };

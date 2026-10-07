@@ -47,10 +47,21 @@ export default async function ContactSalesPage() {
           </ul>
           <p className="mt-10 text-sm text-ink-3">
             Prefer email? Write to{" "}
-            <a href="mailto:sales@theplaintheory.com" className="font-medium text-ink underline underline-offset-4">
-              sales@theplaintheory.com
+            <a href="mailto:sales@theplaintheory.in" className="font-medium text-ink underline underline-offset-4">
+              sales@theplaintheory.in
             </a>
             . We reply within one business day.
+          </p>
+          <p className="mt-3 text-sm text-ink-3">
+            Already a customer with a problem?{" "}
+            <a href="/contact/support" className="font-medium text-ink underline underline-offset-4">
+              Raise a support ticket
+            </a>{" "}
+            or see{" "}
+            <a href="/contact" className="font-medium text-ink underline underline-offset-4">
+              all contact options
+            </a>
+            .
           </p>
         </div>
 

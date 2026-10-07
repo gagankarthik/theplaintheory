@@ -10,7 +10,6 @@ import { getStore } from "@/lib/store";
 
 const orgSchema = z.object({
   name: z.string().trim().min(2, "Organization name needs at least 2 characters.").max(80),
-  dataRegion: z.enum(["ap-south-1", "ap-south-2", "eu-central-1", "us-east-1"], "Pick a storage region."),
   dpoName: z.string().trim().max(80),
   dpoEmail: z
     .string()
@@ -27,7 +26,6 @@ export async function updateOrgSettings(_: ActionResult, form: FormData): Promis
     assertCan(role, "org:settings");
     const parsed = orgSchema.safeParse({
       name: form.get("name"),
-      dataRegion: form.get("dataRegion"),
       dpoName: form.get("dpoName") ?? "",
       dpoEmail: form.get("dpoEmail") ?? "",
       dpoAddress: form.get("dpoAddress") ?? "",
@@ -40,12 +38,10 @@ export async function updateOrgSettings(_: ActionResult, form: FormData): Promis
     }
     await (await getStore()).updateOrg(org.id, {
       name: d.name,
-      dataRegion: d.dataRegion,
       dpo: d.dpoName ? { name: d.dpoName, email: d.dpoEmail, address: d.dpoAddress || undefined } : undefined,
     });
     const changed = [
       d.name !== org.name && "name",
-      d.dataRegion !== org.dataRegion && "dataRegion",
       (d.dpoName !== (org.dpo?.name ?? "") || d.dpoEmail !== (org.dpo?.email ?? "") || d.dpoAddress !== (org.dpo?.address ?? "")) && "dpo",
     ].filter(Boolean);
     await recordAudit({

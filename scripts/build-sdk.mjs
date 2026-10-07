@@ -14,7 +14,7 @@ await build({
   minify: true,
   target: "es2020",
   legalComments: "none",
-  banner: { js: "/*! plain-consent.js | The Plain Theory | theplaintheory.com */" },
+  banner: { js: "/*! plain-consent.js | The Plain Theory | theplaintheory.in */" },
 });
 
 const code = readFileSync(outfile);

@@ -1,13 +1,15 @@
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/app/shell/page-header";
-import { TeamManager } from "@/components/app/team/team-manager";
+import { InviteButton, TeamManager } from "@/components/app/team/team-manager";
 import { buttonClass } from "@/components/app/ui/button";
+import { StatStrip, type Stat } from "@/components/app/ui/stat-strip";
 import { IconDownload } from "@/components/icons";
-import { ROLE_INFO, can } from "@/lib/auth/rbac";
+import { can } from "@/lib/auth/rbac";
 import { requireUser } from "@/lib/auth/session";
 import { planById } from "@/lib/plans";
+import { upgradeOffer } from "@/lib/upgrade-offer";
+import { TeamInviteAction } from "@/components/app/team/team-invite-action";
 import { getStore } from "@/lib/store";
-import type { Role } from "@/lib/types";
 
 export const metadata: Metadata = { title: "Team" };
 
@@ -16,54 +18,83 @@ export default async function TeamPage() {
   const store = await getStore();
   const [members, invites] = await Promise.all([store.listMembers(org.id), store.listInvites(org.id)]);
   const plan = planById(org.plan);
-  const seatsLeft = plan.seats === null ? null : Math.max(0, plan.seats - members.length - invites.length);
+  const used = members.length + invites.length;
+  const seatsLeft = plan.seats === null ? null : Math.max(0, plan.seats - used);
+  const canManage = can(role, "team:manage");
+
+  // Out of seats: the Invite action becomes an upgrade offer with the plans that add seats.
+  const locked = canManage && seatsLeft === 0;
+  const offer = locked ? await upgradeOffer(org, role, (p) => p.seats === null || p.seats > (plan.seats ?? 0)) : null;
+
+  // Facts for the strip, all from the member and invite records above.
+  const now = new Date().getTime();
+  const people = members.filter((m) => m.user);
+  const withoutMfa = people.filter((m) => !m.user!.mfa).length;
+  const owners = members.filter((m) => m.role === "owner").length;
+  const staleInvites = invites.filter((i) => now - Date.parse(i.createdAt) > 30 * 86_400_000).length;
+  const full = plan.seats !== null && used >= plan.seats;
+  const stats: Stat[] = [
+    { label: "Members", value: String(members.length), note: `${owners} owner${owners === 1 ? "" : "s"}` },
+    {
+      label: "Pending invitations",
+      value: String(invites.length),
+      note: staleInvites ? `${staleInvites} over 30 days old` : invites.length ? "Waiting for sign-up" : "None waiting",
+      tone: staleInvites ? "warn" : undefined,
+    },
+    {
+      label: "Seats used",
+      value: plan.seats === null ? String(used) : `${used} of ${plan.seats}`,
+      note: plan.seats === null ? `Unlimited on ${plan.name}` : full ? "Plan is full" : "Includes pending invitations",
+      tone: full ? "warn" : undefined,
+      href: full && can(role, "billing:manage") ? "/app/billing" : undefined,
+    },
+    {
+      label: "Without two-factor",
+      value: String(withoutMfa),
+      note: withoutMfa ? (org.security?.requireMfa ? "Required before they can use the app" : "Two-factor is optional") : "Everyone has it on",
+      tone: withoutMfa ? "warn" : undefined,
+    },
+  ];
+
+  const inviteAction = offer ? <TeamInviteAction offer={offer} seats={plan.seats ?? 0} /> : canManage ? <InviteButton seatsLeft={seatsLeft} /> : null;
 
   return (
     <>
       <PageHeader
         title="Team"
-        description={`People who can see or change ${org.name}. Roles apply to every site in the organization.`}
+        description={`People with access to ${org.name}. Roles apply to every site.`}
         actions={
-          can(role, "audit:read") ? (
-            <a className={buttonClass("ghost")} href="/api/app/team/access-review" download>
-              <IconDownload size={18} />
-              Export access review
-            </a>
-          ) : null
+          <>
+            {can(role, "audit:read") ? (
+              <a className={buttonClass("ghost")} href="/api/app/team/access-review" download>
+                <IconDownload size={18} />
+                Export access review
+              </a>
+            ) : null}
+            {inviteAction}
+          </>
         }
       />
-      <div className="grid gap-10 xl:grid-cols-[minmax(0,1fr)_300px]">
-        <TeamManager
-          members={members.map((m) => ({
-            userId: m.userId,
-            name: m.user?.name ?? "Deleted user",
-            email: m.user?.email ?? "",
-            role: m.role,
-            since: m.createdAt,
-            mfa: Boolean(m.user?.mfa),
-            lastActiveAt: m.user?.lastActiveAt,
-            invitedBy: m.invitedBy,
-          }))}
-          invites={invites.map((i) => ({ id: i.id, email: i.email, role: i.role, createdAt: i.createdAt }))}
-          me={user.id}
-          myRole={role}
-          canManage={can(role, "team:manage")}
-          seatsLeft={seatsLeft}
-        />
-        <aside aria-labelledby="roles-h" className="xl:sticky xl:top-20 xl:self-start xl:border-l xl:border-line xl:pl-8">
-          <h2 id="roles-h" className="mb-3 text-base font-bold">
-            What each role can do
-          </h2>
-          <dl className="space-y-4 text-sm">
-            {(Object.keys(ROLE_INFO) as Role[]).map((r) => (
-              <div key={r}>
-                <dt className="font-bold capitalize">{r}</dt>
-                <dd className="text-ink-3">{ROLE_INFO[r]}</dd>
-              </div>
-            ))}
-          </dl>
-        </aside>
-      </div>
+      <StatStrip label="Team at a glance" stats={stats} />
+      <TeamManager
+        members={members.map((m) => ({
+          userId: m.userId,
+          name: m.user?.name ?? "Deleted user",
+          email: m.user?.email ?? "",
+          role: m.role,
+          since: m.createdAt,
+          mfa: Boolean(m.user?.mfa),
+          lastActiveAt: m.user?.lastActiveAt,
+          invitedBy: m.invitedBy,
+        }))}
+        invites={invites.map((i) => ({ id: i.id, email: i.email, role: i.role, createdAt: i.createdAt }))}
+        me={user.id}
+        myRole={role}
+        canManage={canManage}
+        seatsLeft={seatsLeft}
+        now={now}
+        inviteAction={inviteAction}
+      />
     </>
   );
 }

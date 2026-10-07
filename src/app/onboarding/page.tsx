@@ -5,6 +5,7 @@ import { Logo } from "@/components/icons";
 import { getSignedInUser } from "@/lib/auth/session";
 import { getStore } from "@/lib/store";
 import type { PlanId } from "@/lib/types";
+import { getLivePlans } from "@/lib/stripe-catalog";
 import { OnboardingForm } from "./form";
 
 export const metadata: Metadata = { title: "Set up your workspace", robots: { index: false, follow: false } };
@@ -30,9 +31,9 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
         </Link>
         <p className="truncate pl-4 text-sm text-ink-3">{session.email}</p>
       </header>
-      <main className="container-page relative max-w-3xl py-8 sm:py-14">
+      <main className="container-page relative max-w-4xl py-8 sm:py-14">
         <h1 className="sr-only">Set up your workspace</h1>
-        <OnboardingForm userName={user?.name} initialPlan={asPlan(plan)} />
+        <OnboardingForm userName={user?.name} initialPlan={asPlan(plan)} plans={(await getLivePlans()).filter((p) => p.id !== "enterprise")} />
       </main>
     </div>
   );

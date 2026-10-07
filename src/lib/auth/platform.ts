@@ -1,13 +1,16 @@
-import type { User } from "../types";
-
 /**
- * Platform (Plain Theory staff) permissions. Separate from org RBAC in rbac.ts: org roles say what a
- * customer can do inside their own organization; platform roles say what our team can do across
- * every customer. Pure functions only, so the rules are unit-tested without a store or a request.
+ * Platform (Plain Theory staff) roles and permissions. Separate from org RBAC in rbac.ts: org roles say
+ * what a customer can do inside their own organization; platform roles say what our team can do across
+ * every customer.
+ *
+ * Staff sign in through their own Cognito user pool (staff-cognito.ts). Membership of a
+ * `platform-<role>` group in that pool IS the staff role: there's no copy in the data store. Pure
+ * functions only, so the rules are unit-tested without a store, a pool or a request.
  */
-export type PlatformRole = NonNullable<User["platformRole"]>;
+export type PlatformRole = "superadmin" | "support" | "billing" | "analyst";
 
-export const PLATFORM_ROLES: PlatformRole[] = ["superadmin", "support", "analyst"];
+/** Highest first: someone in two groups gets the higher role. */
+export const PLATFORM_ROLES: PlatformRole[] = ["superadmin", "support", "billing", "analyst"];
 
 export type PlatformPermission =
   /** overview metrics, plan mix, signups */
@@ -26,9 +29,14 @@ export type PlatformPermission =
   | "orgs:plan"
   /** suspend or lift a suspension */
   | "orgs:suspend"
-  /** grant, change or revoke platform roles */
-  | "staff:manage";
+  /** invite, change, disable or remove staff */
+  | "staff:manage"
+  /** the contact-request inbox (sales, support, partner and enterprise requests) */
+  | "leads:read"
+  /** change a contact request's status */
+  | "leads:manage";
 
+/** docs/architecture/platform-architecture.md §7.2 */
 const GRANTS: Record<PlatformRole, PlatformPermission[]> = {
   superadmin: [
     "platform:metrics",
@@ -40,12 +48,15 @@ const GRANTS: Record<PlatformRole, PlatformPermission[]> = {
     "orgs:plan",
     "orgs:suspend",
     "staff:manage",
+    "leads:read",
+    "leads:manage",
   ],
-  support: ["platform:metrics", "platform:lists", "platform:detail", "platform:audit", "users:unlock", "users:revoke_sessions"],
-  analyst: ["platform:metrics", "platform:lists"],
+  support: ["platform:metrics", "platform:lists", "platform:detail", "platform:audit", "users:unlock", "users:revoke_sessions", "leads:read", "leads:manage"],
+  billing: ["platform:metrics", "platform:lists", "orgs:plan"],
+  analyst: ["platform:metrics", "platform:lists", "leads:read"],
 };
 
-export const canPlatform = (role: PlatformRole | null | undefined, p: PlatformPermission) => Boolean(role && GRANTS[role].includes(p));
+export const canPlatform = (role: PlatformRole | null | undefined, p: PlatformPermission) => Boolean(role && GRANTS[role]?.includes(p));
 
 export class PlatformForbiddenError extends Error {
   constructor(p: PlatformPermission) {
@@ -58,67 +69,58 @@ export function assertPlatform(role: PlatformRole | null | undefined, p: Platfor
 }
 
 export const PLATFORM_ROLE_INFO: Record<PlatformRole, { label: string; summary: string }> = {
-  superadmin: { label: "Superadmin", summary: "Everything, including staff roles, plan changes and suspensions." },
-  support: { label: "Support", summary: "Read all customer data, unlock accounts and sign users out." },
-  analyst: { label: "Analyst", summary: "Read-only metrics and the organization and user lists." },
+  superadmin: { label: "Superadmin", summary: "Everything, including inviting and managing staff, plan changes and suspensions." },
+  support: { label: "Support", summary: "Read all customer data, unlock accounts, sign users out and work the request inbox." },
+  billing: { label: "Billing", summary: "Metrics, the organization and user lists, and plan changes (comps)." },
+  analyst: { label: "Analyst", summary: "Read-only metrics, the organization and user lists, and the request inbox." },
 };
 
 export const isPlatformRole = (v: unknown): v is PlatformRole => typeof v === "string" && (PLATFORM_ROLES as string[]).includes(v);
 
-/** Emails from PLATFORM_SUPERADMINS (comma or whitespace separated), lower-cased. */
-export function parseSuperadminEnv(value: string | undefined | null): Set<string> {
-  return new Set(
-    (value ?? "")
-      .split(/[\s,;]+/)
-      .map((e) => e.trim().toLowerCase())
-      .filter((e) => e.includes("@")),
-  );
-}
+/* ---------------- Cognito groups ---------------- */
 
-export const isBootstrapSuperadmin = (email: string, env = process.env.PLATFORM_SUPERADMINS) => parseSuperadminEnv(env).has(email.toLowerCase());
+export const STAFF_GROUP_PREFIX = "platform-";
+
+/** The staff pool group that grants a role. */
+export const staffGroupName = (role: PlatformRole) => `${STAFF_GROUP_PREFIX}${role}`;
 
 /**
- * The effective platform role. Bootstrap emails always resolve to superadmin, so a fresh deployment
- * (or a locked-out team) can always get in by setting the env var; otherwise the stored role.
+ * The staff role from a `cognito:groups` claim (or a group listing): the highest platform-* group the
+ * person is in, or null when they're in none. Unknown groups are ignored.
  */
-export function resolvePlatformRole(user: Pick<User, "email" | "platformRole"> | null | undefined, env = process.env.PLATFORM_SUPERADMINS): PlatformRole | null {
-  if (!user) return null;
-  if (isBootstrapSuperadmin(user.email, env)) return "superadmin";
-  return isPlatformRole(user.platformRole) ? user.platformRole : null;
+export function roleFromGroups(groups: unknown): PlatformRole | null {
+  const list = Array.isArray(groups) ? groups : typeof groups === "string" ? [groups] : [];
+  const roles = new Set(list.filter((g): g is string => typeof g === "string" && g.startsWith(STAFF_GROUP_PREFIX)).map((g) => g.slice(STAFF_GROUP_PREFIX.length)));
+  return PLATFORM_ROLES.find((r) => roles.has(r)) ?? null;
 }
 
-/**
- * Staff sessions must have passed two-factor in production. In development (NODE_ENV !== "production")
- * the check is skipped so the seeded demo superadmin, who has no authenticator, can open the console.
- */
-export function staffMfaProblem(input: { userHasMfa: boolean; sessionMfaVerified: boolean; production: boolean }): "enroll" | "verify" | null {
-  if (!input.production) return null; // DEV BYPASS: local and preview environments only
-  if (!input.userHasMfa) return "enroll";
-  if (!input.sessionMfaVerified) return "verify";
-  return null;
-}
+/* ---------------- staff management guards ---------------- */
 
 export interface StaffMember {
-  userId: string;
+  /** Cognito `sub` (stable id; the pool's username is also this UUID) */
+  sub: string;
   email: string;
   role: PlatformRole;
-  /** role comes from PLATFORM_SUPERADMINS and can't be changed in the console */
-  bootstrap: boolean;
+  enabled: boolean;
 }
 
+export type StaffChange = { kind: "role"; next: PlatformRole } | { kind: "disable" } | { kind: "enable" } | { kind: "remove" } | { kind: "reset_password" } | { kind: "resend_invite" };
+
 /**
- * Why a staff role change isn't allowed, or null. `next` null means revoke.
- * - Nobody changes their own role (another superadmin must), so you can't lock yourself out.
- * - Bootstrap superadmins are managed through the env var, not the console.
- * - The last superadmin can't be demoted or removed.
+ * Why a staff change isn't allowed, or null.
+ * - Nobody changes, disables, resets or removes their own account (another superadmin must), so you
+ *   can't lock yourself out by accident.
+ * - The last enabled superadmin can't be demoted, disabled or removed.
  */
-export function staffChangeProblem({ actorUserId, target, next, staff }: { actorUserId: string; target: StaffMember | null; next: PlatformRole | null; staff: StaffMember[] }): string | null {
-  if (target && target.userId === actorUserId) return "You can't change your own staff role. Ask another superadmin.";
-  if (!target) return next ? null : "That person isn't on the staff list.";
-  if (target.bootstrap) return "This superadmin is set by PLATFORM_SUPERADMINS. Change it in the environment, not here.";
-  if (target.role === next) return `${target.email} is already ${PLATFORM_ROLE_INFO[target.role].label.toLowerCase()}.`;
-  if (target.role === "superadmin" && next !== "superadmin") {
-    const others = staff.filter((s) => s.role === "superadmin" && s.userId !== target.userId).length;
+export function staffChangeProblem({ actorSub, target, change, staff }: { actorSub: string; target: StaffMember | null; change: StaffChange; staff: StaffMember[] }): string | null {
+  if (!target) return "That person isn't on the staff list.";
+  if (target.sub === actorSub) return "You can't change your own staff account. Ask another superadmin.";
+  if (change.kind === "role" && target.role === change.next) return `${target.email} is already ${PLATFORM_ROLE_INFO[target.role].label.toLowerCase()}.`;
+  if (change.kind === "disable" && !target.enabled) return `${target.email} is already disabled.`;
+  if (change.kind === "enable" && target.enabled) return `${target.email} is already enabled.`;
+  const losesSuperadmin = target.role === "superadmin" && target.enabled && (change.kind === "disable" || change.kind === "remove" || (change.kind === "role" && change.next !== "superadmin"));
+  if (losesSuperadmin) {
+    const others = staff.filter((s) => s.role === "superadmin" && s.enabled && s.sub !== target.sub).length;
     if (others === 0) return "This is the last superadmin. Make someone else superadmin first.";
   }
   return null;

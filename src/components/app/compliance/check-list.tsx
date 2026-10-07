@@ -39,7 +39,7 @@ export function CheckList({ rows, sort = true, dense }: { rows: CheckRow[]; sort
               <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold text-ink">
                 <span className="sr-only">{i.sr}: </span>
                 {r.title}
-                {r.tag ? <span className="rounded-full bg-paper px-2 py-0.5 text-[11px] font-medium text-ink-2 ring-1 ring-inset ring-line">{r.tag}</span> : null}
+                {r.tag ? <span className="rounded-full bg-paper px-2 py-0.5 text-2xs font-medium text-ink-2 ring-1 ring-inset ring-line">{r.tag}</span> : null}
               </p>
               <p className="mt-0.5 text-sm text-ink-2">{r.detail}</p>
               {r.ref ? <p className="mt-1 text-xs text-ink-3">{r.ref}</p> : null}

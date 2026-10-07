@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { demoEnabled } from "@/lib/demo";
 import { CtaButton } from "../primitives";
 import { HeroConsentStack } from "./hero-consent-stack";
 import { ToggleField } from "./toggle-field";
@@ -33,8 +34,8 @@ export function Hero() {
 
           <div className="pt-hero-in mt-9 flex flex-wrap items-center gap-3" style={{ animationDelay: "360ms" }}>
             <CtaButton href="/signup">Try for free</CtaButton>
-            <Link href="/demo" className="btn btn-pill btn-lg btn-ghost bg-white/75 backdrop-blur-sm">
-              Open the demo store
+            <Link href={demoEnabled ? "/demo" : "/docs"} className="btn btn-pill btn-lg btn-ghost bg-white/75 backdrop-blur-sm">
+              {demoEnabled ? "Open the demo store" : "Read the docs"}
             </Link>
           </div>
         </div>

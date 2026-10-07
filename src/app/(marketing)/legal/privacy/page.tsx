@@ -138,7 +138,9 @@ export default function PrivacyPage() {
         Our website does not use advertising cookies. To understand which pages are useful we use Vercel Web Analytics, which
         counts page views without cookies or any identifier that follows you across sites. It records the page path (we strip
         query strings first), the referring site, and your country, browser, operating system and device type, and reports them
-        only in aggregate. Your IP address is used to derive the country and is not stored. Our site sets only the cookies and
+        only in aggregate. We also use Vercel Speed Insights, which measures how quickly our pages load and respond on visitors&apos;
+        devices (Core Web Vitals) for the same page paths, also without cookies or identifiers. Your IP address is used to derive
+        the country and is not stored. Our site sets only the cookies and
         browser storage described in our <Link href="/legal/cookies">cookie policy</Link>.
       </p>
 
@@ -294,7 +296,7 @@ export default function PrivacyPage() {
           ["Stripe", "Payments, invoices and subscription management", "Billing data", "United States and other Stripe locations"],
           [
             "Vercel",
-            "Website hosting and cookieless page-view analytics for our marketing site",
+            "Website hosting, and cookieless page-view analytics and page-speed measurement for our marketing site",
             "Website visitors' page paths, referrer, country and device type; IP addresses briefly, to serve pages",
             "United States, with edge locations worldwide",
           ],

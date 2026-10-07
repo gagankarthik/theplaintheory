@@ -4,7 +4,7 @@
  *
  *   node scripts/shot.mjs <path> <out.png> [width=1440] [height=900] [--full] [--mobile] [--as=<email>]
  *
- * --as registers a session record in the local dev store for that seeded user and signs its cookie
+ * --as registers a session record in the local dev store for that existing user and signs its cookie
  * with the dev secret, to capture signed-in pages. Refuses to run against production or DynamoDB.
  *
  * Emulates the exact viewport (headless window sizing has a minimum width), waits for fonts and
@@ -82,7 +82,7 @@ try {
     const { randomBytes } = await import("node:crypto");
     const db = JSON.parse(readFileSync(".data/db.json", "utf8"));
     const user = db.users.find((u) => u.email === asUser);
-    if (!user) throw new Error(`No seeded user ${asUser}`);
+    if (!user) throw new Error(`No local user ${asUser}. Sign up first.`);
     const now = Date.now();
     const abs = Math.floor(now / 1000) + 12 * 3600;
     const sid = `ses_${randomBytes(24).toString("base64url")}`;

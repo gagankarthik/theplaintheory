@@ -32,11 +32,11 @@ export default async function SettingsPage() {
 
         {properties.length ? (
           <div className="mt-12">
-            <SettingsSection title="Danger zone" description="Deleting a site can't be undone. Its receipts stay in the log until they expire.">
+            <SettingsSection tone="danger" title="Danger zone" description="Deleting a site can't be undone. Its settings, consent receipts and statistics are deleted with it, so export the consent log first.">
               {properties.map((p) => (
                 <div key={p.id} className="flex items-center justify-between gap-4 py-4">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-bold">{p.name}</p>
+                    <p className="truncate text-sm font-semibold">{p.name}</p>
                     <p className="truncate text-xs text-ink-3">{p.domain}</p>
                   </div>
                   <DeleteSite propertyId={p.id} name={p.name} domain={p.domain} />

@@ -1,11 +1,15 @@
 import type { Metadata } from "next";
 import { CheckList, ScoreRing } from "@/components/app/compliance/check-list";
+import { LiveSiteCheck } from "@/components/app/compliance/live-site-check";
 import { PageHeader } from "@/components/app/shell/page-header";
 import { requireProperty } from "@/lib/auth/access";
+import { can } from "@/lib/auth/rbac";
 import { planById } from "@/lib/plans";
 import { DPDP_CONSENT_MANAGER_DATE, DPDP_DEADLINE, dpdpReadiness, readinessFixHref } from "@/lib/readiness";
 
 export const metadata: Metadata = { title: "DPDP readiness" };
+/** the live site check server action crawls for up to 20 seconds */
+export const maxDuration = 60;
 
 const fmt = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
 
@@ -15,9 +19,10 @@ function daysUntil(iso: string) {
 
 export default async function DpdpReadinessPage(props: PageProps<"/app/sites/[propertyId]/dpdp">) {
   const { propertyId } = await props.params;
-  const { property, org } = await requireProperty(propertyId);
+  const { property, org, role, store } = await requireProperty(propertyId);
   const plan = planById(org.plan);
-  const r = dpdpReadiness(property, org, plan);
+  const [liveSite = null] = await store.listSiteAudits(property.id, 1);
+  const r = dpdpReadiness(property, org, plan, { liveSite });
   const fails = r.items.filter((i) => i.severity === "fail").length;
   const warns = r.items.filter((i) => i.severity === "warn").length;
   const days = daysUntil(DPDP_DEADLINE);
@@ -75,6 +80,8 @@ export default async function DpdpReadinessPage(props: PageProps<"/app/sites/[pr
         This checks what Plain Theory can see: your notice, settings, plan and records. It isn&apos;t legal advice, and it doesn&apos;t cover processing outside your website, such as
         data you collect in apps, stores or call centres.
       </p>
+
+      <LiveSiteCheck key={liveSite?.id ?? "none"} propertyId={property.id} domain={property.domain} initial={liveSite} canRun={can(role, "property:write")} />
     </>
   );
 }

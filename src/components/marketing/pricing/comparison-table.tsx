@@ -60,7 +60,7 @@ const GROUPS: { name: string; rows: Row[] }[] = [
     name: "Data and security",
     rows: [
       { feature: "Choice of data region (India, EU, US)", value: (p) => p.limits.residencyChoice },
-      { feature: "Owner, admin and viewer roles", value: from("starter") },
+      { feature: "Owner, admin, editor, auditor and viewer roles", value: from("starter") },
       { feature: "Single sign-on", value: from("enterprise") },
       {
         feature: "Delivery SLA",

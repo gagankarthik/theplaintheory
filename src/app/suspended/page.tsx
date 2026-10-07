@@ -59,7 +59,7 @@ export default async function SuspendedPage({ searchParams }: { searchParams: Pr
             ) : null}
           </dl>
           <div className="mt-6 flex flex-wrap gap-2">
-            <a className={buttonClass("primary")} href={`mailto:support@theplaintheory.com?subject=${encodeURIComponent(`Suspension: ${active.name}`)}`}>
+            <a className={buttonClass("primary")} href={`mailto:support@theplaintheory.in?subject=${encodeURIComponent(`Suspension: ${active.name}`)}`}>
               Contact support
             </a>
             <form action={signOut}>

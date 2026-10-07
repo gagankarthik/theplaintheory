@@ -26,7 +26,7 @@ Put the script first in `<head>` so trackers in your HTML are held, then registe
 export default defineNuxtConfig({
   app: {
     head: {
-      script: [{ src: "https://cdn.theplaintheory.com/sdk/v1/plain-consent.js", "data-site": "pk_live_YOUR_SITE_KEY", tagPosition: "head" }],
+      script: [{ src: "https://cdn.theplaintheory.in/sdk/v1/plain-consent.js", "data-site": "pk_live_YOUR_SITE_KEY", tagPosition: "head" }],
     },
   },
 });

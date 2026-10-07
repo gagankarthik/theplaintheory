@@ -33,7 +33,7 @@ These run in code and can be checked live by an owner or admin at **/app/securit
 - **Audit trail** (CC4.1, CC7.2): every sign-in, failed sign-in, lockout, MFA change, session
   revocation, role or membership change, settings change, publish, banner, tracker, language and
   webhook change, export, chain verification, plan change and retention run is written to a per-organization,
-  hash-chained log (`src/lib/audit.ts`, `src/lib/audit-chain.ts`). Owners and admins can filter, verify
+  hash-chained log (`src/lib/audit.ts`, `src/lib/audit-chain.ts`). Owners, admins and auditors can filter, verify
   and export it at **/app/audit**. Writes fail closed: if the event can't be recorded, the change fails.
 - **Two-factor sign-in** (CC6.1): TOTP (RFC 6238) with single-use recovery codes, encrypted at rest
   (`src/lib/auth/totp.ts`, `mfa.ts`, `secret-box.ts`). Owners can require it organization-wide.
@@ -78,7 +78,6 @@ None of these can be done in code. Each one needs an owner and a calendar entry.
 
 ```bash
 npm test                 # unit tests: TOTP vectors, chains, lockout, policy, retention
-npm run seed             # demo data with audit events, sessions and an MFA-enabled admin
 npm run retention -- --dry-run
 npm run retention        # against the running dev server
 ```

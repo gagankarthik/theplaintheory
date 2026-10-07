@@ -1,6 +1,7 @@
 import { evaluateFairness, type FixTarget, type Severity } from "./fairness";
 import { EIGHTH_SCHEDULE } from "./i18n/languages";
 import type { Plan } from "./plans";
+import type { SiteAuditReport } from "./site-audit/types";
 import type { Organization, Property } from "./types";
 
 /**
@@ -15,7 +16,7 @@ export interface ReadinessItem {
   ref: string;
   severity: Severity;
   detail: string;
-  fix?: { label: string; target: FixTarget | "billing" | "install" };
+  fix?: { label: string; target: FixTarget | "billing" | "install" | "settings:dpo" };
 }
 
 export interface Readiness {
@@ -30,7 +31,36 @@ export interface Readiness {
 export const DPDP_DEADLINE = "2027-05-13";
 export const DPDP_CONSENT_MANAGER_DATE = "2026-11-13";
 
-export function dpdpReadiness(property: Property, org: Organization, plan: Plan): Readiness {
+/** Where the live site check looked for something, for messages like "on acme.in/privacy". */
+function liveWhere(report: SiteAuditReport, evidenceUrl?: string) {
+  const page = evidenceUrl ?? report.pages.find((p) => p.kind === "privacy" && p.status === 200)?.url ?? report.homeUrl;
+  if (!page) return report.domain;
+  try {
+    const u = new URL(page);
+    return `${u.hostname.replace(/^www\./, "")}${u.pathname === "/" ? "" : u.pathname.replace(/\/$/, "")}`;
+  } catch {
+    return report.domain;
+  }
+}
+
+/**
+ * What the latest live site check found about the grievance contact, as supporting evidence.
+ * It never changes the item's pass or fail, which still follows your settings.
+ */
+function liveGrievanceNote(report: SiteAuditReport | null | undefined, configured: boolean): string {
+  if (!report) return "";
+  const contact = report.checks.find((c) => c.id === "grievance-contact");
+  const timeline = report.checks.find((c) => c.id === "grievance-timeline");
+  if (!contact || contact.status === "unknown") return "";
+  const where = liveWhere(report, contact.evidence?.url);
+  const notes: string[] = [];
+  if (contact.status === "pass") notes.push(`Your live site publishes it (${where}).`);
+  else notes.push(configured ? `Your Settings have a contact, but we couldn't find it on ${where}.` : `We couldn't find one on ${where} either.`);
+  if (timeline?.status === "warn") notes.push("Your notice doesn't say grievances are answered within 90 days.");
+  return ` ${notes.join(" ")}`;
+}
+
+export function dpdpReadiness(property: Property, org: Organization, plan: Plan, opts: { liveSite?: SiteAuditReport | null } = {}): Readiness {
   const cfg = property.config;
   const dpdpa = cfg.regions.dpdpa;
   const fairness = evaluateFairness(cfg, { dpoEmail: org.dpo?.email });
@@ -131,8 +161,8 @@ export function dpdpReadiness(property: Property, org: Organization, plan: Plan)
     title: "Grievance contact, answered within 90 days",
     ref: "DPDP Act s.8(9), s.13; Rule 14",
     severity: contact ? "pass" : "fail",
-    detail: contact ? `Grievances go to ${contact}.` : "Add a Data Protection Officer or grievance contact.",
-    fix: contact ? undefined : { label: "Add contact", target: "settings" },
+    detail: (contact ? `Grievances go to ${contact}.` : "Add a Data Protection Officer or grievance contact.") + liveGrievanceNote(opts.liveSite, !!contact),
+    fix: contact ? undefined : { label: "Add contact", target: "settings:dpo" },
   });
 
   const india = org.dataRegion === "ap-south-1" || org.dataRegion === "ap-south-2";
@@ -188,6 +218,7 @@ export function readinessFixHref(propertyId: string, target: NonNullable<Readine
   if (target === "billing") return "/app/billing";
   if (target === "install") return `/app/sites/${propertyId}/install`;
   if (target === "settings") return "/app/settings";
+  if (target === "settings:dpo") return "/app/settings#dpo";
   const [section, tab] = target.split(":");
   if (section === "regions") return `/app/sites/${propertyId}/regions${tab ? "#notice" : ""}`;
   return `/app/sites/${propertyId}/${section}${tab ? `?tab=${tab}` : ""}`;

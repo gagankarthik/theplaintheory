@@ -55,7 +55,7 @@ function ToastCard({ item, onDone }: { item: ToastItem; onDone: () => void }) {
       className="pointer-events-auto flex w-full items-start gap-3 rounded-lg border border-line bg-surface px-4 py-3 text-sm shadow-float"
     >
       <span className={`mt-0.5 grid size-5 shrink-0 place-items-center rounded-full ${error ? "bg-rose text-white" : "bg-jade text-white"}`}>
-        {error ? <IconAlert size={13} /> : <IconCheck size={13} />}
+        {error ? <IconAlert size={14} /> : <IconCheck size={14} />}
       </span>
       <p className="min-w-0 flex-1 text-ink">{item.message}</p>
       <button type="button" onClick={dismiss} className="-m-1 grid size-7 shrink-0 place-items-center rounded text-ink-3 hover:bg-paper hover:text-ink" aria-label="Dismiss notification">

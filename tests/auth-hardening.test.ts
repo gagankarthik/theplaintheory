@@ -57,11 +57,11 @@ describe("account lockout", () => {
     expect(next.loginFailures?.count).toBe(1);
   });
 
-  it("throttles a network after too many attempts", () => {
+  it("throttles a network after too many attempts", async () => {
     const ip = `test-${Math.random()}`;
-    for (let i = 0; i < IP_MAX_ATTEMPTS; i++) expect(allowIpAttempt(ip, t0 + i)).toBe(true);
-    expect(allowIpAttempt(ip, t0 + IP_MAX_ATTEMPTS)).toBe(false);
-    expect(allowIpAttempt(ip, t0 + WINDOW_MS + IP_MAX_ATTEMPTS + 1)).toBe(true);
+    for (let i = 0; i < IP_MAX_ATTEMPTS; i++) expect(await allowIpAttempt(ip, t0 + i)).toBe(true);
+    expect(await allowIpAttempt(ip, t0 + IP_MAX_ATTEMPTS)).toBe(false);
+    expect(await allowIpAttempt(ip, t0 + WINDOW_MS + IP_MAX_ATTEMPTS + 1)).toBe(true);
   });
 });
 

@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/app/shell/page-header";
-import { PublishButton } from "@/components/app/sites/publish-button";
-import { PublishBadge } from "@/components/app/ui/badge";
 import { CopyButton } from "@/components/app/ui/copy-button";
+import { StatStrip } from "@/components/app/ui/stat-strip";
+import { formatInt, rangeDays } from "@/lib/analytics";
 import { requireProperty } from "@/lib/auth/access";
-import { can } from "@/lib/auth/rbac";
+import { bareDomain } from "@/lib/consent";
+import { sdkSizeLabel } from "@/lib/sdk-size";
 import { site } from "@/lib/site";
 
 export const metadata: Metadata = { title: "Install" };
@@ -19,7 +20,7 @@ function Code({ id, label, code }: { id: string; label: string; code: string }) 
         </span>
       </figcaption>
       {/* scrolls sideways on narrow screens; focusable so keyboard users can scroll it too */}
-      <pre className="overflow-x-auto p-4 font-mono text-[13px] leading-relaxed" tabIndex={0} role="region" aria-labelledby={id}>
+      <pre className="scroll-thin overflow-x-auto p-4 font-mono text-xs leading-relaxed" tabIndex={0} role="region" aria-labelledby={id}>
         <code>{code}</code>
       </pre>
     </figure>
@@ -30,10 +31,10 @@ function Step({ n, title, children }: { n: number; title: string; children: Reac
   return (
     <li className="grid gap-4 border-t border-line py-8 first:border-t-0 first:pt-0 md:grid-cols-[minmax(0,280px)_minmax(0,1fr)] md:gap-10">
       <div className="flex gap-3">
-        <span aria-hidden className="grid size-7 shrink-0 place-items-center rounded-full border border-line-strong text-xs font-bold tabular-nums text-ink-2">
+        <span aria-hidden className="grid size-7 shrink-0 place-items-center rounded-full border border-line-strong text-xs font-semibold tabular-nums text-ink-2">
           {n}
         </span>
-        <h2 className="pt-0.5 text-base font-bold">
+        <h2 className="pt-0.5 text-base font-semibold">
           <span className="sr-only">Step {n}: </span>
           {title}
         </h2>
@@ -45,14 +46,24 @@ function Step({ n, title, children }: { n: number; title: string; children: Reac
 
 export default async function InstallPage(props: PageProps<"/app/sites/[propertyId]/install">) {
   const { propertyId } = await props.params;
-  const { property, role } = await requireProperty(propertyId);
+  const { property, store } = await requireProperty(propertyId);
   const origin = site.url.replace(/\/$/, "");
   const cdn = process.env.PUBLISH_DRIVER === "s3" ? process.env.NEXT_PUBLIC_CDN_URL : undefined;
+  const published = property.publishedVersion > 0;
   const dirty = property.config.version !== property.publishedVersion;
+  const domain = bareDomain(property.domain);
+
+  // Proof the script runs on the site: the newest consent receipt, or the last day the banner was shown.
+  const days = rangeDays(30);
+  const [[latest], counters] = await Promise.all([store.listReceipts(property.id, { limit: 1 }), store.listCounters(property.id, days[0], days[days.length - 1])]);
+  const views = counters.reduce((n, c) => n + c.views, 0);
+  const lastViewDay = counters.filter((c) => c.views > 0).reduce<string | undefined>((d, c) => (!d || c.day > d ? c.day : d), undefined);
+  const lastSeen = [latest?.timestamp.slice(0, 10), lastViewDay].filter((d): d is string => !!d).sort().at(-1);
+  const day = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 
   const snippet = [
     `<script`,
-    `  src="${cdn ?? origin}/sdk/plain-consent.js"`,
+    `  src="${cdn ? `${cdn}/sdk/v1` : `${origin}/sdk`}/plain-consent.js"`, // the Delivery stack serves the SDK under /sdk/v1/
     `  data-site="${property.siteKey}"`,
     `  data-api="${origin}/api/v1"`,
     ...(cdn ? [`  data-config-url="${cdn}/c/${property.siteKey}.json"`] : []),
@@ -78,8 +89,31 @@ window.PlainConsent.revoke();                 // withdraw consent (DPDPA)`;
       <PageHeader
         crumbs={[{ href: "/app", label: "Sites" }, { href: `/app/sites/${property.id}`, label: property.name }, { label: "Install" }]}
         title="Install"
-        description={`Add one script tag to ${property.domain}. It's under 10 KB and loads before any tracker.`}
-        actions={can(role, "property:write") ? <PublishButton propertyId={property.id} dirty={dirty} /> : null}
+        description={`Add one script tag to ${property.domain}, above every tracker.`}
+      />
+
+      <StatStrip
+        label="Installation at a glance"
+        stats={[
+          {
+            label: "Script last seen",
+            value: lastSeen ? day(lastSeen) : "Not yet",
+            note: lastSeen ? "Banner shown or a choice recorded" : published ? "Starts when the snippet is on your site" : "Starts when your banner is live",
+          },
+          {
+            href: `/app/sites/${property.id}`,
+            label: "Banner views, last 30 days",
+            value: views ? formatInt(views) : "—",
+            note: views ? "Times the banner was shown" : "No views yet",
+          },
+          {
+            label: "Live version",
+            value: published ? `v${property.publishedVersion}` : "None",
+            note: !published ? "Publish from the top bar" : dirty ? "Newer changes not published" : property.publishedAt ? `Published ${day(property.publishedAt)}` : "Up to date",
+            tone: published && dirty ? "warn" : undefined,
+          },
+          { label: "Script size", value: sdkSizeLabel(), note: "Gzipped, loaded once per visit" },
+        ]}
       />
 
       <ol className="max-w-5xl">
@@ -89,7 +123,8 @@ window.PlainConsent.revoke();                 // withdraw consent (DPDPA)`;
           </p>
           <Code id="snippet-label" label="HTML, in <head>" code={snippet} />
           <p>
-            Site key <code className="rounded bg-line px-1.5 py-0.5 font-mono text-ink">{property.siteKey}</code> is public and safe to ship in HTML.
+            Site key <code className="rounded bg-line px-1.5 py-0.5 font-mono text-ink">{property.siteKey}</code> is public and safe to ship in HTML. Choices are only accepted from{" "}
+            <span className="font-medium text-ink">{domain}</span> and its subdomains.
           </p>
         </Step>
         <Step n={2} title="Hold scripts you add by hand">
@@ -97,10 +132,7 @@ window.PlainConsent.revoke();                 // withdraw consent (DPDPA)`;
           <Code id="blocking-label" label="HTML" code={blocking} />
         </Step>
         <Step n={3} title="Publish your banner">
-          <p className="flex flex-wrap items-center gap-2">
-            Status: <PublishBadge dirty={dirty} published={property.publishedVersion > 0} />
-            {property.publishedAt ? <span className="text-ink-3">Last published {new Date(property.publishedAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}</span> : null}
-          </p>
+          <p>Publish from the top bar. Visitors only ever see the published version, never drafts.</p>
           <p>
             Published settings are served from{" "}
             <code className="break-all font-mono text-ink">{cdn ? `${cdn}/c/${property.siteKey}.json` : `${origin}/api/v1/config/${property.siteKey}`}</code>

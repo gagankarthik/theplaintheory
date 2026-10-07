@@ -23,6 +23,8 @@
   --color-surface: #ffffff;
   --color-line: #e5e7ee;
   --color-line-strong: #d0d4de;
+  /* edges of inputs and selects: 3.2:1 on white (WCAG 1.4.11 non-text contrast) */
+  --color-line-input: #8a90a2;
 
   /* Brand */
   --color-brand: #2e2bd6;
@@ -46,6 +48,9 @@
   --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
 
   /* Type scale: 16px body, display sizes for marketing */
+  /* type scale: 2xs 11 · xs 12.5 · sm 14 · base 16 · lg 18 · xl 24 */
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1.35;
   --text-xs: 0.78125rem;
   --text-xs--line-height: 1.4;
   --text-sm: 0.875rem;
@@ -236,7 +241,7 @@
     height: 2.5rem;
     padding: 0 0.75rem;
     border-radius: var(--radius-md);
-    border: 1px solid var(--color-line-strong);
+    border: 1px solid var(--color-line-input);
     background: var(--color-surface);
     color: var(--color-ink);
     font-size: var(--text-sm);
@@ -245,7 +250,7 @@
       box-shadow 0.15s;
   }
   .field:hover {
-    border-color: #b7bccb;
+    border-color: var(--color-ink-3);
   }
   .field:focus {
     outline: none;
@@ -269,6 +274,7 @@
     background: var(--color-surface);
     border: 1px solid var(--color-line);
     border-radius: var(--radius-lg);
+    box-shadow: 0 1px 2px rgb(11 16 32 / 0.04);
   }
 
   .container-page {
@@ -402,5 +408,39 @@
   .pt-hero-in,
   .pt-pop {
     animation: none !important;
+  }
+}
+
+/* Thin, quiet scrollbar that only darkens while you're over the scrolling area */
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  scrollbar-gutter: stable;
+}
+.scroll-thin:hover,
+.scroll-thin:focus-within {
+  scrollbar-color: var(--color-line-strong) transparent;
+}
+.scroll-thin::-webkit-scrollbar {
+  width: 6px;
+}
+.scroll-thin::-webkit-scrollbar-button {
+  display: none;
+}
+.scroll-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scroll-thin::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: transparent;
+}
+.scroll-thin:hover::-webkit-scrollbar-thumb {
+  background: var(--color-line-strong);
+}
+
+@keyframes sel-in {
+  from {
+    opacity: 0;
+    scale: 0.98;
   }
 }

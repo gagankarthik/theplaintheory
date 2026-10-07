@@ -1,12 +1,16 @@
 import type { ComponentType } from "react";
+import { demoEnabled } from "@/lib/demo";
 import {
   IconAlert,
   IconAnalytics,
+  IconBook,
   IconChain,
   IconCode,
   IconHeld,
   IconInstall,
   IconLayoutBar,
+  IconMail,
+  IconPartners,
   IconPlug,
   IconReceipt,
   IconRegion,
@@ -72,6 +76,13 @@ export const DEVELOPER_NAV: NavItem[] = [
   { href: "/docs#wordpress", title: "WordPress plugin", description: "Add the script without touching code.", icon: IconSites },
 ];
 
+/** Help and contact. Help Center is the documentation, which holds the setup and troubleshooting guides. */
+export const RESOURCES_NAV: NavItem[] = [
+  { href: "/docs", title: "Help Center", description: "Setup guides, troubleshooting and common questions.", icon: IconBook },
+  { href: "/contact/partners", title: "Partner with us", description: "Agency, affiliate, technology and strategic partners.", icon: IconPartners },
+  { href: "/contact", title: "Contact us", description: "Support, sales, partners and enterprise requests.", icon: IconMail },
+];
+
 export const FOOTER_NAV: NavGroup[] = [
   {
     label: "Product",
@@ -91,7 +102,7 @@ export const FOOTER_NAV: NavGroup[] = [
       { href: "/docs#frameworks", title: "Framework packages", description: "" },
       { href: "/docs#rest-api", title: "REST API", description: "" },
       { href: "/docs#wordpress", title: "WordPress plugin", description: "" },
-      { href: "/demo", title: "Demo store", description: "" },
+      ...(demoEnabled ? [{ href: "/demo", title: "Demo store", description: "" }] : []),
     ],
   },
   {
@@ -102,6 +113,14 @@ export const FOOTER_NAV: NavGroup[] = [
       { href: "/compliance/dpdpa", title: "DPDPA", description: "" },
       { href: "/compliance/ccpa#detail", title: "Global Privacy Control", description: "" },
       { href: "/security", title: "Security", description: "" },
+    ],
+  },
+  {
+    label: "Resources",
+    items: [
+      { href: "/docs", title: "Help Center", description: "" },
+      { href: "/contact/partners", title: "Partner with us", description: "" },
+      { href: "/contact", title: "Contact us", description: "" },
     ],
   },
   {

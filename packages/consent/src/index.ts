@@ -7,7 +7,7 @@ export type { Categories, Category, ConsentEvent, ConsentState, Framework, LoadO
  * Nothing here touches `window` or `document` at import time, so it is safe in SSR bundles.
  */
 
-export const DEFAULT_SRC = "https://cdn.theplaintheory.com/sdk/v1/plain-consent.js";
+export const DEFAULT_SRC = "https://cdn.theplaintheory.in/sdk/v1/plain-consent.js";
 
 const isBrowser = () => typeof window !== "undefined" && typeof document !== "undefined";
 

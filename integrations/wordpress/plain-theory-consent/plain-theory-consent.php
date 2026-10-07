@@ -1,13 +1,13 @@
 <?php
 /**
  * Plugin Name:       Plain Theory Consent
- * Plugin URI:        https://theplaintheory.com/docs#wordpress
+ * Plugin URI:        https://theplaintheory.in/docs#wordpress
  * Description:       Adds the Plain Theory consent script to your site: trackers wait until visitors choose, the right notice shows for GDPR, CCPA/CPRA and India's DPDPA, and every decision is recorded.
  * Version:           0.1.0
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            The Plain Theory
- * Author URI:        https://theplaintheory.com
+ * Author URI:        https://theplaintheory.in
  * License:           GPL-2.0-or-later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain:       plain-theory-consent
@@ -20,7 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 const PTC_OPTION       = 'ptc_settings';
-const PTC_DEFAULT_SRC  = 'https://cdn.theplaintheory.com/sdk/v1/plain-consent.js';
+const PTC_DEFAULT_SRC  = 'https://cdn.theplaintheory.in/sdk/v1/plain-consent.js';
 const PTC_CATEGORIES   = array( 'functional', 'analytics', 'marketing' );
 
 /**
@@ -241,7 +241,7 @@ function ptc_render_settings_page() {
 				<tr>
 					<th scope="row"><label for="ptc_api_url"><?php esc_html_e( 'API URL', 'plain-theory-consent' ); ?></label></th>
 					<td>
-						<input name="<?php echo esc_attr( PTC_OPTION ); ?>[api_url]" id="ptc_api_url" type="url" class="regular-text code" value="<?php echo esc_attr( $s['api_url'] ); ?>" placeholder="https://app.theplaintheory.com/api/v1" />
+						<input name="<?php echo esc_attr( PTC_OPTION ); ?>[api_url]" id="ptc_api_url" type="url" class="regular-text code" value="<?php echo esc_attr( $s['api_url'] ); ?>" placeholder="https://app.theplaintheory.in/api/v1" />
 						<p class="description"><?php esc_html_e( 'Optional. Only for self-hosted or dedicated-region deployments.', 'plain-theory-consent' ); ?></p>
 					</td>
 				</tr>

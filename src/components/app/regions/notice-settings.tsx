@@ -88,7 +88,9 @@ export function NoticeSettings({
           <div className="w-full max-w-xl">
             <FormMessage state={state?.fieldErrors ? { error: state.error } : state} />
           </div>
-          <SubmitButton pending="Saving">Save notice details</SubmitButton>
+          <SubmitButton variant="ghost" pending="Saving">
+            Save notice details
+          </SubmitButton>
         </div>
       ) : null}
     </form>

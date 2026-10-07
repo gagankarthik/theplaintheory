@@ -1,18 +1,20 @@
 /**
  * /demo — a plain-HTML "customer website" that embeds the real SDK exactly as a customer would:
  * first script in <head>, trackers marked type="text/plain". Served raw (not a React page) so nothing
- * runs before the SDK. Uses the seeded demo property (siteKey pk_demo_store, domain localhost).
+ * runs before the SDK. Uses the real site set in NEXT_PUBLIC_DEMO_SITE_KEY (see lib/demo.ts).
  */
+import { DEMO_SITE_KEY } from "@/lib/demo";
+
 export const dynamic = "force-static";
 
-const HTML = /* html */ `<!doctype html>
+const html = (siteKey: string) => /* html */ `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <title>Monsoon Tea Co. · Plain Theory SDK demo</title>
-<script src="/sdk/plain-consent.js" data-site="pk_demo_store" data-debug></script>
+<script src="/sdk/plain-consent.js" data-site="${siteKey}" data-debug></script>
 <script>
   window.__demo = [];
   window.__demoLog = function (msg, kind) {
@@ -143,7 +145,8 @@ const HTML = /* html */ `<!doctype html>
 </html>`;
 
 export function GET() {
-  return new Response(HTML, {
+  if (!DEMO_SITE_KEY) return new Response("Not found", { status: 404, headers: { "x-robots-tag": "noindex, nofollow" } });
+  return new Response(html(DEMO_SITE_KEY), {
     headers: { "content-type": "text/html; charset=utf-8", "x-robots-tag": "noindex, nofollow" },
   });
 }

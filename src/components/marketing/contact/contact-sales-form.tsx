@@ -2,11 +2,11 @@
 
 import { useActionState, useRef } from "react";
 import { contactSales, type ContactState } from "@/app/(marketing)/contact-sales/actions";
-import { IconCheck } from "@/components/icons";
 import { SelectField, TextAreaField, TextField } from "@/components/app/ui/field";
 import { FormGuard, useFocusOnError } from "@/components/app/ui/form-guard";
 import { SubmitButton } from "@/components/app/ui/submit-button";
 import { FormMessage } from "@/components/app/ui/toast";
+import { RequestSuccess } from "./request-ui";
 
 const SITES = [
   { value: "", label: "Choose" },
@@ -43,13 +43,15 @@ export function ContactSalesForm({ formToken }: { formToken: string }) {
 
   if (state?.ok) {
     return (
-      <div role="status" className="flex flex-col items-start gap-4 py-6">
-        <span className="grid size-11 place-items-center rounded-full bg-jade-wash text-jade">
-          <IconCheck size={22} />
-        </span>
-        <h2 className="text-xl font-semibold tracking-tight">Request sent</h2>
-        <p className="text-[15px] text-ink-2">{state.ok}</p>
-      </div>
+      <RequestSuccess
+        message={state.ok}
+        reference={state.reference}
+        next={[
+          "Someone from our sales team reads your request and checks your sites and regions.",
+          "We reply by email with pricing, or with times for a walkthrough on your own site.",
+          "Enterprise terms, DPA and security review documents follow once you're ready.",
+        ]}
+      />
     );
   }
 

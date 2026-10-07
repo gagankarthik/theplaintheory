@@ -6,9 +6,17 @@ export type PlatformAuditAction =
   | "org.unsuspended"
   | "user.unlocked"
   | "user.sessions_revoked"
-  | "staff.granted"
+  | "staff.invited"
+  | "staff.invite_resent"
   | "staff.role_changed"
-  | "staff.revoked";
+  | "staff.password_reset"
+  | "staff.disabled"
+  | "staff.enabled"
+  | "staff.removed"
+  /** from the earlier model (roles stored on customer accounts); kept so old events still display */
+  | "staff.granted"
+  | "staff.revoked"
+  | "lead.status_changed";
 
 /**
  * What Plain Theory staff did to customer accounts. Hash-chained in one platform-wide sequence, so an
@@ -17,12 +25,14 @@ export type PlatformAuditAction =
 export interface PlatformAuditEvent {
   id: string;
   seq: number;
+  /** "staff:<cognito sub>" for a staff-pool identity (older events hold a customer user id) */
   actorUserId: string;
   actorEmail: string;
   /** the actor's effective platform role at the time */
   actorRole: string;
   action: PlatformAuditAction;
-  target: { type: "org" | "user"; id: string; label?: string };
+  /** "staff" targets are identified by their staff-pool sub */
+  target: { type: "org" | "user" | "lead" | "staff"; id: string; label?: string };
   /** short, non-secret context: old and new values, the reason given */
   metadata?: Record<string, string | number | boolean | null>;
   ipHash: string;
@@ -49,7 +59,14 @@ export const PLATFORM_AUDIT_LABELS: Record<PlatformAuditAction, string> = {
   "org.unsuspended": "Lifted suspension",
   "user.unlocked": "Unlocked account",
   "user.sessions_revoked": "Signed user out everywhere",
-  "staff.granted": "Granted staff role",
+  "staff.invited": "Invited staff member",
+  "staff.invite_resent": "Resent staff invite",
   "staff.role_changed": "Changed staff role",
+  "staff.password_reset": "Reset staff password",
+  "staff.disabled": "Disabled staff account",
+  "staff.enabled": "Enabled staff account",
+  "staff.removed": "Removed staff account",
+  "staff.granted": "Granted staff role",
   "staff.revoked": "Removed staff role",
+  "lead.status_changed": "Changed request status",
 };

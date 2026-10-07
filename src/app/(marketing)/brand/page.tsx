@@ -93,7 +93,7 @@ export default function BrandPage() {
               <div className="hidden px-3.5 py-2 text-xs text-ink-2 sm:block">Consent log</div>
             </div>
             <div className="border-t border-line px-4 py-3">
-              <span className="block h-7 truncate rounded-full bg-paper px-4 text-xs leading-7 text-ink-3">theplaintheory.com/app</span>
+              <span className="block h-7 truncate rounded-full bg-paper px-4 text-xs leading-7 text-ink-3">theplaintheory.in/app</span>
             </div>
             <div className="flex items-end justify-center gap-8 bg-ink px-6 pb-6 pt-10">
               <div className="flex flex-col items-center gap-2">

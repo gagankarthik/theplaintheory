@@ -32,8 +32,13 @@ export interface Plan {
     residencyChoice: boolean;
     apiAccess: boolean;
   };
-  /** env var holding the Stripe price id */
-  stripePriceEnv?: string;
+  /**
+   * Yearly prices per currency, as charged once a year. Filled from Stripe at request time
+   * (src/lib/stripe-catalog.ts); when absent, a year is ten months' price (two months free).
+   */
+  annual?: Partial<Record<"usd" | "eur" | "gbp" | "inr", number>>;
+  /** true when the prices above came from Stripe rather than this file's list prices */
+  live?: boolean;
 }
 
 export const PLANS: Plan[] = [
@@ -77,7 +82,6 @@ export const PLANS: Plan[] = [
       "Leak alerts when trackers fire after a decline",
     ],
     limits: { evidencePack: false, webhooks: false, leakDetection: true, indianLanguages: true, residencyChoice: false, apiAccess: false },
-    stripePriceEnv: "STRIPE_PRICE_STARTER",
   },
   {
     id: "growth",
@@ -95,11 +99,10 @@ export const PLANS: Plan[] = [
       "10 websites, 250k pageviews a month",
       "Compliance Evidence Pack and chain verification",
       "Consent analytics by country, device and browser",
-      "Data kept in India, the EU or the US",
+      "Consent records stored in India (Mumbai)",
       "5 team seats with roles",
     ],
     limits: { evidencePack: true, webhooks: false, leakDetection: true, indianLanguages: true, residencyChoice: true, apiAccess: false },
-    stripePriceEnv: "STRIPE_PRICE_GROWTH",
   },
   {
     id: "business",
@@ -121,7 +124,6 @@ export const PLANS: Plan[] = [
       "20 team seats",
     ],
     limits: { evidencePack: true, webhooks: true, leakDetection: true, indianLanguages: true, residencyChoice: true, apiAccess: true },
-    stripePriceEnv: "STRIPE_PRICE_BUSINESS",
   },
   {
     id: "enterprise",
@@ -165,9 +167,11 @@ export const CURRENCIES: { id: Currency; code: string; symbol: string; name: str
 export const isCurrency = (v: unknown): v is Currency => CURRENCIES.some((c) => c.id === v);
 export const currencyInfo = (c: Currency) => CURRENCIES.find((x) => x.id === c) ?? CURRENCIES[0];
 
-/** Monthly list price in a currency; null = custom (Enterprise). */
-export function planPrice(plan: Plan, currency: Currency): number | null {
-  return { usd: plan.priceMonthly, eur: plan.priceMonthlyEur, gbp: plan.priceMonthlyGbp, inr: plan.priceMonthlyInr }[currency];
+/** List price in a currency, per month or per year; null = custom (Enterprise). */
+export function planPrice(plan: Plan, currency: Currency, interval: "monthly" | "annual" = "monthly"): number | null {
+  const monthly = { usd: plan.priceMonthly, eur: plan.priceMonthlyEur, gbp: plan.priceMonthlyGbp, inr: plan.priceMonthlyInr }[currency];
+  if (interval === "monthly" || monthly === null) return monthly;
+  return plan.annual?.[currency] ?? monthly * 10;
 }
 
 const formatters = new Map<string, Intl.NumberFormat>();

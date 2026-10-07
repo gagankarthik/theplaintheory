@@ -65,17 +65,20 @@ export function PricingPlans({
   headingLevel = "h3",
   currency = "usd",
   period = "monthly",
+  plans = PLANS,
 }: {
   headingLevel?: "h2" | "h3";
   currency?: Currency;
   period?: Period;
+  /** plans with live Stripe prices (getLivePlans); defaults to the list prices */
+  plans?: Plan[];
 }) {
   const Heading = headingLevel;
-  const enterprise = PLANS.find((p) => p.id === "enterprise")!;
+  const enterprise = plans.find((p) => p.id === "enterprise")!;
   return (
     <div className="overflow-hidden rounded-[var(--radius-lg)] border border-line bg-line">
       <ul className="grid gap-px md:grid-cols-2 xl:grid-cols-4">
-        {SELF_SERVE_PLANS.map((plan) => {
+        {plans.filter((p) => SELF_SERVE_PLANS.some((s) => s.id === p.id)).map((plan) => {
           const featured = plan.id === "growth";
           return (
             <li key={plan.id} className={`relative flex flex-col p-6 lg:p-7 ${featured ? "bg-ink text-white" : "bg-surface"}`}>

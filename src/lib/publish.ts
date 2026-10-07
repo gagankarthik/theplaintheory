@@ -1,4 +1,7 @@
 import "server-only";
+import { CreateInvalidationCommand } from "@aws-sdk/client-cloudfront";
+import { PutObjectCommand } from "@aws-sdk/client-s3";
+import { cloudfrontClient, s3Client } from "./aws";
 import type { PublicConfig } from "./public-config";
 export { toPublicConfig, type PublicConfig } from "./public-config";
 
@@ -9,10 +12,8 @@ export { toPublicConfig, type PublicConfig } from "./public-config";
 export async function publishConfig(cfg: PublicConfig) {
   if (process.env.PUBLISH_DRIVER !== "s3") return { location: `/api/v1/config/${cfg.siteKey}` };
 
-  const { S3Client, PutObjectCommand } = await import("@aws-sdk/client-s3");
-  const { CloudFrontClient, CreateInvalidationCommand } = await import("@aws-sdk/client-cloudfront");
   const key = `c/${cfg.siteKey}.json`;
-  await new S3Client({ region: process.env.AWS_REGION }).send(
+  await s3Client().send(
     new PutObjectCommand({
       Bucket: process.env.CONFIG_BUCKET!,
       Key: key,
@@ -22,7 +23,7 @@ export async function publishConfig(cfg: PublicConfig) {
     }),
   );
   if (process.env.CLOUDFRONT_DISTRIBUTION_ID) {
-    await new CloudFrontClient({ region: "us-east-1" }).send(
+    await cloudfrontClient().send(
       new CreateInvalidationCommand({
         DistributionId: process.env.CLOUDFRONT_DISTRIBUTION_ID,
         InvalidationBatch: { CallerReference: `${cfg.siteKey}-${cfg.version}-${Date.now()}`, Paths: { Quantity: 1, Items: [`/${key}`] } },

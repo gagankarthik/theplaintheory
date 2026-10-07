@@ -12,9 +12,11 @@
 
 | Role | Can do |
 | --- | --- |
-| Owner | Everything, including billing, security policy (require MFA) and deleting sites |
-| Admin | Manage sites, banners, team and settings; read the audit log and security status; export access reviews. No billing or security policy |
-| Viewer | See analytics and export consent logs. Can't change anything |
+| Owner | Everything, including billing, security policy (require MFA), deleting the organization and transferring ownership |
+| Admin | Add and delete sites; edit banners, regions, languages and trackers and publish; manage the team and settings; export consent logs and Evidence Packs; read the audit log, security status and access reviews. Can't change or remove owners. No billing or security policy |
+| Editor | Edit banners, regions, languages, trackers and webhooks, and publish. Can't add or delete sites, export logs, read the audit log or manage the team |
+| Auditor | Read-only access to sites, analytics and banners; export consent logs and Evidence Packs; read the audit log, security status and access reviews. Can't change anything |
+| Viewer | See sites, analytics and banners, and export consent logs and Evidence Packs. Can't change anything |
 
 Permissions are checked on the server for every page, server action and API route
 (`src/lib/auth/rbac.ts`, `access.ts`, `route-guard.ts`). The client never decides access.

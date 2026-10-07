@@ -49,6 +49,8 @@
     "packages/svelte",
     "packages/angular",
     "examples",
-    "packages/*/dist"
+    "packages/*/dist",
+    "scripts/stripe-sync.ts",
+    "scripts/staff-invite.ts"
   ]
 }

@@ -1,9 +1,11 @@
 /**
  * Sliding-window rate limits for public forms.
  *
- * The interface is async so the in-memory implementation can be swapped for a shared one (for
- * example a DynamoDB counter table) without touching callers: call `setRateLimiterFactory` once at
- * startup. Keys are always salted IP hashes (see anonymizeIp), never raw addresses.
+ * The interface is async so the backing store can vary without touching callers. With
+ * STORE_DRIVER=dynamodb the limits are shared atomic counters in the ephemeral table
+ * (rate-limit-dynamo.ts), because in-memory windows don't hold across serverless instances; otherwise
+ * (local driver, tests) they're held in memory. `setRateLimiterFactory` overrides both.
+ * Keys are always salted IP hashes (see anonymizeIp), never raw addresses.
  *
  * Memory store: a per-key log of hit timestamps. Only hits inside the window count, so the limit
  * slides rather than resetting on the hour. Memory is bounded by `maxKeys`.
@@ -81,10 +83,19 @@ export function createMemoryRateLimiter({ limit, windowMs, maxKeys = 10_000 }: R
 
 const HOUR = 60 * 60 * 1000;
 
-/** Limits per public form, per salted IP hash. Sign-in has its own throttle in auth/lockout.ts. */
+/** Limits per public form, per salted IP hash. `signIn` is the network throttle used by auth/lockout.ts; `staffSignIn` guards /admin/login. */
 export const RATE_LIMITS = {
   contactSales: { limit: 5, windowMs: HOUR },
+  /** /contact/support, /contact/partners and /contact/enterprise share one window per network */
+  contact: { limit: 5, windowMs: HOUR },
   signup: { limit: 10, windowMs: HOUR },
+  signIn: { limit: 30, windowMs: 15 * 60 * 1000 },
+  /** every staff console sign-in step (password, new password, authenticator codes) per network */
+  staffSignIn: { limit: 20, windowMs: 15 * 60 * 1000 },
+  /** live site check, per site (the key is the site id, not an IP) */
+  siteAudit: { limit: 5, windowMs: HOUR },
+  /** tracker scan, per site (the key is the site id) */
+  trackerScan: { limit: 6, windowMs: HOUR },
 } as const satisfies Record<string, RateLimitOptions>;
 
 export type RateLimitName = keyof typeof RATE_LIMITS;
@@ -103,11 +114,24 @@ export function setRateLimiterFactory(factory: Factory) {
   g.__ptRateLimiters = new Map();
 }
 
+/** A DynamoDB-backed limiter, loaded on first use so this module stays free of AWS imports. */
+function lazyDynamoLimiter(name: RateLimitName, opts: RateLimitOptions): RateLimiter {
+  let impl: Promise<RateLimiter> | undefined;
+  const get = () => (impl ??= import("./rate-limit-dynamo").then((m) => m.createDynamoRateLimiter(name, opts)));
+  return {
+    consume: async (key, now) => (await get()).consume(key, now),
+    peek: async (key, now) => (await get()).peek(key, now),
+    reset: async (key) => (await get()).reset(key),
+  };
+}
+
+const defaultFactory: Factory = (name, opts) => (process.env.STORE_DRIVER === "dynamodb" ? lazyDynamoLimiter(name, opts) : createMemoryRateLimiter(opts));
+
 export function rateLimiter(name: RateLimitName): RateLimiter {
   g.__ptRateLimiters ??= new Map();
   let limiter = g.__ptRateLimiters.get(name);
   if (!limiter) {
-    const factory = g.__ptRateLimiterFactory ?? ((_n, opts) => createMemoryRateLimiter(opts));
+    const factory = g.__ptRateLimiterFactory ?? defaultFactory;
     limiter = factory(name, RATE_LIMITS[name]);
     g.__ptRateLimiters.set(name, limiter);
   }

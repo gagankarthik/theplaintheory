@@ -8,7 +8,7 @@ export function UserActions({
   canUnlock,
   canRevoke,
 }: {
-  user: { id: string; email: string; locked: boolean; failures: number; activeSessions: number; self: boolean };
+  user: { id: string; email: string; locked: boolean; failures: number; activeSessions: number };
   canUnlock: boolean;
   canRevoke: boolean;
 }) {
@@ -35,11 +35,7 @@ export function UserActions({
           triggerVariant="danger"
           danger
           title={`Sign ${user.email} out everywhere?`}
-          description={
-            user.self
-              ? "Ends your other sessions. This browser stays signed in."
-              : `Ends ${user.activeSessions === 1 ? "their 1 active session" : `all ${user.activeSessions} of their active sessions`}. They'll need to sign in again, with two-factor if they use it.`
-          }
+          description={`Ends ${user.activeSessions === 1 ? "their 1 active session" : `all ${user.activeSessions} of their active sessions`}. They'll need to sign in again, with two-factor if they use it.`}
           confirmLabel="Sign out everywhere"
           pendingLabel="Signing out"
           action={revokeAllSessions}

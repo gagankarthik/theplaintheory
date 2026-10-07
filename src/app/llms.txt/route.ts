@@ -1,4 +1,5 @@
-import { PLANS, formatPrice } from "@/lib/plans";
+import { formatPrice } from "@/lib/plans";
+import { getLivePlans } from "@/lib/stripe-catalog";
 import { MARKETING_ROUTES } from "@/lib/marketing-routes";
 import { sdkSizeKb } from "@/lib/sdk-size";
 import { absoluteUrl, site } from "@/lib/site";
@@ -7,7 +8,11 @@ import { absoluteUrl, site } from "@/lib/site";
 const ABOUT: Record<string, [title: string, about: string]> = {
   "/": ["Home", "What Plain Theory is, the laws it covers and how the consent log works"],
   "/pricing": ["Pricing", "Plans, limits and prices in USD, EUR, GBP and INR"],
+  "/contact": ["Contact us", "Every way to reach Plain Theory: support, sales, Help Center, partners and enterprise, with emails and response times"],
   "/contact-sales": ["Talk to sales", "Enterprise rollouts, data residency and SSO"],
+  "/contact/support": ["Support ticket", "Raise a ticket with our support engineers; replies within one business day"],
+  "/contact/partners": ["Partner support", "Account, campaign, program and payout queries for agency, affiliate, technology and strategic partners"],
+  "/contact/enterprise": ["Enterprise and compliance requests", "DPA requests, data residency, audit evidence, custom terms, security questionnaires and procurement"],
   "/docs": ["Documentation", "Install guides for HTML, Next.js, React, Vite, Vue, Svelte, Angular and WordPress, plus the REST API"],
   "/compliance/gdpr": ["GDPR guide", "GDPR and ePrivacy cookie consent requirements"],
   "/compliance/ccpa": ["CCPA/CPRA guide", "Opt-out rights and Global Privacy Control in California"],
@@ -25,9 +30,11 @@ const ABOUT: Record<string, [title: string, about: string]> = {
  */
 /** Built once at deploy: the content only changes when routes or prices do. */
 export const dynamic = "force-static";
+/** Prices are live from Stripe; regenerate every five minutes. */
+export const revalidate = 300;
 
-export function GET() {
-  const prices = PLANS.filter((p) => p.priceMonthly !== null)
+export async function GET() {
+  const prices = (await getLivePlans()).filter((p) => p.priceMonthly !== null)
     .map((p) => p.priceMonthly === 0 ? `${p.name} (no charge)` : `${p.name} ${formatPrice(p.priceMonthly!, "usd")}/month`)
     .join(", ");
   const pages = MARKETING_ROUTES.map((r) => {
@@ -52,8 +59,10 @@ ${pages.join("\n")}
 
 ## Contact
 
-- Sales and general: ${site.email}
-- Privacy: privacy@theplaintheory.com
+- Contact options: ${absoluteUrl("/contact")}
+- Support and general: ${site.email}
+- Sales: sales@theplaintheory.in
+- Privacy: ${site.privacyEmail}
 `;
   return new Response(body, { headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "public, max-age=3600" } });
 }

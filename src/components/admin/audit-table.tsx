@@ -12,6 +12,7 @@ const GROUPS = [
   { value: "org", label: "Organizations" },
   { value: "user", label: "Users" },
   { value: "staff", label: "Staff roles" },
+  { value: "lead", label: "Contact requests" },
 ];
 
 const metaText = (m: PlatformAuditEvent["metadata"]) =>
@@ -47,9 +48,13 @@ export function AuditTable({ events }: { events: PlatformAuditEvent[] }) {
         <>
           <span className="font-bold">{PLATFORM_AUDIT_LABELS[e.action] ?? e.action}</span>
           <span className="block text-xs text-ink-3">
-            <Link href={e.target.type === "org" ? `/admin/orgs/${e.target.id}` : `/admin/users/${e.target.id}`} className="hover:underline">
-              {e.target.label ?? e.target.id}
-            </Link>
+            {e.target.type === "staff" ? (
+              e.target.label ?? e.target.id
+            ) : (
+              <Link href={e.target.type === "org" ? `/admin/orgs/${e.target.id}` : e.target.type === "lead" ? `/admin/requests/${e.target.id}` : `/admin/users/${e.target.id}`} className="hover:underline">
+                {e.target.label ?? e.target.id}
+              </Link>
+            )}
           </span>
         </>
       ),

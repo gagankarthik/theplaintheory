@@ -91,7 +91,9 @@ export async function evaluateControls(store: Store, org: Organization, now = ne
       title: "Password policy and lockout",
       status: locked.length ? "attention" : "pass",
       detail: cognito
-        ? "Passwords, lockout and MFA are enforced by the Cognito user pool."
+        ? `Passwords are verified by the Cognito user pool: at least 12 characters with a lowercase letter, a number and a symbol; the app also refuses common and email-based passwords. 5 failures in 15 minutes locks the account for 15 minutes.${
+            locked.length ? ` Locked now: ${locked.map((m) => m.user!.email).join(", ")}.` : ""
+          }`
         : `At least 12 characters, common and email-based passwords refused, scrypt hashing. 5 failures in 15 minutes locks the account for 15 minutes.${
             locked.length ? ` Locked now: ${locked.map((m) => m.user!.email).join(", ")}.` : ""
           }`,
@@ -117,7 +119,7 @@ export async function evaluateControls(store: Store, org: Organization, now = ne
       title: "Least privilege",
       status: owners.length > 3 || staleInvites.length ? "attention" : "pass",
       detail: [
-        `${owners.length} owner${owners.length === 1 ? "" : "s"}, ${members.filter((m) => m.role === "admin").length} admin, ${members.filter((m) => m.role === "viewer").length} viewer.`,
+        `${owners.length} owner${owners.length === 1 ? "" : "s"}, ${(["admin", "editor", "auditor", "viewer"] as const).map((r) => `${members.filter((m) => m.role === r).length} ${r}`).join(", ")}.`,
         owners.length > 3 ? "More than 3 owners; consider demoting some to admin." : "",
         staleInvites.length ? `${staleInvites.length} invite${staleInvites.length === 1 ? " is" : "s are"} over 30 days old; revoke ${staleInvites.length === 1 ? "it" : "them"} if no longer needed.` : "",
       ]

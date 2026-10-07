@@ -14,7 +14,7 @@ const fail = (error: string, status: number): Fail => ({ ok: false, response: Re
 /** True when the organization requires MFA and this user hasn't enrolled (SOC 2 CC6.1). */
 export const blockedByMfaPolicy = (org: Organization, user: User) => Boolean(org.security?.requireMfa && !user.mfa);
 const MFA_REQUIRED = "This organization requires two-factor sign-in. Turn it on in Account first.";
-const SUSPENDED = "This organization is suspended. Contact support@theplaintheory.com.";
+const SUSPENDED = "This organization is suspended. Contact support@theplaintheory.in.";
 
 /** Route-handler equivalent of requireUser(): returns a JSON error response instead of redirecting. */
 export async function guardOrg(permission: Permission): Promise<Guard> {

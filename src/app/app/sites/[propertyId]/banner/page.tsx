@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { BannerBuilder } from "@/components/app/banner-builder/banner-builder";
 import { PageHeader } from "@/components/app/shell/page-header";
-import { PublishBadge } from "@/components/app/ui/badge";
 import { requireProperty } from "@/lib/auth/access";
 import { can } from "@/lib/auth/rbac";
 
@@ -16,12 +15,7 @@ export default async function BannerPage(props: PageProps<"/app/sites/[propertyI
       <PageHeader
         crumbs={[{ href: "/app", label: "Sites" }, { href: `/app/sites/${property.id}`, label: property.name }, { label: "Banner" }]}
         title="Banner"
-        description={
-          <span className="inline-flex flex-wrap items-center gap-2">
-            Design, wording and behaviour. Changes go live when you publish.
-            <PublishBadge dirty={property.config.version !== property.publishedVersion} published={property.publishedVersion > 0} />
-          </span>
-        }
+        description="Five steps from design to a live, fair banner. Visitors only see what you publish."
       />
       <BannerBuilder
         key={property.config.version}

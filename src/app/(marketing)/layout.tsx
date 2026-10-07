@@ -5,8 +5,8 @@ import { SiteFooter } from "@/components/marketing/site-footer";
 import { MarketingMotion } from "@/components/marketing/motion";
 import { SiteHeader } from "@/components/marketing/site-header";
 
-/** Our own site's consent property; production sets NEXT_PUBLIC_PLAIN_SITE_KEY. */
-const SITE_KEY = process.env.NEXT_PUBLIC_PLAIN_SITE_KEY ?? "pk_plaintheory_web";
+/** Our own site's consent property: a real site in the store, set per environment. No key, no banner. */
+const SITE_KEY = process.env.NEXT_PUBLIC_PLAIN_SITE_KEY || undefined;
 
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -27,7 +27,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
       <WebAnalytics />
       <MarketingMotion />
       {/* We run our own consent script. The site sets no analytics or ad cookies, so it isn't blocking-critical. */}
-      <Script src="/sdk/plain-consent.js" data-site={SITE_KEY} strategy="afterInteractive" />
+      {SITE_KEY ? <Script src="/sdk/plain-consent.js" data-site={SITE_KEY} strategy="afterInteractive" /> : null}
     </>
   );
 }

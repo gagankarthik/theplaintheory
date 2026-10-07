@@ -36,7 +36,7 @@ export function quote(plan: Plan, currency: Currency, period: Period): Quote | n
   const price = listPrice(plan, currency);
   if (price === null) return null;
   if (period === "monthly") return { perMonth: price, charged: price, monthlyEquivalentYear: price * 12 };
-  const charged = price * ANNUAL_MONTHS_CHARGED;
+  const charged = listPrice(plan, currency, "annual") ?? price * ANNUAL_MONTHS_CHARGED;
   return { perMonth: Math.round((charged / 12) * 100) / 100, charged, monthlyEquivalentYear: price * 12 };
 }
 
@@ -50,10 +50,11 @@ export function retentionLabel(days: number) {
 export const compactNumber = (n: number) =>
   n >= 1_000_000 ? `${(n / 1_000_000).toLocaleString("en-US", { maximumFractionDigits: 1 })}M` : n >= 1_000 ? `${Math.round(n / 1000)}k` : String(n);
 
-/** The smallest self-serve plan that fits; Enterprise when nothing does. */
-export function recommendPlan(sites: number, pageviews: number): Plan {
-  const fit = SELF_SERVE_PLANS.find(
+/** The smallest self-serve plan that fits; Enterprise when nothing does. Pass live plans to price it. */
+export function recommendPlan(sites: number, pageviews: number, plans: Plan[] = PLANS): Plan {
+  const selfServe = plans.filter((p) => SELF_SERVE_PLANS.some((s) => s.id === p.id));
+  const fit = selfServe.find(
     (p) => (p.properties === null || p.properties >= sites) && (p.pageviews === null || p.pageviews >= pageviews),
   );
-  return fit ?? PLANS[PLANS.length - 1];
+  return fit ?? plans[plans.length - 1];
 }

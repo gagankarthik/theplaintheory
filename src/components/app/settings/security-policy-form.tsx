@@ -31,7 +31,7 @@ export function SecurityPolicyForm({ requireMfa, canEdit, ownMfa, unenrolled }: 
           label="Require two-factor"
           description={
             unenrolled
-              ? `${unenrolled} member${unenrolled > 1 ? "s" : ""} haven't turned on two-factor yet. When required, they're asked to set it up before they can continue.`
+              ? `${unenrolled} ${unenrolled > 1 ? "members haven't" : "member hasn't"} turned on two-factor yet. When required, they're asked to set it up before they can continue.`
               : "Everyone in this organization has two-factor on."
           }
         >
@@ -41,7 +41,7 @@ export function SecurityPolicyForm({ requireMfa, canEdit, ownMfa, unenrolled }: 
             onChange={setOn}
             disabled={!canEdit}
             label="Require two-factor for all members"
-            description={!ownMfa && canEdit ? "Turn on two-factor for your own account first, in Account." : "Only owners can change this."}
+            description={!canEdit ? "Only owners can change this." : !ownMfa ? "Turn on two-factor for your own account first, in Account." : "Members without two-factor are asked to set it up at their next sign-in."}
           />
           {canEdit ? (
             <div className="mt-4 flex flex-wrap items-center gap-3">

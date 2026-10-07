@@ -20,14 +20,16 @@ export function frameworkFor(country?: string | null, region?: string | null): F
 export function viewerLocation(headers: Headers, url?: URL) {
   const country =
     url?.searchParams.get("country") ??
-    headers.get("cloudfront-viewer-country") ??
+    // The host's own header first: Vercel sets x-vercel-ip-country itself, while a client could send a
+    // CloudFront header to a Vercel deployment and pick its own country.
     headers.get("x-vercel-ip-country") ??
+    headers.get("cloudfront-viewer-country") ??
     headers.get("cf-ipcountry") ??
     "";
   const region =
     url?.searchParams.get("region") ??
-    headers.get("cloudfront-viewer-country-region") ??
     headers.get("x-vercel-ip-country-region") ??
+    headers.get("cloudfront-viewer-country-region") ??
     "";
   return { country: country.toUpperCase() || "XX", region: region.toUpperCase() };
 }

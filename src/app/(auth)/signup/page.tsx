@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { SignupForm } from "@/components/app/auth/auth-forms";
+import { AuthTrust } from "@/components/app/auth/auth-trust";
+import { SetupSteps } from "@/components/app/auth/setup-steps";
 import { IconCheck } from "@/components/icons";
+import { passwordHint } from "@/lib/auth/provider";
 import { getSignedInUser } from "@/lib/auth/session";
 import { issueFormToken } from "@/lib/form-guard";
 import { PLANS } from "@/lib/plans";
@@ -13,27 +16,16 @@ export const metadata: Metadata = {
   alternates: { canonical: "/signup" },
 };
 
-const SETUP = ["Account", "Workspace", "Site", "Plan"];
-
 export default async function SignupPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   if (await getSignedInUser()) redirect("/app");
-  const { plan: planParam } = await searchParams;
+  const { plan: planParam, email: emailParam } = await searchParams;
+  // Team invite links pre-fill the invited address (they still have to prove it with the emailed code).
+  const email = typeof emailParam === "string" && emailParam.length <= 254 && emailParam.includes("@") ? emailParam : undefined;
   const plan = PLANS.find((p) => p.id === planParam && p.id !== "free" && p.id !== "enterprise");
 
   return (
     <>
-      {/* Where this sits in setup: account now, the rest right after */}
-      <ol aria-label="Setup steps" className="mb-8 flex items-center gap-1.5 short:mb-5">
-        {SETUP.map((s, i) => (
-          <li key={s} className="flex flex-1 flex-col gap-1.5" aria-current={i === 0 ? "step" : undefined}>
-            <span aria-hidden className={`h-1 rounded-full ${i === 0 ? "bg-brand" : "bg-line"}`} />
-            <span className={`text-[11px] font-medium ${i === 0 ? "text-ink" : "text-ink-3"}`}>
-              <span className="sr-only">Step {i + 1} of {SETUP.length}: </span>
-              {s}
-            </span>
-          </li>
-        ))}
-      </ol>
+      <SetupSteps />
 
       <h1 className="text-[1.75rem] font-semibold tracking-[-0.03em]">Create your account</h1>
       <p className="mt-1.5 text-[15px] text-ink-3">
@@ -55,8 +47,10 @@ export default async function SignupPage({ searchParams }: { searchParams: Promi
       ) : null}
 
       <div className="mt-8 short:mt-5">
-        <SignupForm formToken={issueFormToken("signup")} plan={plan?.id} />
+        <SignupForm formToken={issueFormToken("signup")} plan={plan?.id} passwordHint={passwordHint()} email={email} />
       </div>
+
+      <AuthTrust className="mt-10 border-t border-line pt-8 sm:grid-cols-3 sm:gap-6" />
     </>
   );
 }

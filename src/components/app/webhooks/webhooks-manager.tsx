@@ -65,8 +65,8 @@ function CreateForm({ propertyId, onDone }: { propertyId: string; onDone: () => 
         <legend className="label">Events</legend>
         <div className="space-y-2">
           {EVENTS.map((e) => (
-            <label key={e.id} className="flex cursor-pointer gap-3 rounded-md border border-line p-3 hover:border-line-strong has-[:checked]:border-ink has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-brand">
-              <input type="checkbox" name="events" value={e.id} defaultChecked={e.id === "consent.withdrawn"} className="mt-0.5 size-4 accent-[var(--color-ink)]" />
+            <label key={e.id} className="flex cursor-pointer gap-3 rounded-md border border-line p-3 hover:border-line-strong has-[:checked]:border-brand has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-brand">
+              <input type="checkbox" name="events" value={e.id} defaultChecked={e.id === "consent.withdrawn"} className="mt-0.5 size-4 accent-[var(--color-brand)]" />
               <span>
                 <span className="block text-sm font-medium">{e.label}</span>
                 <span className="block text-xs text-ink-3">{e.description}</span>
@@ -75,7 +75,7 @@ function CreateForm({ propertyId, onDone }: { propertyId: string; onDone: () => 
           ))}
         </div>
         {fe.events ? (
-          <p id="wh-events-error" className="mt-1.5 text-xs font-bold text-rose">
+          <p id="wh-events-error" className="mt-1.5 text-xs font-semibold text-rose">
             {fe.events[0]}
           </p>
         ) : null}
@@ -156,7 +156,7 @@ export function WebhooksManager({ propertyId, webhooks, deliveries, canWrite }: 
         </div>
         {webhooks.length === 0 ? (
           <EmptyState
-            icon={<IconPlug size={28} />}
+            icon={<IconPlug size={24} />}
             title="Send consent changes to your systems"
             action={
               canWrite ? (
@@ -231,7 +231,7 @@ export function WebhooksManager({ propertyId, webhooks, deliveries, canWrite }: 
         <h2 id="deliveries-h" className="mb-1 text-lg font-semibold">
           Recent deliveries
         </h2>
-        <p className="mb-4 text-sm text-ink-3">Every attempt, including retries. Kept for 30 days.</p>
+        <p className="mb-4 text-sm text-ink-3">The newest 50 attempts, including retries. Kept for 30 days.</p>
         {deliveries.length === 0 ? (
           <p className="rounded-lg border border-dashed border-line-strong px-5 py-6 text-sm text-ink-3">No deliveries yet. Send a test to see one here.</p>
         ) : (
@@ -259,7 +259,7 @@ export function WebhooksManager({ propertyId, webhooks, deliveries, canWrite }: 
               <CopyButton value={VERIFY_SNIPPET} />
             </span>
           </div>
-          <pre className="overflow-x-auto p-4 font-mono text-[12.5px] leading-relaxed text-white/90">
+          <pre className="overflow-x-auto p-4 font-mono text-xs leading-relaxed text-white/90">
             <code>{VERIFY_SNIPPET}</code>
           </pre>
         </div>

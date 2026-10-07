@@ -4,13 +4,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { daysUntil, useNow } from "@/hooks/use-now";
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { demoEnabled } from "@/lib/demo";
 import { cascadeIn } from "@/lib/motion";
-import { IconChevronDown, IconChevronRight, Logo } from "@/components/icons";
+import { IconChevronDown, IconChevronRight, IconLifebuoy, Logo } from "@/components/icons";
 import { FRAMEWORK_LOGOS } from "./framework-logos";
 import { IconBrowserSignal, IconCalifornia, IconChakra, IconEuStars } from "./home/coverage-icons";
-import { COMPLIANCE_NAV, DEVELOPER_NAV, PRODUCT_GROUPS, PRODUCT_NAV, type NavItem } from "./nav-data";
+import { COMPLIANCE_NAV, DEVELOPER_NAV, PRODUCT_GROUPS, PRODUCT_NAV, RESOURCES_NAV, type NavItem } from "./nav-data";
 
-type MenuId = "product" | "compliance" | "developers";
+type MenuId = "product" | "compliance" | "developers" | "resources";
 
 const LAW_ICONS: Record<string, (p: React.SVGProps<SVGSVGElement>) => React.JSX.Element> = {
   GDPR: IconEuStars,
@@ -73,7 +74,7 @@ export function SiteHeader() {
   const headerRef = useRef<HTMLElement>(null);
   const triggers = useRef<Partial<Record<MenuId, HTMLButtonElement | null>>>({});
   const hoverTimer = useRef<number | undefined>(undefined);
-  const ids = { product: useId(), compliance: useId(), developers: useId() };
+  const ids = { product: useId(), compliance: useId(), developers: useId(), resources: useId() };
   const drawerId = useId();
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -212,6 +213,7 @@ export function SiteHeader() {
             <li onPointerLeave={hoverClose}>{trigger("product", "Product")}</li>
             <li onPointerLeave={hoverClose}>{trigger("compliance", "Compliance")}</li>
             <li onPointerLeave={hoverClose}>{trigger("developers", "Developers")}</li>
+            <li onPointerLeave={hoverClose}>{trigger("resources", "Resources")}</li>
             <li>
               <Link href="/pricing" aria-current={pathname === "/pricing" ? "page" : undefined} className={navItem}>
                 Pricing
@@ -256,31 +258,33 @@ export function SiteHeader() {
               </ul>
             </div>
           ))}
-          <Link
-            href="/demo"
-            onClick={dismiss}
-            data-anim
-            className="group col-span-3 flex flex-col gap-5 self-start overflow-hidden rounded-[16px] bg-paper p-5 ring-1 ring-inset ring-line transition-colors hover:ring-ink/20"
-          >
-            {/* a miniature banner, the product itself */}
-            <span aria-hidden className="block rounded-[10px] bg-white p-3 shadow-[var(--shadow-lift)] ring-1 ring-line">
-              <span className="block h-2 w-24 rounded-full bg-ink/80" />
-              <span className="mt-2 block h-1.5 w-full rounded-full bg-line" />
-              <span className="mt-1 block h-1.5 w-3/4 rounded-full bg-line" />
-              <span className="mt-3 grid grid-cols-3 gap-1.5">
-                <span className="h-5 rounded-md bg-brand" />
-                <span className="h-5 rounded-md ring-1 ring-line-strong" />
-                <span className="h-5 rounded-md bg-brand" />
+          {demoEnabled ? (
+            <Link
+              href="/demo"
+              onClick={dismiss}
+              data-anim
+              className="group col-span-3 flex flex-col gap-5 self-start overflow-hidden rounded-[16px] bg-paper p-5 ring-1 ring-inset ring-line transition-colors hover:ring-ink/20"
+            >
+              {/* a miniature banner, the product itself */}
+              <span aria-hidden className="block rounded-[10px] bg-white p-3 shadow-[var(--shadow-lift)] ring-1 ring-line">
+                <span className="block h-2 w-24 rounded-full bg-ink/80" />
+                <span className="mt-2 block h-1.5 w-full rounded-full bg-line" />
+                <span className="mt-1 block h-1.5 w-3/4 rounded-full bg-line" />
+                <span className="mt-3 grid grid-cols-3 gap-1.5">
+                  <span className="h-5 rounded-md bg-brand" />
+                  <span className="h-5 rounded-md ring-1 ring-line-strong" />
+                  <span className="h-5 rounded-md bg-brand" />
+                </span>
               </span>
-            </span>
-            <span className="block">
-              <span className="flex items-center gap-1 text-sm font-medium text-ink">
-                Open the demo store
-                <IconChevronRight size={14} className="transition-transform duration-200 group-hover:translate-x-0.5" />
+              <span className="block">
+                <span className="flex items-center gap-1 text-sm font-medium text-ink">
+                  Open the demo store
+                  <IconChevronRight size={14} className="transition-transform duration-200 group-hover:translate-x-0.5" />
+                </span>
+                <span className="mt-1 block text-[13px] text-ink-3">The real script on a real page. Choose, then revoke.</span>
               </span>
-              <span className="mt-1 block text-[13px] text-ink-3">The real script on a real page. Choose, then revoke.</span>
-            </span>
-          </Link>
+            </Link>
+          ) : null}
         </div>,
       )}
 
@@ -354,6 +358,38 @@ export function SiteHeader() {
         </div>,
       )}
 
+      {/* Resources */}
+      {panel(
+        "resources",
+        <div className="grid grid-cols-12 gap-6">
+          <div className="col-span-8">
+            <GroupLabel>Help and contact</GroupLabel>
+            <ul className="grid grid-cols-3 gap-0.5">
+              {RESOURCES_NAV.map((item) => (
+                <MenuRow key={item.title} item={item} onSelect={dismiss} />
+              ))}
+            </ul>
+          </div>
+          <Link
+            href="/contact/support"
+            onClick={dismiss}
+            data-anim
+            className="group col-span-4 flex items-start gap-3 self-start rounded-[16px] bg-paper p-5 ring-1 ring-inset ring-line transition-colors hover:ring-ink/20"
+          >
+            <span className="grid size-9 shrink-0 place-items-center rounded-[10px] bg-white text-brand ring-1 ring-inset ring-line">
+              <IconLifebuoy size={18} />
+            </span>
+            <span className="block">
+              <span className="flex items-center gap-1 text-sm font-medium text-ink">
+                Raise a support ticket
+                <IconChevronRight size={14} className="transition-transform duration-200 group-hover:translate-x-0.5" />
+              </span>
+              <span className="mt-1 block text-[13px] text-ink-3">Something not working? Our engineers reply within one business day.</span>
+            </span>
+          </Link>
+        </div>,
+      )}
+
       {/* Mobile menu: full-screen sheet with its own close control */}
       <div
         id={drawerId}
@@ -385,6 +421,7 @@ export function SiteHeader() {
             { label: "Product", items: PRODUCT_NAV },
             { label: "Compliance", items: COMPLIANCE_NAV },
             { label: "Developers", items: DEVELOPER_NAV },
+            { label: "Resources", items: RESOURCES_NAV },
           ].map((group) => (
             <div key={group.label} className="mb-8">
               <p className="text-xs font-medium text-ink-3">{group.label}</p>

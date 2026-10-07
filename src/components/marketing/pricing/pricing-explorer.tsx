@@ -1,7 +1,7 @@
 "use client";
 
 import { CurrencySelect } from "@/components/shared/currency-select";
-import { currencyInfo } from "@/lib/plans";
+import { currencyInfo, type Plan } from "@/lib/plans";
 import { PricingPlans } from "../pricing-plans";
 import { Segmented } from "./segmented";
 import { useBilling } from "./use-billing";
@@ -51,11 +51,11 @@ export function BillingControls({ tone = "light" }: { tone?: "light" | "dark" })
 }
 
 /** The plan cards, reflecting the current billing controls. */
-export function PricingCards() {
+export function PricingCards({ plans }: { plans: Plan[] }) {
   const { currency, period } = useBilling();
   return (
     <div className="rounded-[var(--radius-lg)] shadow-[var(--shadow-float)]">
-      <PricingPlans headingLevel="h2" currency={currency} period={period} />
+      <PricingPlans headingLevel="h2" currency={currency} period={period} plans={plans} />
     </div>
   );
 }

@@ -425,6 +425,63 @@ export const IconSpark = (p: IconProps) => (
   </Svg>
 );
 
+/* ---------- Contact ---------- */
+
+/** Support: a ring buoy. */
+export const IconLifebuoy = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="8.5" />
+    <circle cx="12" cy="12" r="3.5" />
+    <path d="M6 6l3.5 3.5M14.5 14.5L18 18M18 6l-3.5 3.5M9.5 14.5L6 18" />
+  </Svg>
+);
+
+/** Sales: a price tag. */
+export const IconTag = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M3.5 12.2V4.5a1 1 0 0 1 1-1h7.7a1 1 0 0 1 .7.3l7.6 7.6a1.5 1.5 0 0 1 0 2.1l-7.2 7.2a1.5 1.5 0 0 1-2.1 0L3.8 12.9a1 1 0 0 1-.3-.7z" />
+    <circle cx="8" cy="8" r="1.4" />
+  </Svg>
+);
+
+/** Help center: an open book. */
+export const IconBook = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 6.5C10.5 5 8 4.5 3.5 4.5v14c4.5 0 7 .5 8.5 2 1.5-1.5 4-2 8.5-2v-14c-4.5 0-7 .5-8.5 2z" />
+    <path d="M12 6.5v14" />
+  </Svg>
+);
+
+/** Partners: two linked rings. */
+export const IconPartners = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="9" cy="12" r="5.5" />
+    <circle cx="15" cy="12" r="5.5" />
+  </Svg>
+);
+
+/** Enterprise: an office building. */
+export const IconBuilding = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4.5 20.5V5a1.5 1.5 0 0 1 1.5-1.5h7A1.5 1.5 0 0 1 14.5 5v15.5M14.5 9.5H18a1.5 1.5 0 0 1 1.5 1.5v9.5M3 20.5h18" />
+    <path d="M8 7.5h3M8 11h3M8 14.5h3M17 13.5h.01M17 17h.01" />
+  </Svg>
+);
+
+export const IconMail = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="3" y="5" width="18" height="14" rx="2" />
+    <path d="M3.5 6.5l8.5 6.5 8.5-6.5" />
+  </Svg>
+);
+
+export const IconClock = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="8.5" />
+    <path d="M12 7.5V12l3 2" />
+  </Svg>
+);
+
 export const CATEGORY_ICONS = {
   essential: IconEssential,
   functional: IconPreferences,

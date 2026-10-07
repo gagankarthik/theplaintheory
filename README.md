@@ -36,11 +36,16 @@ It runs fully locally with no AWS account. Each AWS service is switched on with 
 
 ```bash
 npm install
-npm run seed      # demo org, user and a published site (siteKey pk_demo_store, domain localhost)
 npm run dev
 ```
 
-- Dashboard: http://localhost:3000/login, signed in as `demo@theplaintheory.com` / `plain-demo-2026`
+There's no seeded or mock data: every screen shows what's really in the store (the local JSON store in `.data/`, or
+DynamoDB in production).
+
+- Dashboard: create an account at http://localhost:3000/signup and set up your first workspace.
+- Staff console: staff have their own invite-only Cognito pool. Invite yourself with
+  `npm run staff:invite -- you@theplaintheory.in "Your Name" superadmin` (see [Staff accounts](#staff-accounts)), then
+  sign in at http://localhost:3000/admin/login.
 - Live SDK demo: http://localhost:3000/demo. It's a fake shop with held trackers, a state inspector and a country
   switcher (`?plain_country=DE|IN|BR`, `?plain_country=US&plain_region=CA`).
 
@@ -64,10 +69,36 @@ Copy `.env.example` to `.env.local`. All variables are optional locally.
 | `CONFIG_BUCKET` | Bucket that receives `c/<siteKey>.json` |
 | `CLOUDFRONT_DISTRIBUTION_ID` | Invalidated on publish |
 | `NEXT_PUBLIC_CDN_URL` | Public CDN origin used in install snippets |
-| `COGNITO_REGION`, `COGNITO_CLIENT_ID`, `COGNITO_CLIENT_SECRET` | Cognito app client (secret only if the client has one) |
+| `COGNITO_REGION`, `COGNITO_CUSTOMER_POOL_ID`, `COGNITO_CUSTOMER_CLIENT_ID` | Customers pool (self sign-up, `/login`) |
+| `COGNITO_STAFF_POOL_ID`, `COGNITO_STAFF_CLIENT_ID` | Staff pool (invite-only, TOTP required, `/admin/login`) |
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_GROWTH` | Billing. Checkout is disabled when unset |
 
 `infra/README.md` maps each variable to its CDK stack output.
+
+## Staff accounts
+
+Plain Theory's own team signs in to the staff console (`/admin`) through a separate Cognito user pool, never the
+customers pool:
+
+- **Invite-only.** Self sign-up is off. Cognito emails a temporary password (valid 1 day); the first sign-in at
+  `/admin/login` sets a new password and an authenticator app. Every later sign-in asks for a TOTP code (Cognito
+  enforces it).
+- **Roles are groups.** `platform-superadmin`, `platform-support`, `platform-billing` and `platform-analyst` in the staff
+  pool are the staff roles; the highest group wins. There's no copy in the data store.
+- **Separate sessions.** A staff session has its own cookie (`pt_staff`, path `/admin`), a 1-hour idle timeout and an
+  8-hour lifetime. A customer session never opens `/admin`, and a staff session never opens `/app`.
+- **No self-service recovery.** A superadmin resets passwords, disables, re-enables or removes accounts at `/admin/staff`.
+  Nobody can change their own account, and the last superadmin can't be demoted, disabled or removed.
+
+Bootstrap the first superadmin (and anyone else, from the command line) with:
+
+```bash
+npm run staff:invite -- you@theplaintheory.in "Your Name" superadmin
+npm run staff:invite -- you@theplaintheory.in "Your Name" superadmin --resend   # new temporary password
+```
+
+It reads `COGNITO_STAFF_POOL_ID` from `.env.local` and uses your AWS CLI credentials (default chain or `AWS_PROFILE`;
+AWS keys that are only in `.env.local` are ignored), so run it from an admin profile.
 
 ## Project layout
 
@@ -97,7 +128,7 @@ infra/                   AWS CDK v2 app (separate package)
 Put the script **first** in `<head>`. Scripts that the parser has already run can't be held.
 
 ```html
-<script src="https://cdn.theplaintheory.com/sdk/v1/plain-consent.js" data-site="pk_your_site_key"></script>
+<script src="https://cdn.theplaintheory.in/sdk/v1/plain-consent.js" data-site="pk_your_site_key"></script>
 
 <!-- Mark trackers you include yourself -->
 <script type="text/plain" data-consent="analytics" src="https://www.googletagmanager.com/gtag/js?id=G-XXXX"></script>

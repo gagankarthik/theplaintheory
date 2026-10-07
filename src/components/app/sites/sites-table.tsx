@@ -24,7 +24,7 @@ const columns: Column<SiteRow>[] = [
     cell: (r) => (
       <>
         {/* the whole row is clickable through the stretched link; it stays a single tab stop */}
-        <Link href={`/app/sites/${r.id}`} className="font-bold text-ink after:absolute after:inset-0 hover:text-brand">
+        <Link href={`/app/sites/${r.id}`} className="font-semibold text-ink after:absolute after:inset-0 hover:text-brand">
           {r.name}
         </Link>
         <span className="block text-xs text-ink-3">{r.domain}</span>
@@ -39,7 +39,7 @@ const columns: Column<SiteRow>[] = [
     header: "Opt-in rate",
     align: "right",
     sortValue: (r) => r.optIn ?? -1,
-    cell: (r) => (r.optIn === null ? <span className="text-ink-3">No data</span> : <span className="font-bold">{formatPct(r.optIn)}</span>),
+    cell: (r) => (r.optIn === null ? <span className="text-ink-3">No data</span> : <span className="font-semibold">{formatPct(r.optIn)}</span>),
   },
 ];
 

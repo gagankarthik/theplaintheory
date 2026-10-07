@@ -3,11 +3,12 @@
 import { headers } from "next/headers";
 import { invalid, type ActionResult } from "@/lib/action-result";
 import { anonymizeIp } from "@/lib/crypto";
+import { randomBytes } from "node:crypto";
 import { checkFormGuard } from "@/lib/form-guard";
 import { leadSchema, submitLead } from "@/lib/leads";
 import { rateLimiter, retryAfterText } from "@/lib/rate-limit";
 
-export type ContactState = (ActionResult & { values?: Record<string, string | string[]>; formToken?: string }) | null;
+export type ContactState = (ActionResult & { values?: Record<string, string | string[]>; formToken?: string; reference?: string; email?: string }) | null;
 
 const THANKS = "Thanks. We'll be in touch within one business day.";
 
@@ -24,7 +25,7 @@ export async function contactSales(_prev: ContactState, form: FormData): Promise
 
   // Honeypot filled: a bot. Pretend it worked so it moves on; store nothing.
   const guard = checkFormGuard(form, "contact-sales");
-  if (guard.status === "bot") return { ok: THANKS };
+  if (guard.status === "bot") return { ok: THANKS, reference: `PT-${randomBytes(6).toString("base64url")}` };
   if (guard.status === "retry") return { error: guard.error, values: raw, formToken: guard.formToken };
 
   const parsed = leadSchema.safeParse(raw);
@@ -35,7 +36,7 @@ export async function contactSales(_prev: ContactState, form: FormData): Promise
   const limit = await rateLimiter("contactSales").consume(anonymizeIp(ip));
   if (!limit.ok) {
     return {
-      error: `We've had several requests from your network in the last hour. Try again in ${retryAfterText(limit.retryAfterMs)}, or email sales@theplaintheory.com.`,
+      error: `We've had several requests from your network in the last hour. Try again in ${retryAfterText(limit.retryAfterMs)}, or email sales@theplaintheory.in.`,
       values: raw,
     };
   }
@@ -43,5 +44,5 @@ export async function contactSales(_prev: ContactState, form: FormData): Promise
   // submitLead keeps a durable per-network count in the store as a second line of defence.
   const result = await submitLead(parsed.data, ip);
   if (!result.ok) return { error: result.error, values: raw };
-  return { ok: `Thanks, ${parsed.data.name.split(" ")[0]}. We'll reply to ${parsed.data.email} within one business day.` };
+  return { ok: `Thanks, ${parsed.data.name.split(" ")[0]}. We'll reply to ${parsed.data.email} within one business day.`, reference: result.reference, email: parsed.data.email };
 }

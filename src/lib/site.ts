@@ -4,7 +4,8 @@ export const site = {
   /** Registered company name for legal pages and structured data. */
   legalName: "The Plain Theory",
   shortName: "Plain Theory",
-  url: process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
+  /** Canonical origin: NEXT_PUBLIC_SITE_URL when set, else the live domain in production builds. */
+  url: process.env.NEXT_PUBLIC_SITE_URL || (process.env.NODE_ENV === "production" ? "https://www.theplaintheory.in" : "http://localhost:3000"),
   tagline: "Consent management for GDPR, CCPA and DPDPA",
   description:
     "Plain Theory is a consent management platform for GDPR, CCPA/CPRA and India's DPDPA. A consent script under 10 KB, tracker blocking, notices in 22 Indian languages and a tamper-evident consent log.",
@@ -20,11 +21,11 @@ export const site = {
     "cookie banner for Next.js",
   ],
   twitter: "@plaintheory",
-  email: "hello@theplaintheory.com",
+  email: "hello@theplaintheory.in",
   /** Privacy requests, data subject rights and DPDP grievances. */
-  privacyEmail: "privacy@theplaintheory.com",
+  privacyEmail: "privacy@theplaintheory.in",
   /** Contracts, legal notices and the terms of service. */
-  legalEmail: "legal@theplaintheory.com",
+  legalEmail: "legal@theplaintheory.in",
 };
 
 /**

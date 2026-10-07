@@ -2,15 +2,16 @@
 
 import Link from "next/link";
 import { useActionState, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { IconArrowRight, IconCheck, IconChevronRight } from "@/components/icons";
+import { IconArrowRight, IconCheck, IconChevronRight, IconRegion } from "@/components/icons";
 import { Button } from "@/components/app/ui/button";
-import { SelectField, TextField } from "@/components/app/ui/field";
+import { TextField } from "@/components/app/ui/field";
 import { Segmented } from "@/components/app/ui/tabs";
 import { SubmitButton } from "@/components/app/ui/submit-button";
 import { FormMessage } from "@/components/app/ui/toast";
 import { CurrencySelect } from "@/components/shared/currency-select";
+import { compactNumber, retentionLabel } from "@/components/marketing/pricing/billing";
 import { EASE, gsap, reducedMotion } from "@/lib/motion";
-import { SELF_SERVE_PLANS, currencyInfo, formatPrice, planById, planPrice, type Currency } from "@/lib/plans";
+import { SELF_SERVE_PLANS, currencyInfo, formatPrice, planById, planPrice, type Currency, type Plan } from "@/lib/plans";
 import { DATA_REGIONS, regionLabel } from "@/lib/regions";
 import { TEAM_SIZES, type Organization, type PlanId, type TeamSize, type WorkspaceKind } from "@/lib/types";
 import { createWorkspace, type OnboardState } from "./actions";
@@ -153,8 +154,8 @@ function StepRail({ step, maxReached, onJump }: { step: number; maxReached: numb
   );
 }
 
-function PlanPrice({ plan, currency, interval }: { plan: PlanId; currency: Currency; interval: Interval }) {
-  const monthly = planPrice(planById(plan), currency) ?? 0;
+function PlanPrice({ plan, currency, interval }: { plan: Plan; currency: Currency; interval: Interval }) {
+  const monthly = planPrice(plan, currency) ?? 0;
   if (monthly === 0)
     return (
       <span className="flex items-baseline gap-1">
@@ -162,14 +163,15 @@ function PlanPrice({ plan, currency, interval }: { plan: PlanId; currency: Curre
         <span className="text-xs text-ink-3">forever</span>
       </span>
     );
-  const perMonth = interval === "annual" ? (monthly * 10) / 12 : monthly;
+  const year = planPrice(plan, currency, "annual") ?? monthly * 10;
+  const perMonth = interval === "annual" ? year / 12 : monthly;
   return (
     <span className="block">
       <span className="flex items-baseline gap-1">
         <span className="text-2xl font-semibold tabular-nums tracking-[-0.03em]">{formatPrice(perMonth, currency)}</span>
         <span className="text-xs text-ink-3">/ month</span>
       </span>
-      <span className="mt-0.5 block text-xs text-ink-3">{interval === "annual" ? `${formatPrice(monthly * 10, currency)} billed yearly` : "Billed monthly"}</span>
+      <span className="mt-0.5 block text-xs text-ink-3">{interval === "annual" ? `${formatPrice(year, currency)} billed yearly` : "Billed monthly"}</span>
     </span>
   );
 }
@@ -207,7 +209,19 @@ function SitePreview({ domain }: { domain: string }) {
 
 /* ---------- the wizard ---------- */
 
-export function OnboardingForm({ userName, initialPlan, initialKind }: { userName?: string; initialPlan?: PlanId; initialKind?: WorkspaceKind }) {
+export function OnboardingForm({
+  userName,
+  initialPlan,
+  initialKind,
+  plans = SELF_SERVE_PLANS,
+}: {
+  userName?: string;
+  initialPlan?: PlanId;
+  initialKind?: WorkspaceKind;
+  /** self-serve plans with live Stripe prices */
+  plans?: Plan[];
+}) {
+  const livePlan = (id: PlanId) => plans.find((p) => p.id === id) ?? planById(id);
   const [state, action] = useActionState<OnboardState, FormData>(createWorkspace, null);
   const [step, setStep] = useState(initialKind ? 1 : 0);
   const [maxReached, setMaxReached] = useState(step);
@@ -217,7 +231,8 @@ export function OnboardingForm({ userName, initialPlan, initialKind }: { userNam
   const [kind, setKind] = useState<WorkspaceKind | null>(initialKind ?? null);
   const [org, setOrg] = useState("");
   const [teamSize, setTeamSize] = useState<TeamSize | "">("");
-  const [region, setRegion] = useState<Region>("ap-south-1");
+  // every workspace is stored where this deployment keeps data; more regions come with dedicated residency
+  const region: Region = "ap-south-1";
   const [site, setSite] = useState("");
   const [domain, setDomain] = useState("");
   const [plan, setPlan] = useState<PlanId | null>(initialPlan ?? null);
@@ -314,7 +329,6 @@ export function OnboardingForm({ userName, initialPlan, initialKind }: { userNam
     if (step === 0 && !localeApplied.current) {
       localeApplied.current = true;
       const guess = guessLocale();
-      setRegion(guess.region);
       setCurrency(guess.currency);
       if (kind === "personal" && !org && firstName) setOrg(`${firstName}'s sites`);
     }
@@ -441,16 +455,15 @@ export function OnboardingForm({ userName, initialPlan, initialKind }: { userNam
                     ) : null}
                   </fieldset>
                 ) : null}
-                <SelectField
-                  id={fieldId("dataRegion")}
-                  name=""
-                  label="Where consent records are stored"
-                  value={region}
-                  onChange={(e) => setRegion(e.target.value as Region)}
-                  options={DATA_REGIONS.map((r) => ({ value: r.id, label: r.label }))}
-                  hint="Pick Mumbai or Hyderabad to keep Indian visitors' records in India. This can't be changed later."
-                  error={errors.dataRegion}
-                />
+                <div>
+                  <p className="label">Where consent records are stored</p>
+                  <p className="flex items-center gap-2.5 rounded-[var(--radius-md)] border border-line bg-paper px-3 py-2.5 text-sm text-ink">
+                    <IconRegion size={16} className="shrink-0 text-ink-3" />
+                    {DATA_REGIONS.find((r) => r.id === region)?.label}
+                  </p>
+                  <p className="mt-1.5 text-xs text-ink-3">Records stay in India, which suits DPDPA. Need EU or US residency? Enterprise plans include it.</p>
+                  {errors.dataRegion ? <p className="mt-1.5 text-xs font-semibold text-rose">{errors.dataRegion}</p> : null}
+                </div>
               </div>
             </div>
           ) : null}
@@ -497,7 +510,7 @@ export function OnboardingForm({ userName, initialPlan, initialKind }: { userNam
                 "Choose your plan",
                 kind === "organization" ? "Most teams start on Growth for the Evidence Pack and roles. Free is always there." : "Free covers a personal site for good. Upgrade whenever you need more.",
               )}
-              <div className="mb-5 flex flex-wrap items-center gap-2">
+              <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <Segmented
                   size="sm"
                   label="Billing period"
@@ -510,39 +523,74 @@ export function OnboardingForm({ userName, initialPlan, initialKind }: { userNam
                 />
                 <CurrencySelect size="sm" value={currency} onChange={setCurrency} />
               </div>
-              <div className="grid gap-3 md:grid-cols-2">
-                {SELF_SERVE_PLANS.map((p) => {
+
+              <div role="radiogroup" aria-label="Plans" className="space-y-3">
+                {plans.map((p) => {
                   const recommended = p.id === recommendedPlan(kind);
+                  const selected = chosenPlan === p.id;
+                  const limits = [
+                    { label: "Websites", value: p.properties === null ? "Unlimited" : String(p.properties) },
+                    { label: "Pageviews / month", value: p.pageviews === null ? "Custom" : compactNumber(p.pageviews) },
+                    { label: "Team seats", value: p.seats === null ? "Unlimited" : String(p.seats) },
+                    { label: "Consent log", value: retentionLabel(p.logRetentionDays) },
+                  ];
                   return (
-                    <ChoiceCard key={p.id} name={`${uid}-plan`} checked={chosenPlan === p.id} onSelect={() => setPlan(p.id)} className="flex-col">
-                      <span className="flex flex-wrap items-center gap-2 pr-7">
-                        <span className="text-base font-semibold text-ink">{p.name}</span>
-                        {recommended ? <span className="rounded-full bg-brand px-2 py-0.5 text-[11px] font-semibold text-white">Recommended</span> : null}
-                        {initialPlan === p.id && !recommended ? <span className="rounded-full bg-ink/[0.06] px-2 py-0.5 text-[11px] font-semibold text-ink-2">Your pick</span> : null}
+                    <ChoiceCard key={p.id} name={`${uid}-plan`} checked={selected} onSelect={() => setPlan(p.id)} className="flex-col">
+                      <span className="grid gap-4 pr-8 md:grid-cols-[minmax(0,1.1fr)_minmax(0,1.4fr)_auto] md:items-center md:gap-6">
+                        <span className="min-w-0">
+                          <span className="flex flex-wrap items-center gap-2">
+                            <span className="text-base font-semibold text-ink">{p.name}</span>
+                            {recommended ? <span className="rounded-full bg-brand px-2 py-0.5 text-[11px] font-semibold text-white">Recommended</span> : null}
+                            {initialPlan === p.id && !recommended ? <span className="rounded-full bg-ink/[0.06] px-2 py-0.5 text-[11px] font-semibold text-ink-2">Your pick</span> : null}
+                          </span>
+                          <span className="mt-1 block text-[13px] leading-snug text-ink-3">{p.summary}</span>
+                        </span>
+                        <span className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-4 md:grid-cols-2 lg:grid-cols-4">
+                          {limits.map((l) => (
+                            <span key={l.label} className="min-w-0">
+                              <span className="block text-sm font-semibold tabular-nums text-ink">{l.value}</span>
+                              <span className="block text-[11px] leading-tight text-ink-3">{l.label}</span>
+                            </span>
+                          ))}
+                        </span>
+                        <span className="md:text-right">
+                          <PlanPrice plan={p} currency={currency} interval={interval} />
+                        </span>
                       </span>
-                      <span className="mt-1 block text-sm text-ink-3">{p.summary}</span>
-                      <span className="mt-4 block">
-                        <PlanPrice plan={p.id} currency={currency} interval={interval} />
-                      </span>
-                      <ul className="mt-4 space-y-1.5 text-[13px] text-ink-2">
-                        {p.features.slice(0, 3).map((f) => (
-                          <li key={f} className="flex gap-2">
-                            <IconCheck size={14} className="mt-0.5 shrink-0 text-jade" />
-                            {f}
-                          </li>
-                        ))}
-                      </ul>
+                      {selected ? (
+                        <span className="mt-5 block border-t border-line pt-4">
+                          <span className="block text-xs font-medium text-ink-3">Included in {p.name}</span>
+                          <span className="mt-2 grid gap-x-6 gap-y-1.5 text-[13px] text-ink-2 sm:grid-cols-2">
+                            {p.features.map((f) => (
+                              <span key={f} className="flex gap-2">
+                                <IconCheck size={14} className="mt-0.5 shrink-0 text-jade" />
+                                {f}
+                              </span>
+                            ))}
+                          </span>
+                        </span>
+                      ) : null}
                     </ChoiceCard>
                   );
                 })}
+
+                {/* Enterprise isn't self-serve: it's a conversation, not a radio option */}
+                <div className="flex flex-col gap-3 rounded-[16px] bg-paper p-5 ring-1 ring-inset ring-line sm:flex-row sm:items-center sm:justify-between">
+                  <span className="min-w-0">
+                    <span className="block text-base font-semibold text-ink">Enterprise</span>
+                    <span className="mt-1 block text-[13px] leading-snug text-ink-3">Custom volume, SSO, dedicated data residency and a 99.99% delivery SLA.</span>
+                  </span>
+                  <Link href="/contact-sales" className="btn btn-pill btn-ghost shrink-0">
+                    Talk to sales
+                  </Link>
+                </div>
               </div>
-              <p className="mt-4 text-sm text-ink-3">
-                {currency !== "usd" ? `${currencyInfo(currency).code} prices are ${currencyInfo(currency).tax}. ` : ""}
-                Need SSO, custom volume or an SLA?{" "}
-                <Link href="/contact-sales" className="font-medium text-brand underline-offset-4 hover:underline">
-                  Talk to sales about Enterprise
+
+              <p className="mt-4 flex flex-col gap-1 text-sm text-ink-3 sm:flex-row sm:items-center sm:justify-between">
+                <span>{currency !== "usd" ? `${currencyInfo(currency).code} prices are ${currencyInfo(currency).tax}.` : "Prices in US dollars, excluding taxes."} Change plans any time.</span>
+                <Link href="/pricing#compare" target="_blank" className="font-medium text-brand underline-offset-4 hover:underline">
+                  Compare every feature<span className="sr-only"> (opens in a new tab)</span>
                 </Link>
-                .
               </p>
             </fieldset>
           ) : null}
@@ -560,7 +608,7 @@ export function OnboardingForm({ userName, initialPlan, initialKind }: { userNam
                     k: "Plan",
                     v: paid
                       ? `${planById(chosenPlan).name}, ${formatPrice(
-                          interval === "annual" ? (planPrice(planById(chosenPlan), currency) ?? 0) * 10 : (planPrice(planById(chosenPlan), currency) ?? 0),
+                          planPrice(livePlan(chosenPlan), currency, interval) ?? 0,
                           currency,
                         )} ${interval === "annual" ? "a year" : "a month"}`
                       : "Free, for good",

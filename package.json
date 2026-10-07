@@ -8,17 +8,20 @@
     "start": "next start",
     "lint": "eslint",
     "sdk:build": "node scripts/build-sdk.mjs",
-    "seed": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/seed.mjs",
     "retention": "node scripts/retention.mjs",
-    "test": "vitest run"
+    "test": "vitest run",
+    "stripe:sync": "node --env-file=.env.local --disable-warning=ExperimentalWarning scripts/stripe-sync.ts",
+    "staff:invite": "node --env-file=.env.local --disable-warning=ExperimentalWarning scripts/staff-invite.ts"
   },
   "dependencies": {
     "@aws-sdk/client-cloudfront": "^3.1146.0",
     "@aws-sdk/client-cognito-identity-provider": "^3.1146.0",
     "@aws-sdk/client-dynamodb": "^3.1146.0",
     "@aws-sdk/client-s3": "^3.1146.0",
+    "@aws-sdk/client-sesv2": "^3.1147.0",
     "@aws-sdk/lib-dynamodb": "^3.1146.0",
     "@vercel/analytics": "^2.0.1",
+    "@vercel/speed-insights": "^2.0.0",
     "esbuild": "^0.28.2",
     "gsap": "^3.15.0",
     "jose": "^6.2.12",

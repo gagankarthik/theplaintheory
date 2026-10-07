@@ -23,6 +23,8 @@ export async function POST(request: Request) {
   }
 
   const store = await getStore();
+  // Stripe delivers at least once: an event we've already handled is acknowledged without re-applying it.
+  if (!(await store.claimStripeEvent(event.id))) return Response.json({ received: true, duplicate: true });
   const auditPlan = async (orgId: string, plan: string | null | undefined) => {
     const before = await store.getOrg(orgId);
     if (!before || !plan || before.plan === plan) return;
@@ -35,7 +37,7 @@ export async function POST(request: Request) {
         const orgId = s.metadata?.orgId ?? s.client_reference_id;
         if (!orgId || typeof s.subscription !== "string") break;
         const sub = await stripe.subscriptions.retrieve(s.subscription);
-        const plan = planForPrice(sub.items.data[0]?.price.id);
+        const plan = planForPrice(sub.items.data[0]?.price);
         await auditPlan(orgId, plan);
         await store.updateOrg(orgId, {
           stripeCustomerId: typeof s.customer === "string" ? s.customer : s.customer?.id,
@@ -50,7 +52,7 @@ export async function POST(request: Request) {
         const orgId = sub.metadata?.orgId;
         if (!orgId) break;
         const active = event.type === "customer.subscription.updated" && ["active", "trialing", "past_due"].includes(sub.status);
-        const plan = active ? planForPrice(sub.items.data[0]?.price.id) : "free";
+        const plan = active ? planForPrice(sub.items.data[0]?.price) : "free";
         await auditPlan(orgId, plan ?? "free");
         await store.updateOrg(orgId, { plan: plan ?? "free", stripeSubscriptionId: active ? sub.id : undefined });
         break;
@@ -59,6 +61,7 @@ export async function POST(request: Request) {
   } catch (e) {
     // Non-2xx makes Stripe retry with backoff.
     console.error("stripe webhook", event.type, e);
+    await store.releaseStripeEvent(event.id).catch(() => undefined); // let the retry be processed
     return Response.json({ error: "Handler failed." }, { status: 500 });
   }
   return Response.json({ received: true });

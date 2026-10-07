@@ -1,4 +1,5 @@
 import type { ComponentProps, ReactNode } from "react";
+import { Select, type SelectProps } from "./select";
 
 interface FieldBase {
   id: string;
@@ -37,7 +38,7 @@ function Frame({ id, label, hint, error, hideLabel, className, aside, children }
         </p>
       ) : null}
       {error ? (
-        <p id={`${id}-error`} className="mt-1.5 text-xs font-bold text-rose">
+        <p id={`${id}-error`} className="mt-1.5 text-xs font-semibold text-rose">
           {error}
         </p>
       ) : null}
@@ -79,7 +80,7 @@ export function TextAreaField({ id, label, hint, error, hideLabel, className, as
   );
 }
 
-export function SelectField({
+export function SelectField<T extends string = string>({
   id,
   label,
   hint,
@@ -88,26 +89,12 @@ export function SelectField({
   className,
   aside,
   controlClassName,
-  options,
   ...select
-}: FieldBase & Omit<ComponentProps<"select">, "id"> & { options: { value: string; label: string }[] }) {
+}: FieldBase & Omit<SelectProps<T>, "id" | "className">) {
   const err = firstError(error);
   return (
     <Frame id={id} label={label} hint={hint} error={err} hideLabel={hideLabel} className={className} aside={aside}>
-      <select
-        id={id}
-        name={select.name ?? id}
-        aria-invalid={err ? true : undefined}
-        aria-describedby={describedBy(id, hint, err)}
-        {...select}
-        className={`field ${err ? invalidRing : ""} ${controlClassName ?? ""}`}
-      >
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
+      <Select<T> id={id} name={select.name ?? id} aria-invalid={err ? true : undefined} aria-describedby={describedBy(id, hint, err)} {...select} className={controlClassName} />
     </Frame>
   );
 }

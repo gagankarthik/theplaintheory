@@ -15,7 +15,7 @@ export function SiteFooter() {
       <div className="container-page pt-20 lg:pt-24">
         <nav
           aria-label="Footer"
-          className="grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-3 lg:grid-cols-5"
+          className="grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-3 lg:grid-cols-6"
         >
           {FOOTER_NAV.map((group) => (
             <div key={group.label}>

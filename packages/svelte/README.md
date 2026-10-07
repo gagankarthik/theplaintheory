@@ -12,7 +12,7 @@ Put the script first in `src/app.html` so trackers in your HTML are held:
 
 ```html
 <head>
-  <script src="https://cdn.theplaintheory.com/sdk/v1/plain-consent.js" data-site="pk_live_YOUR_SITE_KEY"></script>
+  <script src="https://cdn.theplaintheory.in/sdk/v1/plain-consent.js" data-site="pk_live_YOUR_SITE_KEY"></script>
   %sveltekit.head%
 </head>
 ```

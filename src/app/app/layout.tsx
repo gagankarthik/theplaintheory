@@ -3,9 +3,9 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { site } from "@/lib/site";
 import { Shell } from "@/components/app/shell/shell";
-import { resolvePlatformRole } from "@/lib/auth/platform";
 import { requireUser } from "@/lib/auth/session";
 import { getStore } from "@/lib/store";
+import { evaluateFairness } from "@/lib/fairness";
 
 export const metadata: Metadata = {
   title: { default: "Dashboard", template: `%s | ${site.name}` },
@@ -19,7 +19,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const path = (await headers()).get("x-pt-path") ?? "";
   if (org.security?.requireMfa && !user.mfa && !path.startsWith("/app/account")) redirect("/app/account?mfa=required");
   const store = await getStore();
-  const sidebarCollapsed = (await cookies()).get("pt-sidebar")?.value === "collapsed";
+  const jar = await cookies();
+  const sidebarCollapsed = jar.get("pt-sidebar")?.value === "collapsed";
+  const lastSiteId = jar.get("pt-site")?.value;
   const [orgs, properties] = await Promise.all([
     Promise.all(memberships.map((m) => store.getOrg(m.orgId))),
     store.listProperties(org.id),
@@ -31,11 +33,19 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       org={{ id: org.id, name: org.name, plan: org.plan }}
       role={role}
       initialCollapsed={sidebarCollapsed}
-      staffConsole={resolvePlatformRole(user) !== null}
+      initialSiteId={lastSiteId}
       orgs={orgs.filter((o) => o !== null).map((o) => ({ id: o.id, name: o.name }))}
       properties={properties
         .sort((a, b) => a.name.localeCompare(b.name))
-        .map((p) => ({ id: p.id, name: p.name, domain: p.domain, dirty: p.config.version !== p.publishedVersion }))}
+        .map((p) => ({
+          id: p.id,
+          name: p.name,
+          domain: p.domain,
+          dirty: p.config.version !== p.publishedVersion,
+          published: p.publishedVersion > 0,
+          // the same rule publishSite enforces, so the top bar can explain a block before anyone clicks
+          blocked: evaluateFairness(p.config, { dpoEmail: org.dpo?.email }).failures.length,
+        }))}
     >
       {children}
     </Shell>

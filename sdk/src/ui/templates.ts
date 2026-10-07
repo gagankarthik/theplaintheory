@@ -161,7 +161,7 @@ ${head("pt-t", "Customise Consent Preferences", framework, languagePicker(input,
 <div class="sc"><div class="in"><p id="pt-i" class="cl">${esc(c.body)}${extra}</p><button type="button" class="mo" data-a="more" aria-controls="pt-i" aria-expanded="false">Show more</button></div>
 <ul class="ac">${rows}</ul>${dpdpa ? rightsHtml(cfg) : ""}</div>
 <div class="bt">${btn("reject", L[0], eq)}${btn("save", L[1], "s")}${btn("accept", L[2], "p")}</div>
-<p class="pw">Powered by <a href="https://theplaintheory.com" target="_blank" rel="noopener">Plain Theory</a></p></div>`,
+<p class="pw">Powered by <a href="https://theplaintheory.in" target="_blank" rel="noopener">Plain Theory</a></p></div>`,
   );
 }
 

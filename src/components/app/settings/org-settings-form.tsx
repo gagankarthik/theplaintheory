@@ -1,13 +1,14 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useEffect } from "react";
 import { updateOrgSettings } from "@/app/app/settings/actions";
-import { SelectField, TextAreaField, TextField } from "@/components/app/ui/field";
+import { TextAreaField, TextField } from "@/components/app/ui/field";
 import { SettingsRow, SettingsSection } from "@/components/app/ui/settings";
 import { SubmitButton } from "@/components/app/ui/submit-button";
 import { FormMessage, useToast } from "@/components/app/ui/toast";
 import type { ActionResult } from "@/lib/action-result";
-import { DATA_REGIONS } from "@/lib/regions";
+import { regionLabel } from "@/lib/regions";
 import type { Organization } from "@/lib/types";
 
 export function OrgSettingsForm({ org, canEdit }: { org: Pick<Organization, "name" | "dataRegion" | "dpo">; canEdit: boolean }) {
@@ -28,21 +29,17 @@ export function OrgSettingsForm({ org, canEdit }: { org: Pick<Organization, "nam
           </SettingsRow>
           <SettingsRow
             label="Where records are stored"
-            description="Consent receipts for this organization are written to this AWS region. For DPDPA, choose Mumbai or Hyderabad."
+            description="Consent receipts, audit events and statistics for this organization are stored in this AWS region. It's set when the organization is created."
           >
-            <SelectField
-              id="dataRegion"
-              label="Storage region"
-              hideLabel
-              defaultValue={org.dataRegion}
-              options={DATA_REGIONS.map((r) => ({ value: r.id, label: r.label }))}
-              hint="Changing this applies to new receipts. Existing receipts stay where they were written."
-              error={fe?.dataRegion}
-            />
+            <p className="text-sm font-semibold text-ink">{regionLabel(org.dataRegion)}</p>
+            <p className="mt-1 text-xs text-ink-3">
+              To move existing records to another region, <Link className="font-semibold text-brand underline-offset-2 hover:underline" href="/contact/support">contact support</Link>.
+            </p>
           </SettingsRow>
         </SettingsSection>
 
         <SettingsSection
+          id="dpo"
           title="Data Protection Officer"
           description="India's DPDP Act requires the notice to name someone visitors can contact about their data. Leave empty if you don't have a DPO."
         >

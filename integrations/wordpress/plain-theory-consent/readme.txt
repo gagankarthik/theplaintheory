@@ -24,7 +24,7 @@ This plugin adds the consent script to your site and lets you hold scripts that 
 What this plugin doesn't do:
 
 * No review requests, upsell notices or admin banners. Ever.
-* No features locked behind the plugin. Plans and limits are the same as on theplaintheory.com/pricing.
+* No features locked behind the plugin. Plans and limits are the same as on theplaintheory.in/pricing.
 * It doesn't store consent records in your database. They live in your Plain Theory account, in the region you chose.
 
 == Installation ==
@@ -50,7 +50,7 @@ The script is under 10 KB gzipped and served from a CDN. It's loaded without `as
 
 == External services ==
 
-This plugin loads the Plain Theory consent script from `cdn.theplaintheory.com` and sends consent decisions to the Plain Theory API so they can be recorded. Raw IP addresses are not stored; they are truncated and hashed. Terms: https://theplaintheory.com/legal/terms. Privacy notice: https://theplaintheory.com/legal/privacy.
+This plugin loads the Plain Theory consent script from `cdn.theplaintheory.in` and sends consent decisions to the Plain Theory API so they can be recorded. Raw IP addresses are not stored; they are truncated and hashed. Terms: https://theplaintheory.in/legal/terms. Privacy notice: https://theplaintheory.in/legal/privacy.
 
 == Changelog ==
 

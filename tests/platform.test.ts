@@ -7,10 +7,9 @@ import {
   PlatformForbiddenError,
   assertPlatform,
   canPlatform,
-  parseSuperadminEnv,
-  resolvePlatformRole,
+  roleFromGroups,
   staffChangeProblem,
-  staffMfaProblem,
+  staffGroupName,
   type PlatformPermission,
   type StaffMember,
 } from "@/lib/auth/platform";
@@ -28,6 +27,8 @@ describe("platform permissions", () => {
     "orgs:plan",
     "orgs:suspend",
     "staff:manage",
+    "leads:read",
+    "leads:manage",
   ];
 
   it("superadmin can do everything", () => {
@@ -35,18 +36,28 @@ describe("platform permissions", () => {
   });
 
   it("support reads everything and can unlock and sign users out, but can't change plans, suspend or manage staff", () => {
-    for (const p of ["platform:metrics", "platform:lists", "platform:detail", "platform:audit", "users:unlock", "users:revoke_sessions"] as const) expect(canPlatform("support", p)).toBe(true);
+    for (const p of ["platform:metrics", "platform:lists", "platform:detail", "platform:audit", "users:unlock", "users:revoke_sessions", "leads:read", "leads:manage"] as const)
+      expect(canPlatform("support", p)).toBe(true);
     for (const p of ["orgs:plan", "orgs:suspend", "staff:manage"] as const) expect(canPlatform("support", p)).toBe(false);
   });
 
-  it("analyst is read-only metrics and lists", () => {
-    expect(all.filter((p) => canPlatform("analyst", p))).toEqual(["platform:metrics", "platform:lists"]);
+  it("billing sees metrics and lists and can change plans, nothing else", () => {
+    expect(all.filter((p) => canPlatform("billing", p))).toEqual(["platform:metrics", "platform:lists", "orgs:plan"]);
+  });
+
+  it("analyst is read-only metrics, lists and the request inbox", () => {
+    expect(all.filter((p) => canPlatform("analyst", p))).toEqual(["platform:metrics", "platform:lists", "leads:read"]);
+  });
+
+  it("only superadmins manage staff", () => {
+    expect(PLATFORM_ROLES.filter((r) => canPlatform(r, "staff:manage"))).toEqual(["superadmin"]);
   });
 
   it("no role means no access", () => {
     for (const p of all) {
       expect(canPlatform(null, p)).toBe(false);
       expect(canPlatform(undefined, p)).toBe(false);
+      expect(canPlatform("owner" as never, p)).toBe(false);
     }
   });
 
@@ -56,70 +67,68 @@ describe("platform permissions", () => {
   });
 });
 
-describe("platform role resolution", () => {
-  it("parses the bootstrap env leniently", () => {
-    expect([...parseSuperadminEnv(" A@x.com, b@y.io;c@z.dev\nnot-an-email ")]).toEqual(["a@x.com", "b@y.io", "c@z.dev"]);
-    expect(parseSuperadminEnv(undefined).size).toBe(0);
+describe("staff roles from Cognito groups", () => {
+  it("names groups after the role", () => {
+    expect(PLATFORM_ROLES.map(staffGroupName)).toEqual(["platform-superadmin", "platform-support", "platform-billing", "platform-analyst"]);
   });
 
-  it("bootstrap emails are always superadmin, case-insensitively", () => {
-    expect(resolvePlatformRole({ email: "Ops@ThePlainTheory.com" }, "ops@theplaintheory.com")).toBe("superadmin");
-    expect(resolvePlatformRole({ email: "ops@theplaintheory.com", platformRole: "analyst" }, "ops@theplaintheory.com")).toBe("superadmin");
+  it("takes the highest platform-* group", () => {
+    expect(roleFromGroups(["platform-analyst"])).toBe("analyst");
+    expect(roleFromGroups(["platform-analyst", "platform-superadmin"])).toBe("superadmin");
+    expect(roleFromGroups(["platform-billing", "platform-analyst"])).toBe("billing");
+    expect(roleFromGroups(["platform-analyst", "platform-support", "platform-billing"])).toBe("support");
+    expect(roleFromGroups("platform-support")).toBe("support");
   });
 
-  it("otherwise uses the stored role, and ignores unknown values", () => {
-    expect(resolvePlatformRole({ email: "a@b.co", platformRole: "support" }, "")).toBe("support");
-    expect(resolvePlatformRole({ email: "a@b.co" }, "")).toBeNull();
-    expect(resolvePlatformRole({ email: "a@b.co", platformRole: "owner" as never }, "")).toBeNull();
-    expect(resolvePlatformRole(null, "a@b.co")).toBeNull();
-  });
-});
-
-describe("staff two-factor requirement", () => {
-  it("is bypassed outside production", () => {
-    expect(staffMfaProblem({ userHasMfa: false, sessionMfaVerified: false, production: false })).toBeNull();
-  });
-  it("requires enrolment and a verified session in production", () => {
-    expect(staffMfaProblem({ userHasMfa: false, sessionMfaVerified: false, production: true })).toBe("enroll");
-    expect(staffMfaProblem({ userHasMfa: true, sessionMfaVerified: false, production: true })).toBe("verify");
-    expect(staffMfaProblem({ userHasMfa: true, sessionMfaVerified: true, production: true })).toBeNull();
+  it("is null without a platform group, and ignores unknown or look-alike groups", () => {
+    expect(roleFromGroups(undefined)).toBeNull();
+    expect(roleFromGroups([])).toBeNull();
+    expect(roleFromGroups(["admins", "platform-owner", "platform-", "superadmin", "xplatform-superadmin", 7])).toBeNull();
+    expect(roleFromGroups({ 0: "platform-superadmin" })).toBeNull();
   });
 });
 
-describe("staff role changes", () => {
-  const m = (userId: string, role: StaffMember["role"], bootstrap = false): StaffMember => ({ userId, email: `${userId}@pt.example`, role, bootstrap });
+describe("staff management guards", () => {
+  const m = (sub: string, role: StaffMember["role"], enabled = true): StaffMember => ({ sub, email: `${sub}@pt.example`, role, enabled });
 
-  it("blocks changing your own role, even to promote or remove yourself", () => {
+  it("blocks every change to your own account", () => {
     const staff = [m("me", "superadmin"), m("other", "superadmin")];
-    expect(staffChangeProblem({ actorUserId: "me", target: staff[0], next: null, staff })).toMatch(/your own/);
-    expect(staffChangeProblem({ actorUserId: "me", target: staff[0], next: "support", staff })).toMatch(/your own/);
+    for (const change of [{ kind: "role", next: "support" }, { kind: "disable" }, { kind: "remove" }, { kind: "reset_password" }, { kind: "resend_invite" }] as const) {
+      expect(staffChangeProblem({ actorSub: "me", target: staff[0], change, staff })).toMatch(/your own/);
+    }
   });
 
-  it("protects the last superadmin from demotion and removal", () => {
+  it("protects the last enabled superadmin from demotion, disabling and removal", () => {
     const staff = [m("me", "superadmin"), m("sole", "superadmin"), m("s", "support")];
-    // two superadmins: "me" may demote "sole"
-    expect(staffChangeProblem({ actorUserId: "me", target: staff[1], next: "analyst", staff })).toBeNull();
-    // only one left after "me" is gone from the list
-    const left = [m("sole", "superadmin"), m("s", "support")];
-    expect(staffChangeProblem({ actorUserId: "s", target: left[0], next: null, staff: left })).toMatch(/last superadmin/);
-    expect(staffChangeProblem({ actorUserId: "s", target: left[0], next: "support", staff: left })).toMatch(/last superadmin/);
+    // two superadmins: "me" may demote, disable or remove "sole"
+    expect(staffChangeProblem({ actorSub: "me", target: staff[1], change: { kind: "role", next: "analyst" }, staff })).toBeNull();
+    expect(staffChangeProblem({ actorSub: "me", target: staff[1], change: { kind: "disable" }, staff })).toBeNull();
+    // a disabled superadmin doesn't count as another one
+    const withDisabled = [m("sole", "superadmin"), m("off", "superadmin", false), m("s", "support")];
+    for (const change of [{ kind: "role", next: "support" }, { kind: "disable" }, { kind: "remove" }] as const) {
+      expect(staffChangeProblem({ actorSub: "s", target: withDisabled[0], change, staff: withDisabled })).toMatch(/last superadmin/);
+    }
+    // but resetting their password or promoting is fine
+    expect(staffChangeProblem({ actorSub: "s", target: withDisabled[0], change: { kind: "reset_password" }, staff: withDisabled })).toBeNull();
   });
 
-  it("leaves bootstrap superadmins to the environment", () => {
-    const staff = [m("me", "superadmin"), m("boot", "superadmin", true)];
-    expect(staffChangeProblem({ actorUserId: "me", target: staff[1], next: null, staff })).toMatch(/PLATFORM_SUPERADMINS/);
+  it("allows removing or enabling a disabled superadmin while another is active", () => {
+    const staff = [m("me", "superadmin"), m("off", "superadmin", false)];
+    expect(staffChangeProblem({ actorSub: "me", target: staff[1], change: { kind: "remove" }, staff })).toBeNull();
+    expect(staffChangeProblem({ actorSub: "me", target: staff[1], change: { kind: "enable" }, staff })).toBeNull();
   });
 
-  it("allows granting a new role and rejects no-op or unknown targets", () => {
-    const staff = [m("me", "superadmin"), m("s", "support")];
-    expect(staffChangeProblem({ actorUserId: "me", target: null, next: "analyst", staff })).toBeNull();
-    expect(staffChangeProblem({ actorUserId: "me", target: null, next: null, staff })).toMatch(/isn't on the staff/);
-    expect(staffChangeProblem({ actorUserId: "me", target: staff[1], next: "support", staff })).toMatch(/already/);
-    expect(staffChangeProblem({ actorUserId: "me", target: staff[1], next: null, staff })).toBeNull();
+  it("rejects no-op changes and unknown targets", () => {
+    const staff = [m("me", "superadmin"), m("s", "support"), m("off", "analyst", false)];
+    expect(staffChangeProblem({ actorSub: "me", target: null, change: { kind: "remove" }, staff })).toMatch(/isn't on the staff/);
+    expect(staffChangeProblem({ actorSub: "me", target: staff[1], change: { kind: "role", next: "support" }, staff })).toMatch(/already/);
+    expect(staffChangeProblem({ actorSub: "me", target: staff[1], change: { kind: "enable" }, staff })).toMatch(/already enabled/);
+    expect(staffChangeProblem({ actorSub: "me", target: staff[2], change: { kind: "disable" }, staff })).toMatch(/already disabled/);
+    expect(staffChangeProblem({ actorSub: "me", target: staff[1], change: { kind: "role", next: "billing" }, staff })).toBeNull();
   });
 
-  it("covers every role", () => {
-    expect(PLATFORM_ROLES).toEqual(["superadmin", "support", "analyst"]);
+  it("covers every role, highest first", () => {
+    expect(PLATFORM_ROLES).toEqual(["superadmin", "support", "billing", "analyst"]);
   });
 });
 
@@ -161,8 +170,22 @@ describe("platform audit trail (local store)", () => {
     expect(verifyPlatformAuditChain(tampered)).toMatchObject({ ok: false, brokenAt: 2 });
   });
 
+  it("keeps staff session records apart from customer sessions", async () => {
+    const now = new Date();
+    const base = { createdAt: now.toISOString(), lastSeenAt: now.toISOString(), expiresAt: new Date(now.getTime() + 3600e3).toISOString(), ipHash: "ip", userAgent: "ua", mfaVerified: true };
+    const staff = { sub: "11111111-2222-3333-4444-555555555555", email: "s@pt.example", name: "S", role: "support" as const };
+    await store.createSessionRecord({ ...base, id: "sst_a", userId: `staff:${staff.sub}`, kind: "staff", staff });
+    await store.createSessionRecord({ ...base, id: "sst_b", userId: `staff:${staff.sub}`, kind: "staff", staff });
+    await store.createSessionRecord({ ...base, id: "ses_c", userId: "usr_a", mfaVerified: false });
+    expect(await store.getSessionRecord("sst_a")).toMatchObject({ kind: "staff", staff });
+    expect((await store.getSessionRecord("ses_c"))?.kind).toBeUndefined();
+    expect(await store.revokeUserSessions(`staff:${staff.sub}`, now.toISOString())).toBe(2);
+    expect((await store.getSessionRecord("ses_c"))?.revokedAt).toBeUndefined();
+  });
+
   it("lists users", async () => {
     await store.createUser({ id: "usr_a", email: "a@pt.example", name: "A", createdAt: new Date().toISOString() });
     expect((await store.listUsers()).map((u) => u.id)).toContain("usr_a");
   });
 });
+

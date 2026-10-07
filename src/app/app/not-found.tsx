@@ -9,7 +9,7 @@ export default function AppNotFound() {
       >
         404
       </p>
-      <h1 className="mt-5 text-xl font-bold">
+      <h1 className="mt-5 text-xl font-semibold">
         <span className="sr-only">404: </span>We couldn&apos;t find that
       </h1>
       <p className="mt-2 text-base text-ink-2">The site may have been deleted, or it belongs to an organization you&apos;re not a member of.</p>

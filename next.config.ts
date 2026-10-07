@@ -6,7 +6,9 @@ const isDev = process.env.NODE_ENV !== "production";
  * Content Security Policy for the app and marketing site (SOC 2 CC6.6, CC6.8).
  * - Scripts and styles are first-party; 'unsafe-inline' is needed for Next's hydration and JSON-LD
  *   until we move to per-request nonces. 'unsafe-eval' only in development (React refresh).
- * - Stripe Checkout is a top-level navigation, so it needs no script or frame allowance here.
+ * - Stripe Checkout and the customer portal are top-level navigations, so they need no script or frame
+ *   allowance. They do need form-action: the billing forms POST to our API, which redirects to Stripe,
+ *   and browsers apply form-action to every redirect of a form submission.
  * - The /demo store and the public consent API are excluded: the demo deliberately loads third-party
  *   trackers to show blocking, and the API is called cross-origin from customer sites.
  */
@@ -19,7 +21,7 @@ const csp = [
   `connect-src 'self'${isDev ? " ws: wss:" : ""}`,
   "frame-src 'self'",
   "frame-ancestors 'self'",
-  "form-action 'self'",
+  "form-action 'self' https://checkout.stripe.com https://billing.stripe.com",
   "base-uri 'self'",
   "object-src 'none'",
   ...(isDev ? [] : ["upgrade-insecure-requests"]),

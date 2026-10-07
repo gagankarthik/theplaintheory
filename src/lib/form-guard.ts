@@ -18,7 +18,7 @@ export const MAX_AGE_MS = 2 * 60 * 60 * 1000;
 /** tolerated clock drift for tokens dated slightly in the future (multiple servers) */
 const SKEW_MS = 30_000;
 
-export type FormName = "contact-sales" | "signup";
+export type FormName = "contact-sales" | "contact-support" | "contact-partners" | "contact-enterprise" | "signup";
 
 function sign(form: FormName, payload: string) {
   const key = createHmac("sha256", Buffer.from(sessionSecret())).update("form-guard:v1").digest();

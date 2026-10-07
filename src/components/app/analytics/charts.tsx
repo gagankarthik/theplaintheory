@@ -101,7 +101,7 @@ export function MetricOverview({ current, previous, range }: { current: Summary;
       <div id={chartId} className="p-5 sm:p-6">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h3 className="text-base font-bold">{m.label} by day</h3>
+            <h3 className="text-base font-semibold">{m.label} by day</h3>
             <p className="text-sm text-ink-3">{m.describe}. Pick a figure above to change the chart.</p>
           </div>
           <ViewToggle value={view} onChange={setView} />
@@ -130,7 +130,7 @@ export function MetricOverview({ current, previous, range }: { current: Summary;
                         <p className="text-ink-3">{fmtDay(String(label))}</p>
                         <p className="mt-0.5 flex items-center gap-2">
                           <span className="h-[2px] w-3 rounded" style={{ background: m.color }} aria-hidden />
-                          <span className="font-bold tabular-nums text-ink">{v === null ? "No data" : formatPct(v)}</span>
+                          <span className="font-semibold tabular-nums text-ink">{v === null ? "No data" : formatPct(v)}</span>
                           <span className="text-ink-3">{m.label}</span>
                         </p>
                       </div>
@@ -194,11 +194,11 @@ function DayTable({ caption, headers, rows }: { caption: string; headers: string
         <caption className="sr-only">{caption}</caption>
         <thead className="sticky top-0 bg-paper text-xs text-ink-3">
           <tr>
-            <th scope="col" className="px-3 py-2 text-left font-bold">
+            <th scope="col" className="px-3 py-2 text-left font-semibold">
               Day
             </th>
             {headers.map((h) => (
-              <th key={h} scope="col" className="px-3 py-2 text-right font-bold">
+              <th key={h} scope="col" className="px-3 py-2 text-right font-semibold">
                 {h}
               </th>
             ))}
@@ -232,7 +232,7 @@ export function DecisionsChart({ series }: { series: DayPoint[] }) {
     <section className="panel p-5 sm:p-6" aria-labelledby={`${id}-h`}>
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h2 id={`${id}-h`} className="text-base font-bold">
+          <h2 id={`${id}-h`} className="text-base font-semibold">
             Decisions per day
           </h2>
           <div className="mt-2">
@@ -265,13 +265,13 @@ export function DecisionsChart({ series }: { series: DayPoint[] }) {
                         return (
                           <p key={o.id} className="flex items-center gap-2 py-0.5">
                             <span className="h-[2px] w-3 rounded" style={{ background: o.color }} aria-hidden />
-                            <span className="font-bold tabular-nums text-ink">{formatInt(Number(x.value))}</span>
+                            <span className="font-semibold tabular-nums text-ink">{formatInt(Number(x.value))}</span>
                             <span className="text-ink-3">{o.label}</span>
                           </p>
                         );
                       })}
                       <p className="mt-1.5 border-t border-line pt-1.5 text-ink-2">
-                        <span className="font-bold tabular-nums text-ink">{formatInt(sum)}</span> decisions
+                        <span className="font-semibold tabular-nums text-ink">{formatInt(sum)}</span> decisions
                       </p>
                     </div>
                   );
@@ -310,7 +310,7 @@ export function Breakdown({ title, rows, labelFor }: { title: string; rows: Brea
   return (
     <section aria-label={title} className="min-w-0">
       <div className="mb-3 flex items-baseline justify-between gap-3">
-        <h3 className="text-base font-bold">{title}</h3>
+        <h3 className="text-base font-semibold">{title}</h3>
         <span className="text-xs text-ink-3">Opt-in, decisions</span>
       </div>
       {rows.length === 0 ? (
@@ -324,7 +324,7 @@ export function Breakdown({ title, rows, labelFor }: { title: string; rows: Brea
                 <div className="mb-1 flex items-baseline justify-between gap-3 text-sm">
                   <span className="truncate capitalize text-ink">{label}</span>
                   <span className="shrink-0 tabular-nums text-ink-2">
-                    <span className="font-bold text-ink">{formatPct(r.total ? r.accepted / r.total : 0)}</span>
+                    <span className="font-semibold text-ink">{formatPct(r.total ? r.accepted / r.total : 0)}</span>
                     <span className="inline-block w-16 text-right text-ink-3">{formatInt(r.total)}</span>
                   </span>
                 </div>
@@ -350,7 +350,7 @@ export function Breakdown({ title, rows, labelFor }: { title: string; rows: Brea
                       >
                         {hover === key ? (
                           <span role="tooltip" className="absolute bottom-[calc(100%+8px)] left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-ink-2 shadow-lift">
-                            <span className="font-bold tabular-nums text-ink">{formatInt(v)}</span> {o.label.toLowerCase()} ({formatPct(v / r.total)})
+                            <span className="font-semibold tabular-nums text-ink">{formatInt(v)}</span> {o.label.toLowerCase()} ({formatPct(v / r.total)})
                           </span>
                         ) : null}
                       </span>
@@ -370,7 +370,7 @@ export function Breakdowns({ groups }: { groups: { title: string; rows: Breakdow
   return (
     <section aria-labelledby="breakdowns-h" className="panel p-5 sm:p-6">
       <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <h2 id="breakdowns-h" className="text-base font-bold">
+        <h2 id="breakdowns-h" className="text-base font-semibold">
           Where decisions come from
         </h2>
         <OutcomeLegend />

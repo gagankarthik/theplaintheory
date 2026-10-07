@@ -21,7 +21,7 @@ export function DeltaText({ d }: { d: KpiDelta }) {
   const color = good === null ? "text-ink-3" : good ? "text-jade" : "text-rose";
   return (
     <span className="inline-flex items-baseline gap-1.5 text-xs">
-      <span className={`inline-flex items-center gap-1 font-bold tabular-nums ${color}`}>
+      <span className={`inline-flex items-center gap-1 font-semibold tabular-nums ${color}`}>
         <svg width="9" height="9" viewBox="0 0 10 10" aria-hidden className={!flat && !up ? "rotate-180" : ""}>
           {flat ? <path d="M1 5h8" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" /> : <path d="M5 1.5L9 8H1z" fill="currentColor" />}
         </svg>
@@ -56,8 +56,8 @@ export function KpiTile({
 }) {
   const body = (
     <>
-      <span className="block text-sm text-ink-2">{label}</span>
-      <span className="mt-1.5 block text-[2rem] font-bold leading-none tracking-[-0.03em] tabular-nums">{value}</span>
+      <span className="block text-xs font-medium text-ink-3">{label}</span>
+      <span className="mt-2 block text-[1.75rem] font-semibold leading-none tracking-[-0.03em] tabular-nums text-ink">{value}</span>
       {delta ? (
         <span className="mt-2 block">
           <DeltaText d={delta} />

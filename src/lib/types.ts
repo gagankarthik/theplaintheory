@@ -1,6 +1,6 @@
 // Shared domain model. Mirrors the single-table DynamoDB layout described in infra/README.md.
 
-export type Role = "owner" | "admin" | "viewer";
+export type Role = "owner" | "admin" | "editor" | "auditor" | "viewer";
 export type PlanId = "free" | "starter" | "growth" | "business" | "enterprise";
 export type Framework = "gdpr" | "ccpa" | "dpdpa" | "generic";
 export type CategoryId = "essential" | "functional" | "analytics" | "marketing";
@@ -13,8 +13,10 @@ export interface User {
   name: string;
   /** scrypt hash, local auth driver only. Cognito users have no password stored here. */
   passwordHash?: string;
+  /** Cognito user pool `sub` (AUTH_DRIVER=cognito). Linked by e-mail at sign-up and refreshed at each sign-in. */
+  cognitoSub?: string;
   passwordChangedAt?: string;
-  /** TOTP multi-factor authentication (local driver). Cognito enforces MFA in the user pool instead. */
+  /** TOTP multi-factor authentication, run by the app for both auth drivers (Cognito's own MFA isn't used). */
   mfa?: UserMfa;
   /** enrolment started but not yet confirmed with a code; expires after 15 minutes */
   mfaPending?: { secretEnc: string; createdAt: string };
@@ -22,11 +24,6 @@ export interface User {
   loginFailures?: { count: number; windowStart: string };
   lockedUntil?: string;
   lastActiveAt?: string;
-  /**
-   * Plain Theory staff role for the platform console (/admin). Customers never have one; their access
-   * comes from org memberships. Emails in PLATFORM_SUPERADMINS always resolve to "superadmin".
-   */
-  platformRole?: "superadmin" | "support" | "analyst";
   createdAt: string;
 }
 
@@ -52,6 +49,22 @@ export interface SessionRecord {
   userAgent: string;
   mfaVerified: boolean;
   revokedAt?: string;
+  /**
+   * "staff" for a staff console session (separate cookie, staff Cognito pool); absent for customers.
+   * Staff sessions use `userId` = "staff:<cognito sub>", so a person's sessions can be listed and revoked.
+   */
+  kind?: "staff";
+  /** who a staff session belongs to, read from the verified ID token at sign-in */
+  staff?: StaffIdentity;
+}
+
+/** A Plain Theory staff member, from the staff user pool. The role is their highest platform-* group. */
+export interface StaffIdentity {
+  /** Cognito `sub` in the staff pool */
+  sub: string;
+  email: string;
+  name: string;
+  role: "superadmin" | "support" | "billing" | "analyst";
 }
 
 export type AuditAction =
@@ -64,6 +77,7 @@ export type AuditAction =
   | "auth.mfa_disabled"
   | "auth.mfa_recovery_used"
   | "auth.password_changed"
+  | "auth.password_reset"
   | "auth.session_revoked"
   | "auth.recovery_codes_regenerated"
   | "org.created"
@@ -84,6 +98,10 @@ export type AuditAction =
   | "tracker.updated"
   | "tracker.removed"
   | "tracker.scan_run"
+  | "tracker.approved"
+  | "tracker.ignored"
+  | "tracker.restored"
+  | "site.audit_run"
   | "language.added"
   | "language.updated"
   | "language.reviewed"
@@ -303,12 +321,36 @@ export interface LeakReport {
   createdAt: string;
 }
 
+export type TrackerStatus = "approved" | "review" | "ignored";
+export type TrackerSource = "scan" | "manual" | "traffic";
+export type TrackerKind = "script" | "cookie" | "iframe" | "pixel";
+
+/**
+ * A tracker in the site's inventory. Only approved ones with a category are held by the SDK
+ * (see lib/trackers.ts); scan suggestions wait in "review", and "ignored" ones are remembered so
+ * a rescan doesn't suggest them again. Older records have no status: they are approved and manual.
+ */
 export interface Tracker {
   id: string;
   name: string;
-  category: CategoryId;
-  /** substring or hostname matched against script src */
+  /** null only while in review and not yet classified */
+  category: CategoryId | null;
+  /** substring or hostname matched against script src (a cookie name when kind is "cookie") */
   pattern: string;
+  status?: TrackerStatus;
+  source?: TrackerSource;
+  vendor?: string;
+  purpose?: string;
+  kind?: TrackerKind;
+  /** typical cookie lifetime, e.g. "2 years" */
+  expiry?: string;
+  party?: "first" | "third";
+  /** pages it was last found on (at most 5) */
+  foundOn?: string[];
+  /** how many scanned pages it was found on */
+  pageCount?: number;
+  /** last scan that found it */
+  seenAt?: string;
 }
 
 export interface Property {
@@ -330,8 +372,27 @@ export interface Property {
    * remaining chain starts from this hash, so retention never breaks tamper evidence.
    */
   retentionCheckpoint?: RetentionCheckpoint;
+  /** outcome of the most recent "Verify chain" run on the consent log */
+  lastChainCheck?: { at: string; ok: boolean; checked: number; brokenAt?: number };
   createdAt: string;
   updatedAt: string;
+}
+
+/**
+ * Immutable snapshot of what a site published: the exact banner config and tracker rules visitors
+ * were shown under `version`. Written once at publish time and never overwritten, so any consent
+ * receipt can be matched to the notice text behind it.
+ */
+export interface ConfigVersion {
+  propertyId: string;
+  version: number;
+  config: BannerConfig;
+  trackers: Tracker[];
+  publishedAt: string;
+  /** user id of whoever published */
+  publishedBy: string;
+  /** sha-256 of the canonical JSON of every other field */
+  hash: string;
 }
 
 export type ConsentAction = "accept_all" | "reject_all" | "custom" | "revoke" | "dismiss";
@@ -363,19 +424,43 @@ export interface ConsentReceipt {
   seq: number;
 }
 
-/** A sales enquiry from /contact-sales. */
+export type LeadTopic = "sales" | "support" | "partner" | "enterprise";
+export type LeadStatus = "new" | "open" | "closed";
+
+/**
+ * A request from a public contact form: /contact-sales (topic "sales", the original shape) or one of
+ * /contact/support, /contact/partners and /contact/enterprise. Leads stored before topics existed have
+ * no `topic` and are sales enquiries; ones without `status` are new.
+ */
 export interface Lead {
   id: string;
+  /** missing on leads stored before topics existed: treat as "sales" */
+  topic?: LeadTopic;
+  /** workflow state in the staff inbox; missing means "new" */
+  status?: LeadStatus;
   name: string;
   email: string;
-  company: string;
-  sites: "1" | "2-10" | "11-50" | "50+";
-  pageviews: "<100k" | "100k-1m" | "1m-10m" | "10m+";
-  regions: ("eu" | "us" | "in" | "other")[];
+  company?: string;
+  /** sales only */
+  sites?: "1" | "2-10" | "11-50" | "50+";
+  /** sales only */
+  pageviews?: "<100k" | "100k-1m" | "1m-10m" | "10m+";
+  /** sales and enterprise */
+  regions?: ("eu" | "us" | "in" | "other")[];
+  /** support: the ticket subject */
+  subject?: string;
+  /** support category, partner query type or enterprise request type */
+  category?: string;
+  /** support only */
+  severity?: "low" | "normal" | "high" | "urgent";
   message?: string;
+  /** topic-specific extras, such as the site domain or partnership type */
+  details?: Record<string, string>;
   /** truncated, salted IP hash for abuse limits; never the raw IP */
   ipHash: string;
   createdAt: string;
+  /** when staff last changed the status */
+  updatedAt?: string;
 }
 
 export interface PageviewCounter {

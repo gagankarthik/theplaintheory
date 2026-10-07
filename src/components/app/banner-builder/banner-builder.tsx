@@ -7,6 +7,7 @@ import {
   CATEGORY_ICONS,
   IconAlert,
   IconBalance,
+  IconCheck,
   IconDesktop,
   IconLayoutBar,
   IconLayoutModal,
@@ -19,11 +20,12 @@ import { FRAMEWORK_META } from "@/lib/defaults";
 import { toPublicConfig } from "@/lib/public-config";
 import type { BannerConfig, BannerCopy, Framework, Layout, Position, Property } from "@/lib/types";
 import { FormMessage } from "@/components/app/ui/toast";
-import { Segmented, TabPanel, Tabs } from "@/components/app/ui/tabs";
+import { Segmented } from "@/components/app/ui/tabs";
 import { Button } from "@/components/app/ui/button";
 import { Switch } from "@/components/app/ui/switch";
 import { ChipInput } from "@/components/app/ui/chip-input";
 import { CheckList, ScoreRing } from "@/components/app/compliance/check-list";
+import { Select } from "@/components/app/ui/select";
 
 type Draft = Omit<BannerConfig, "version">;
 
@@ -91,7 +93,7 @@ function ContrastNote({ a, b, what }: { a: string; b: string; what: string }) {
   const r = contrastRatio(a, b);
   const ok = r >= 4.5;
   return (
-    <p className={`flex items-center gap-1.5 text-xs ${ok ? "text-ink-3" : "font-bold text-rose"}`}>
+    <p className={`flex items-center gap-1.5 text-xs ${ok ? "text-ink-3" : "font-semibold text-rose"}`}>
       {ok ? null : <IconAlert size={14} />}
       {what}: <span className="tabular-nums">{r.toFixed(1)}:1</span>
       {ok ? (r >= 7 ? " passes AAA" : " passes AA") : " is below the 4.5:1 minimum. Visitors with low vision may not be able to read it."}
@@ -103,7 +105,7 @@ function Section({ title, children, description }: { title: string; description?
   return (
     <section className="space-y-4 border-b border-line px-5 py-6 last:border-b-0 sm:px-6">
       <div>
-        <h3 className="text-base font-bold">{title}</h3>
+        <h3 className="text-base font-semibold">{title}</h3>
         {description ? <p className="mt-0.5 text-sm text-ink-3">{description}</p> : null}
       </div>
       {children}
@@ -111,8 +113,15 @@ function Section({ title, children, description }: { title: string; description?
   );
 }
 
-type BuilderTab = "design" | "text" | "categories" | "behaviour";
-const TABS: BuilderTab[] = ["design", "text", "categories", "behaviour"];
+type BuilderTab = "design" | "text" | "categories" | "behaviour" | "review";
+const STEPS: { id: BuilderTab; label: string; hint: string }[] = [
+  { id: "design", label: "Design", hint: "Layout, colours and type. Keep Reject as easy as Accept." },
+  { id: "text", label: "Wording", hint: "What visitors read in each region, in plain words." },
+  { id: "categories", label: "Purposes", hint: "What each category does, the data it uses and how long it's kept." },
+  { id: "behaviour", label: "Behaviour", hint: "Signals to your tags and when to ask again." },
+  { id: "review", label: "Review", hint: "Check fairness and linked details, then publish." },
+];
+const TABS = STEPS.map((x) => x.id);
 
 export function BannerBuilder({
   property,
@@ -194,25 +203,78 @@ export function BannerBuilder({
     }
   };
   const layout = LAYOUTS.find((l) => l.id === draft.theme.layout)!;
+  const idx = TABS.indexOf(tab);
+  const go = (i: number) => {
+    setTab(TABS[Math.max(0, Math.min(TABS.length - 1, i))]);
+    controls.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+  // which steps have something to fix, from the same fairness rules the server enforces
+  const issuesFor = (id: BuilderTab) => {
+    const own = id === "review" ? fairness.checks.filter((c) => !c.fix || !c.fix.target.startsWith("banner:")) : fairness.checks.filter((c) => c.fix?.target === `banner:${id}`);
+    return { fail: own.filter((c) => c.severity === "fail").length, warn: own.filter((c) => c.severity === "warn").length };
+  };
+  const nothingNew = !unsaved && !unpublished;
+  const status = unsaved
+    ? "Unsaved edits"
+    : property.publishedVersion === 0
+      ? property.config.version > 1
+        ? `Draft v${property.config.version} saved · not published yet`
+        : "Not published yet"
+      : unpublished
+        ? `Draft v${property.config.version} saved · v${property.publishedVersion} is live`
+        : `v${property.publishedVersion} is live`;
+  const fairnessSummary = fairness.failures.length
+    ? `${fairness.failures.length} failing, ${fairness.warnings.length} to review. Failing checks block publishing.`
+    : fairness.warnings.length
+      ? `Ready to publish. ${fairness.warnings.length} suggestion${fairness.warnings.length > 1 ? "s" : ""} to review.`
+      : "Every check passes for the regions you have turned on.";
 
   return (
     <div className="grid gap-6 xl:grid-cols-[minmax(0,440px)_minmax(0,1fr)]">
       {/* controls */}
       <div ref={controls} className="panel scroll-mt-20 self-start overflow-hidden">
-        <Tabs
-          idBase="builder"
-          label="Builder sections"
-          value={tab}
-          onChange={setTab}
-          items={[
-            { value: "design", label: "Design" },
-            { value: "text", label: "Text" },
-            { value: "categories", label: "Categories" },
-            { value: "behaviour", label: "Behaviour" },
-          ]}
-        />
+        <nav aria-label="Banner setup steps" className="border-b border-line px-2 py-2.5 sm:px-3">
+          <ol className="scroll-thin flex gap-1 overflow-x-auto">
+            {STEPS.map((x, i) => {
+              const current = x.id === tab;
+              const issues = issuesFor(x.id);
+              return (
+                <li key={x.id} className="min-w-0 flex-1">
+                  <button
+                    type="button"
+                    onClick={() => setTab(x.id)}
+                    aria-current={current ? "step" : undefined}
+                    className={`flex w-full min-w-[4.25rem] flex-col items-center gap-1 rounded-[10px] px-1 py-2 transition-colors ${current ? "bg-brand-wash/70" : "hover:bg-paper"}`}
+                  >
+                    <span
+                      aria-hidden
+                      className={`relative grid size-7 place-items-center rounded-full text-xs font-semibold ${current ? "bg-brand text-white" : "bg-paper text-ink-2 ring-1 ring-inset ring-line"}`}
+                    >
+                      {i + 1}
+                      {issues.fail ? (
+                        <span className="absolute -right-0.5 -top-0.5 size-2.5 rounded-full bg-rose ring-2 ring-surface" />
+                      ) : issues.warn ? (
+                        <span className="absolute -right-0.5 -top-0.5 size-2.5 rounded-full bg-amber-bright ring-2 ring-surface" />
+                      ) : null}
+                    </span>
+                    <span className={`text-xs ${current ? "font-semibold text-brand-ink" : "text-ink-2"}`}>{x.label}</span>
+                    <span className="sr-only">{issues.fail ? `, ${issues.fail} failing` : issues.warn ? `, ${issues.warn} to review` : ""}</span>
+                  </button>
+                </li>
+              );
+            })}
+          </ol>
+        </nav>
 
-        <TabPanel idBase="builder" value={tab}>
+        <div className="px-5 pt-5 sm:px-6">
+          <p className="text-2xs font-medium uppercase tracking-[0.06em] text-ink-3">
+            Step {idx + 1} of {STEPS.length}
+          </p>
+          <h2 className="mt-0.5 text-lg font-semibold">{STEPS[idx].label}</h2>
+          <p className="mt-0.5 text-sm text-ink-3">{STEPS[idx].hint}</p>
+        </div>
+
+        <div>
         <fieldset disabled={!canWrite} className="min-w-0">
           <legend className="sr-only">Banner settings</legend>
           {tab === "design" ? (
@@ -225,7 +287,7 @@ export function BannerBuilder({
                     return (
                       <label
                         key={l.id}
-                        className={`flex cursor-pointer flex-col items-center gap-2 rounded-lg border-[1.5px] px-2 py-3 text-xs font-bold transition-colors has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-brand ${
+                        className={`flex cursor-pointer flex-col items-center gap-2 rounded-lg border-[1.5px] px-2 py-3 text-xs font-semibold transition-colors has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-brand ${
                           active ? "border-brand bg-brand-wash text-brand-ink" : "border-line text-ink-2 hover:border-line-strong hover:bg-paper"
                         }`}
                       >
@@ -295,12 +357,17 @@ export function BannerBuilder({
                   <label htmlFor="font" className="label">
                     Font
                   </label>
-                  <select id="font" className="field" value={draft.theme.font} onChange={(e) => setTheme("font", e.target.value as Draft["theme"]["font"])}>
-                    <option value="system">System UI (fastest, no download)</option>
-                    <option value="inherit">Inherit from my site</option>
-                    <option value="serif">Serif</option>
-                    <option value="mono">Monospace</option>
-                  </select>
+                  <Select<Draft["theme"]["font"]>
+                    id="font"
+                    value={draft.theme.font}
+                    onValueChange={(v) => setTheme("font", v)}
+                    options={[
+                      { value: "system", label: "System UI", description: "Fastest: nothing to download" },
+                      { value: "inherit", label: "Inherit from my site", description: "Uses your site's body font" },
+                      { value: "serif", label: "Serif" },
+                      { value: "mono", label: "Monospace" },
+                    ]}
+                  />
                 </div>
               </Section>
               <Section title="Fair choice">
@@ -378,7 +445,7 @@ export function BannerBuilder({
                   <div key={c.id} className={`rounded-lg p-4 ${c.required ? "released" : "held"} !text-ink`}>
                     <div className="mb-3 flex items-center gap-2">
                       <Icon size={18} className={c.required ? "text-jade" : "text-amber"} />
-                      <span className="text-xs font-bold text-ink-2">{c.required ? "Always on" : "Held until consent"}</span>
+                      <span className="text-xs font-semibold text-ink-2">{c.required ? "Always on" : "Held until consent"}</span>
                     </div>
                     <label htmlFor={`cat-${c.id}`} className="label">
                       Name
@@ -461,32 +528,164 @@ export function BannerBuilder({
               </Section>
             </>
           ) : null}
+          {tab === "review" ? (
+            <>
+              <Section title="Fairness check" description="The same rules run on our servers when you publish.">
+                <div className="flex items-center gap-4">
+                  <ScoreRing value={fairness.score} label="Fairness score" size={52} />
+                  <p className="text-sm text-ink-2" aria-live="polite">
+                    {fairnessSummary}
+                  </p>
+                </div>
+                {(() => {
+                  const toRow = (c: (typeof fairness.checks)[number]) => {
+                    const href = c.fix && !c.fix.target.startsWith("banner:") ? fixHref(property.id, c.fix.target) : undefined;
+                    return {
+                      id: c.id,
+                      severity: c.severity,
+                      title: c.title,
+                      detail: c.detail,
+                      tag: c.framework === "all" ? undefined : FRAMEWORK_META[c.framework].name,
+                      ref: c.ref,
+                      fix: c.fix ? { label: c.fix.label, href, onClick: href ? undefined : () => goTo(c.fix!.target) } : undefined,
+                    };
+                  };
+                  const open = fairness.checks.filter((c) => c.severity !== "pass");
+                  const passing = fairness.checks.filter((c) => c.severity === "pass");
+                  return (
+                    <>
+                      {open.length ? <CheckList dense rows={open.map(toRow)} /> : null}
+                      {passing.length ? (
+                        <details className="group rounded-[10px] border border-line">
+                          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 text-sm text-ink-2 hover:text-ink">
+                            <span className="inline-flex items-center gap-2">
+                              <IconCheck size={14} className="text-jade" />
+                              {passing.length} check{passing.length === 1 ? "" : "s"} passing
+                            </span>
+                            <span aria-hidden className="text-xs text-ink-3 group-open:hidden">Show</span>
+                            <span aria-hidden className="hidden text-xs text-ink-3 group-open:inline">Hide</span>
+                          </summary>
+                          <div className="border-t border-line px-3">
+                            <CheckList dense rows={passing.map(toRow)} />
+                          </div>
+                        </details>
+                      ) : null}
+                    </>
+                  );
+                })()}
+              </Section>
+              <Section title="Details your notice links to" description="Kept on other pages because they're shared or need more room. Your notice shows them as they are now.">
+                <ul className="divide-y divide-line rounded-[12px] border border-line">
+                  {[
+                    {
+                      label: "Data Protection Officer",
+                      value: dpo ? `${dpo.name} · ${dpo.email}` : null,
+                      missing: "Not set. Notices must name someone to contact.",
+                      href: "/app/settings#dpo",
+                      required: true,
+                    },
+                    {
+                      label: "Rights page and grievance email",
+                      value: [draft.rights?.rightsUrl, draft.rights?.grievanceEmail].filter(Boolean).join(" · ") || null,
+                      missing: "Not set. DPDPA notices say how to exercise rights and raise a grievance.",
+                      href: `/app/sites/${property.id}/regions#notice`,
+                      required: false,
+                    },
+                    {
+                      label: "Data Protection Board link",
+                      value: draft.rights?.boardComplaintUrl ?? null,
+                      missing: "Not set yet. Add it once the Board publishes its complaint page.",
+                      href: `/app/sites/${property.id}/regions#notice`,
+                      required: false,
+                    },
+                    {
+                      label: "Notice languages",
+                      value: (() => {
+                        const n = Object.keys(draft.regions.dpdpa.translations ?? {}).length;
+                        return n ? `English + ${n} more` : null;
+                      })(),
+                      missing: "English only. Visitors in India may read the notice in any Eighth Schedule language.",
+                      href: `/app/sites/${property.id}/languages`,
+                      required: false,
+                    },
+                  ].map((row) => (
+                    <li key={row.label} className="flex items-start gap-3 px-4 py-3">
+                      <span
+                        aria-hidden
+                        className={`mt-0.5 grid size-5 shrink-0 place-items-center rounded-full ${row.value ? "bg-brand text-white" : row.required ? "bg-rose-wash text-rose" : "bg-amber-wash text-amber"}`}
+                      >
+                        {row.value ? <IconCheck size={12} /> : <IconAlert size={12} />}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-medium text-ink">{row.label}</span>
+                        <span className={`block break-words text-xs ${row.value ? "text-ink-2" : row.required ? "text-rose" : "text-ink-3"}`}>{row.value ?? row.missing}</span>
+                      </span>
+                      <a href={row.href} className="shrink-0 text-xs font-medium text-brand underline-offset-2 hover:underline">
+                        {row.value ? "Edit" : "Add"}
+                        <span className="sr-only"> {row.label}</span>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </Section>
+              <Section title="Versions">
+                <dl className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="rounded-[10px] bg-paper px-3 py-2.5">
+                    <dt className="text-xs text-ink-3">Live for visitors</dt>
+                    <dd className="mt-0.5 font-medium text-ink">
+                      {property.publishedVersion ? `v${property.publishedVersion}` : "Nothing yet"}
+                      {property.publishedAt ? <span className="block text-xs font-normal text-ink-3">{new Date(property.publishedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</span> : null}
+                    </dd>
+                  </div>
+                  <div className="rounded-[10px] bg-paper px-3 py-2.5">
+                    <dt className="text-xs text-ink-3">Your draft</dt>
+                    <dd className="mt-0.5 font-medium text-ink">
+                      v{property.config.version}
+                      <span className="block text-xs font-normal text-ink-3">{unsaved ? "With unsaved edits" : nothingNew ? "Same as live" : "Saved, ready to publish"}</span>
+                    </dd>
+                  </div>
+                </dl>
+              </Section>
+            </>
+          ) : null}
         </fieldset>
-        </TabPanel>
+        </div>
 
         {canWrite ? (
           <div className="sticky bottom-0 space-y-3 border-t border-line bg-surface px-5 py-4 sm:px-6">
             <FormMessage state={state} />
-            {blocked ? (
-              <p id="publish-blocked" className="flex items-start gap-2 text-xs text-rose">
-                <IconAlert size={14} className="mt-0.5 shrink-0" />
-                Fix {fairness.failures.length === 1 ? "1 failing check" : `${fairness.failures.length} failing checks`} in the fairness check before publishing.
+            {tab === "review" && (blocked || nothingNew) ? (
+              <p id="publish-why" className={`flex items-start gap-2 text-xs ${blocked ? "text-rose" : "text-ink-3"}`}>
+                {blocked ? <IconAlert size={14} className="mt-0.5 shrink-0" /> : null}
+                {blocked
+                  ? `Fix ${fairness.failures.length === 1 ? "the failing check" : `the ${fairness.failures.length} failing checks`} above before publishing.`
+                  : "Nothing new to publish: visitors already see this version."}
               </p>
             ) : null}
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-xs text-ink-3">{unsaved ? "Unsaved edits" : unpublished ? "Saved, not yet published" : "Saved and live"}</span>
+            <p className="text-xs text-ink-3" aria-live="polite">
+              {status}
+            </p>
+            <div className="flex items-center justify-between gap-2">
+              {idx > 0 ? (
+                <Button variant="quiet" onClick={() => go(idx - 1)}>
+                  Back
+                </Button>
+              ) : (
+                <span />
+              )}
               <div className="flex gap-2">
                 <Button variant="ghost" onClick={save} disabled={pending || !unsaved}>
                   Save draft
                 </Button>
-                <Button
-                  onClick={publish}
-                  loading={pending}
-                  disabled={(!unsaved && !unpublished) || blocked}
-                  aria-describedby={blocked ? "publish-blocked" : undefined}
-                >
-                  Publish
-                </Button>
+                {tab !== "review" ? (
+                  <Button onClick={() => go(idx + 1)}>
+                    Next: {STEPS[idx + 1].label}
+                  </Button>
+                ) : (
+                  <Button onClick={publish} loading={pending} disabled={nothingNew || blocked} aria-describedby={blocked || nothingNew ? "publish-why" : undefined}>
+                    Publish
+                  </Button>
+                )}
               </div>
             </div>
           </div>
@@ -525,7 +724,7 @@ export function BannerBuilder({
               <span className="size-2.5 rounded-full bg-line-strong" />
               <span className="size-2.5 rounded-full bg-line-strong" />
               <span className="size-2.5 rounded-full bg-line-strong" />
-              <span className="ml-3 truncate rounded bg-surface px-2 py-0.5 text-[11px] text-ink-3">{property.domain}</span>
+              <span className="ml-3 truncate rounded bg-surface px-2 py-0.5 text-2xs text-ink-3">{property.domain}</span>
             </div>
             <iframe
               ref={frame}
@@ -540,40 +739,18 @@ export function BannerBuilder({
           Showing the {FRAMEWORK_META[framework].name} notice ({FRAMEWORK_META[framework].region}). The preview uses your unsaved edits; visitors see the last published version.
         </p>
 
-        <section aria-labelledby="fairness-h" className="panel mt-6 overflow-hidden">
-          <div className="flex items-center gap-4 border-b border-line px-5 py-4">
-            <ScoreRing value={fairness.score} label="Fairness score" size={52} />
-            <div className="min-w-0">
-              <h2 id="fairness-h" className="text-base font-semibold">
-                Fairness check
-              </h2>
-              <p className="text-sm text-ink-3" aria-live="polite">
-                {fairness.failures.length
-                  ? `${fairness.failures.length} failing, ${fairness.warnings.length} to review. Failing checks block publishing.`
-                  : fairness.warnings.length
-                    ? `Ready to publish. ${fairness.warnings.length} suggestion${fairness.warnings.length > 1 ? "s" : ""} to review.`
-                    : "Every check passes for the regions you have turned on."}
-              </p>
-            </div>
-          </div>
-          <div className="px-5">
-            <CheckList
-              dense
-              rows={fairness.checks.map((c) => {
-                const href = c.fix && !c.fix.target.startsWith("banner:") ? fixHref(property.id, c.fix.target) : undefined;
-                return {
-                  id: c.id,
-                  severity: c.severity,
-                  title: c.title,
-                  detail: c.detail,
-                  tag: c.framework === "all" ? undefined : FRAMEWORK_META[c.framework].name,
-                  ref: c.ref,
-                  fix: c.fix ? { label: c.fix.label, href, onClick: href ? undefined : () => goTo(c.fix!.target) } : undefined,
-                };
-              })}
-            />
-          </div>
-        </section>
+        <button
+          type="button"
+          onClick={() => go(TABS.indexOf("review"))}
+          className="mt-4 flex w-full items-center gap-3 rounded-[12px] border border-line bg-surface px-4 py-3 text-left transition-colors hover:bg-paper"
+        >
+          <ScoreRing value={fairness.score} label="Fairness score" size={40} />
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-medium text-ink">Fairness check</span>
+            <span className="block text-xs text-ink-3">{fairnessSummary}</span>
+          </span>
+          <span className="shrink-0 text-xs font-medium text-brand">Review</span>
+        </button>
       </div>
     </div>
   );

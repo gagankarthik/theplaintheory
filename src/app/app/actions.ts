@@ -40,7 +40,7 @@ export async function createSite(_: ActionResult, form: FormData): Promise<Actio
   const { org, role, user } = await requireUser();
   let property: Property;
   try {
-    assertCan(role, "property:write");
+    assertCan(role, "property:create");
     const parsed = siteSchema.safeParse({ name: form.get("name"), domain: form.get("domain") });
     if (!parsed.success) return invalid(parsed.error);
     const store = await getStore();
