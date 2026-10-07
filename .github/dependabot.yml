@@ -11,6 +11,17 @@ updates:
         patterns: ["@aws-sdk/*"]
       next-react:
         patterns: ["next", "react", "react-dom", "eslint-config-next"]
+    ignore:
+      # Majors that the toolchain can't take yet; revisit when their plugins catch up.
+      # eslint 10: eslint-plugin-react (via eslint-config-next) still calls context.getFilename().
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
+      # TypeScript 7: typescript-eslint doesn't support it yet.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      # @types/node follows the Node major we run on (22 on Vercel and in CI), not the latest.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: "/"
     schedule:

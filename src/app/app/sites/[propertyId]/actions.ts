@@ -7,7 +7,9 @@ import { failure, invalid, type ActionResult } from "@/lib/action-result";
 import { requireProperty } from "@/lib/auth/access";
 import { id, verifyChain } from "@/lib/crypto";
 import { rightsSchema } from "@/lib/config-schema";
-import { DEFAULT_REASK_DAYS } from "@/lib/defaults";
+import { DEFAULT_REASK_DAYS, FRAMEWORK_META } from "@/lib/defaults";
+import { languageInfo } from "@/lib/i18n/languages";
+import { rangeDays } from "@/lib/analytics";
 import { evaluateFairness } from "@/lib/fairness";
 import { buildConfigVersion } from "@/lib/config-versions";
 import { publishConfig, toPublicConfig } from "@/lib/publish";
@@ -17,7 +19,7 @@ import type { SiteAuditResult } from "@/lib/site-audit/types";
 import { auditSite, persistConfig } from "@/lib/site-config";
 import { heldTrackers, statusOf } from "@/lib/trackers";
 import { writeTrackers } from "@/lib/tracker-writes";
-import type { BannerConfig, Tracker } from "@/lib/types";
+import type { BannerConfig, Framework, Tracker } from "@/lib/types";
 
 /* ---------------- site ---------------- */
 
@@ -115,7 +117,10 @@ export async function publishSite(propertyId: string): Promise<ActionResult> {
     await auditSite(ctx, "property.published", { version: property.config.version, fairnessScore: fairness.score });
     revalidatePath(`/app/sites/${propertyId}`, "layout");
     revalidatePath("/app");
-    return { ok: `Published version ${property.config.version} to ${location}` };
+    void location;
+    return {
+      ok: `Your banner is live. Visitors to ${property.domain} now get version ${property.config.version} wherever the Plain Theory script is installed.`,
+    };
   } catch (e) {
     return failure(e);
   }
@@ -236,5 +241,79 @@ export async function verifyPropertyChain(propertyId: string): Promise<ChainChec
     return { ...result, verifiedAt };
   } catch (e) {
     return { ok: false, checked: 0, error: failure(e)?.error, verifiedAt };
+  }
+}
+
+/* ---------------- publish summary ---------------- */
+
+export interface PublishSummary {
+  domain: string;
+  draftVersion: number;
+  liveVersion: number;
+  /** plain-language list of what differs from the live banner; the whole banner on a first publish */
+  changes: string[];
+  /** the notices visitors get, by region */
+  notices: { region: string; law: string; model: "opt-in" | "opt-out"; languages: string[] }[];
+  /** approved trackers the script holds until the visitor agrees to their category */
+  trackersHeld: number;
+  categories: string[];
+  /** a banner view or consent decision was recorded in the last 30 days, so the script is on the site */
+  scriptSeen: boolean;
+  /** failing fairness checks; publishing is refused while there are any */
+  blocking: string[];
+}
+
+const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+
+/** What pressing Publish would put in front of visitors, so the button never acts blind. */
+export async function getPublishSummary(propertyId: string): Promise<PublishSummary | { error: string }> {
+  try {
+    const { property, org, store } = await requireProperty(propertyId, "property:write");
+    const draft = property.config;
+    const live = property.published?.config;
+    const fws = Object.keys(draft.regions) as Framework[];
+
+    const changes: string[] = [];
+    if (!live) changes.push("This is the first publish: your whole banner goes live.");
+    else {
+      if (!same(draft.theme, live.theme)) changes.push("Design: layout, position or colours");
+      const reworded = fws.filter((f) => !same(draft.regions[f].copy, live.regions[f]?.copy)).map((f) => FRAMEWORK_META[f].name);
+      if (reworded.length) changes.push(`Wording of the ${reworded.join(", ")} notice${reworded.length > 1 ? "s" : ""}`);
+      const toggled = fws.filter((f) => draft.regions[f].enabled !== live.regions[f]?.enabled || draft.regions[f].model !== live.regions[f]?.model);
+      if (toggled.length) changes.push(`Which regions get a notice, or opt-in vs opt-out: ${toggled.map((f) => FRAMEWORK_META[f].name).join(", ")}`);
+      const translated = fws.filter((f) => !same(draft.regions[f].translations, live.regions[f]?.translations) || draft.regions[f].language !== live.regions[f]?.language);
+      if (translated.length) changes.push(`Languages of the ${translated.map((f) => FRAMEWORK_META[f].name).join(", ")} notice${translated.length > 1 ? "s" : ""}`);
+      if (!same(draft.categories, live.categories)) changes.push("Purposes visitors can choose (categories and their descriptions)");
+      if (!same(heldTrackers(property.trackers), property.published?.trackers ?? [])) changes.push("The list of trackers held until consent");
+      const behaviour = (["policyUrl", "headless", "googleConsentMode", "expiryDays", "reaskAfterRejectDays", "rights", "leakDetection"] as const).filter((k) => !same(draft[k], live[k]));
+      if (behaviour.length) changes.push("Behaviour: policy link, Consent Mode, re-ask timing, rights links or leak detection");
+      if (!changes.length) changes.push("Settings were saved again, but nothing visitors see has changed.");
+    }
+
+    const days = rangeDays(30);
+    const [[latest], counters] = await Promise.all([store.listReceipts(property.id, { limit: 1 }), store.listCounters(property.id, days[0], days[days.length - 1])]);
+    const held = heldTrackers(property.trackers);
+    const fairness = evaluateFairness(draft, { dpoEmail: org.dpo?.email });
+
+    return {
+      domain: property.domain,
+      draftVersion: draft.version,
+      liveVersion: property.publishedVersion,
+      changes,
+      notices: fws
+        .filter((f) => draft.regions[f].enabled)
+        .map((f) => {
+          const r = draft.regions[f];
+          const codes = [r.language, ...Object.keys(r.translations ?? {}).filter((c) => c !== r.language)];
+          return { region: FRAMEWORK_META[f].region, law: FRAMEWORK_META[f].name, model: r.model, languages: codes.map((c) => languageInfo(c)?.name ?? c) };
+        }),
+      trackersHeld: held.length,
+      categories: draft.categories.filter((c) => !c.required).map((c) => c.label),
+      scriptSeen: Boolean(latest) || counters.some((c) => c.views > 0),
+      blocking: fairness.failures.map((f) => f.title),
+    };
+  } catch (e) {
+    const r = failure(e);
+    return { error: r?.error ?? "Couldn't load what would be published." };
   }
 }

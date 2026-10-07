@@ -1,6 +1,9 @@
 /** Code samples for the docs. Kept in sync with packages/* and sdk/src by hand; see packages/README.md. */
 
-export const CDN = "https://cdn.theplaintheory.in/sdk/v1/plain-consent.js";
+import { SDK_URL } from "@/lib/install-snippets";
+
+/** The working CDN (cdn.theplaintheory.in has no DNS record yet). */
+export const CDN = SDK_URL;
 const KEY = "pk_live_YOUR_SITE_KEY";
 
 type Snippet = { label: string; title: string; language: string; code: string };

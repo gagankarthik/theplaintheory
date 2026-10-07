@@ -7,6 +7,8 @@ import { requireProperty } from "@/lib/auth/access";
 import { bareDomain } from "@/lib/consent";
 import { sdkSizeLabel } from "@/lib/sdk-size";
 import { site } from "@/lib/site";
+import { installMethods } from "@/lib/install-snippets";
+import { InstallMethods } from "@/components/app/sites/install-methods";
 
 export const metadata: Metadata = { title: "Install" };
 
@@ -61,14 +63,12 @@ export default async function InstallPage(props: PageProps<"/app/sites/[property
   const lastSeen = [latest?.timestamp.slice(0, 10), lastViewDay].filter((d): d is string => !!d).sort().at(-1);
   const day = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 
-  const snippet = [
-    `<script`,
-    `  src="${cdn ? `${cdn}/sdk/v1` : `${origin}/sdk`}/plain-consent.js"`, // the Delivery stack serves the SDK under /sdk/v1/
-    `  data-site="${property.siteKey}"`,
-    `  data-api="${origin}/api/v1"`,
-    ...(cdn ? [`  data-config-url="${cdn}/c/${property.siteKey}.json"`] : []),
-    `></script>`,
-  ].join("\n");
+  const methods = installMethods({
+    siteKey: property.siteKey,
+    src: `${cdn ? `${cdn}/sdk/v1` : `${origin}/sdk`}/plain-consent.js`, // the Delivery stack serves the SDK under /sdk/v1/
+    api: `${origin}/api/v1`,
+    configUrl: cdn ? `${cdn}/c/${property.siteKey}.json` : undefined,
+  });
 
   const blocking = `<!-- Before: runs immediately -->
 <script src="https://www.googletagmanager.com/gtag/js?id=G-XXXX"></script>
@@ -89,7 +89,7 @@ window.PlainConsent.revoke();                 // withdraw consent (DPDPA)`;
       <PageHeader
         crumbs={[{ href: "/app", label: "Sites" }, { href: `/app/sites/${property.id}`, label: property.name }, { label: "Install" }]}
         title="Install"
-        description={`Add one script tag to ${property.domain}, above every tracker.`}
+        description={`Add the Plain Theory script to ${property.domain}. It shows your banner and holds trackers until visitors choose.`}
       />
 
       <StatStrip
@@ -117,11 +117,9 @@ window.PlainConsent.revoke();                 // withdraw consent (DPDPA)`;
       />
 
       <ol className="max-w-5xl">
-        <Step n={1} title="Paste the snippet">
-          <p>
-            Put it as high as possible in <code className="font-mono text-ink">&lt;head&gt;</code>, above Google Tag Manager, analytics and ad scripts, so it can hold them.
-          </p>
-          <Code id="snippet-label" label="HTML, in <head>" code={snippet} />
+        <Step n={1} title="Add the script to your site">
+          <p>Choose how your site is built. The code already has this site&apos;s key in it.</p>
+          <InstallMethods methods={methods} />
           <p>
             Site key <code className="rounded bg-line px-1.5 py-0.5 font-mono text-ink">{property.siteKey}</code> is public and safe to ship in HTML. Choices are only accepted from{" "}
             <span className="font-medium text-ink">{domain}</span> and its subdomains.
