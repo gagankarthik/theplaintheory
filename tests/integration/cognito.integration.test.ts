@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { loadEnv } from "vite";
+import { loadEnvLocal } from "./env";
 
 /**
  * Runs against the REAL Cognito user pool. Skipped unless RUN_COGNITO_INTEGRATION=1:
@@ -28,7 +28,7 @@ describe.skipIf(!RUN)("Cognito user pool (integration)", () => {
 
   beforeAll(async () => {
     // Load .env.local before the AWS client module reads credentials and region.
-    const env = loadEnv("development", process.cwd(), "");
+    const env = loadEnvLocal();
     for (const k of ["COGNITO_CUSTOMER_POOL_ID", "COGNITO_CUSTOMER_CLIENT_ID", "COGNITO_REGION", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN", "AWS_REGION", "PT_AWS_REGION", "SESSION_SECRET"]) {
       if (env[k] && !process.env[k]) process.env[k] = env[k];
     }

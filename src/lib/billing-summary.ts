@@ -80,8 +80,3 @@ export async function getBillingSummary(customerId?: string): Promise<BillingSum
     return null;
   }
 }
-
-export function formatMoney(minor: number, currency: string) {
-  const zeroDecimal = ["jpy", "krw"].includes(currency.toLowerCase());
-  return new Intl.NumberFormat(currency.toLowerCase() === "inr" ? "en-IN" : "en-US", { style: "currency", currency: currency.toUpperCase() }).format(zeroDecimal ? minor : minor / 100);
-}

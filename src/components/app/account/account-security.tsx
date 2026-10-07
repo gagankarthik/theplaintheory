@@ -1,25 +1,36 @@
 "use client";
 
-import { useActionState, useEffect, useId, useState, useTransition } from "react";
+import { startAuthentication, startRegistration } from "@simplewebauthn/browser";
+import { useActionState, useEffect, useId, useRef, useState, useTransition } from "react";
 import {
   changePassword,
   confirmMfaEnrolment,
+  finishPasskeyRegistration,
   newRecoveryCodes,
+  removeAuthenticatorApp,
+  removePasskey,
   revokeSession,
   signOutOtherSessions,
+  skipMfaSetup,
   startMfaEnrolment,
-  turnOffMfa,
+  startPasskeyCheck,
+  startPasskeyRegistration,
   type EnrolState,
+  type PasskeyAddState,
   type RecoveryState,
 } from "@/app/app/account/actions";
+import { passkeyErrorMessage, useWebAuthnSupport } from "@/components/app/auth/passkey-client";
 import { Badge } from "@/components/app/ui/badge";
 import { Button } from "@/components/app/ui/button";
 import { CopyButton } from "@/components/app/ui/copy-button";
+import { Dialog } from "@/components/app/ui/dialog";
 import { TextField } from "@/components/app/ui/field";
 import { SettingsRow, SettingsSection } from "@/components/app/ui/settings";
 import { SubmitButton } from "@/components/app/ui/submit-button";
 import { FormMessage, useToast } from "@/components/app/ui/toast";
+import { IconCheck } from "@/components/icons";
 import type { ActionResult } from "@/lib/action-result";
+import { TotpQr } from "@/components/app/ui/totp-qr";
 
 const when = (iso: string) => new Date(iso).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" });
 
@@ -47,7 +58,7 @@ function RecoveryCodes({ codes }: { codes: string[] }) {
   return (
     <div className="rounded-lg border-[1.5px] border-dashed border-amber-bright bg-amber-wash p-4">
       <p className="text-sm font-semibold text-amber">Save these recovery codes now. They won&apos;t be shown again.</p>
-      <p className="mt-1 text-sm text-ink-2">Each one signs you in once if you lose your phone. Store them in your password manager.</p>
+      <p className="mt-1 text-sm text-ink-2">Each one signs you in once if you lose your phone or passkey. Store them in your password manager.</p>
       <ol className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1 font-mono text-sm text-ink" aria-label="Recovery codes">
         {codes.map((c) => (
           <li key={c}>{c}</li>
@@ -65,121 +76,530 @@ function RecoveryCodes({ codes }: { codes: string[] }) {
 
 /* ---------------- two-factor ---------------- */
 
-export function MfaSection({ enabled, enabledAt, recoveryLeft, required, orgRequiring }: { enabled: boolean; enabledAt?: string; recoveryLeft: number; required: boolean; orgRequiring?: string }) {
+const day = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+
+type CodesShown = { ok?: string; codes: string[] };
+
+export interface PasskeyRow {
+  id: string;
+  name: string;
+  createdAt: string;
+  lastUsedAt?: string;
+}
+
+export interface MfaRequirementInfo {
+  orgName: string;
+  /** "required": blocked now (Skip may still be offered); "deferred": skipped, inside the grace period */
+  state: "required" | "deferred";
+  /** end of the grace period, ISO */
+  deadline: string;
+  canSkip: boolean;
+}
+
+/**
+ * A fresh second-factor check inside a sensitive form: "Confirm with a passkey" (puts the signed
+ * assertion in a hidden field), or a code from the authenticator app or a recovery code.
+ */
+function SecondFactorProof({ id, totp, passkeys, error }: { id: string; totp: boolean; passkeys: boolean; error?: string[] }) {
+  const supported = useWebAuthnSupport();
+  const [assertion, setAssertion] = useState<string | null>(null);
+  const [problem, setProblem] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+  const hidden = useRef<HTMLInputElement>(null);
+
+  // A passkey check is single use: once the form is sent, the next try needs a new one.
+  useEffect(() => {
+    const form = hidden.current?.form;
+    if (!form) return;
+    const reset = () => setTimeout(() => setAssertion(null));
+    form.addEventListener("submit", reset);
+    return () => form.removeEventListener("submit", reset);
+  }, []);
+
+  const confirm = () =>
+    start(async () => {
+      setProblem(null);
+      const o = await startPasskeyCheck();
+      if (!o.ok) return setProblem(o.error);
+      try {
+        setAssertion(JSON.stringify(await startAuthentication({ optionsJSON: o.options })));
+      } catch (e) {
+        setProblem(passkeyErrorMessage(e, "get"));
+      }
+    });
+
+  const usePasskey = passkeys && supported === true;
+  return (
+    <div className="space-y-3">
+      <input ref={hidden} type="hidden" name="assertion" value={assertion ?? ""} />
+      {assertion ? (
+        <p role="status" className="flex items-center gap-2 text-sm text-jade">
+          <IconCheck size={16} aria-hidden /> Confirmed with your passkey.
+        </p>
+      ) : (
+        <>
+          {usePasskey ? (
+            <div className="space-y-2">
+              <Button variant="ghost" loading={pending} loadingLabel="Waiting for your passkey" onClick={confirm}>
+                Confirm with a passkey
+              </Button>
+              {problem ? (
+                <p role="alert" className="text-xs font-semibold text-rose">
+                  {problem}
+                </p>
+              ) : null}
+              <p className="text-xs text-ink-3">Or enter a code:</p>
+            </div>
+          ) : null}
+          <CodeField id={id} label={totp ? "Code from your app, or a recovery code" : "Recovery code"} error={error} />
+        </>
+      )}
+    </div>
+  );
+}
+
+export function MfaSection({
+  enabled,
+  enabledAt,
+  recoveryLeft,
+  totp,
+  passkeys,
+  requirement,
+  orgRequiring,
+  defaultPasskeyName,
+}: {
+  enabled: boolean;
+  enabledAt?: string;
+  recoveryLeft: number;
+  totp: boolean;
+  passkeys: PasskeyRow[];
+  /** set when an organization requires two-factor and this member hasn't set it up */
+  requirement: MfaRequirementInfo | null;
+  /** an organization that requires two-factor (blocks removing the last method) */
+  orgRequiring?: string;
+  defaultPasskeyName: string;
+}) {
+  const [codes, setCodes] = useState<CodesShown | null>(null);
+  const [totpEnrolling, setTotpEnrolling] = useState(false);
+  const factors = (totp ? 1 : 0) + passkeys.length;
+  const lastLocked = factors === 1 && Boolean(orgRequiring);
   return (
     <SettingsSection
+      id="two-factor"
       title="Two-factor sign-in"
-      description="After your password, you'll enter a 6-digit code from an authenticator app such as 1Password, Google Authenticator or Authy."
+      description="After your password, confirm it's you with a passkey or a code from an authenticator app. Use either, or both."
     >
-      {required && !enabled ? (
-        <div role="alert" className="my-4 rounded-md bg-amber-wash px-4 py-3 text-sm text-amber">
-          <strong className="font-semibold">{orgRequiring ?? "Your organization"} requires two-factor sign-in.</strong> Set it up below to keep using Plain Theory.
+      {requirement && !enabled ? <RequirementNotice requirement={requirement} /> : null}
+      {codes ? (
+        <div className="space-y-4 py-5">
+          <FormMessage state={{ ok: codes.ok }} />
+          <RecoveryCodes codes={codes.codes} />
         </div>
       ) : null}
-      {enabled ? <MfaOn enabledAt={enabledAt!} recoveryLeft={recoveryLeft} locked={Boolean(orgRequiring)} orgRequiring={orgRequiring} /> : <MfaEnrol />}
+      {enabled ? (
+        <SettingsRow label="Status" description={enabledAt ? `On since ${when(enabledAt)}.` : undefined}>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge tone="released">On</Badge>
+            <Badge tone={recoveryLeft <= 2 ? "held" : "neutral"}>
+              {recoveryLeft} recovery code{recoveryLeft === 1 ? "" : "s"} left
+            </Badge>
+          </div>
+        </SettingsRow>
+      ) : null}
+      <PasskeysRow
+        passkeys={passkeys}
+        totp={totp}
+        primary={!enabled && !totpEnrolling}
+        defaultName={defaultPasskeyName}
+        lastLocked={lastLocked}
+        orgRequiring={orgRequiring}
+        onCodes={setCodes}
+      />
+      <AuthenticatorRow totp={totp} passkeys={passkeys.length > 0} lastLocked={lastLocked} orgRequiring={orgRequiring} onEnrolling={setTotpEnrolling} onCodes={setCodes} />
+      {enabled ? <RecoveryRow totp={totp} passkeys={passkeys.length > 0} /> : null}
     </SettingsSection>
   );
 }
 
-function MfaEnrol() {
-  const [setup, setSetup] = useState<EnrolState>(null);
+/** The org policy: set up now, or skip until the deadline. */
+function RequirementNotice({ requirement }: { requirement: MfaRequirementInfo }) {
+  const toast = useToast();
   const [pending, start] = useTransition();
-  const [state, action] = useActionState<EnrolState, FormData>(confirmMfaEnrolment, null);
-
-  if (state?.recoveryCodes) {
+  const due = day(requirement.deadline);
+  if (requirement.state === "deferred") {
     return (
-      <div className="space-y-4 py-5">
-        <FormMessage state={{ ok: state.ok }} />
-        <RecoveryCodes codes={state.recoveryCodes} />
+      <div className="my-4 rounded-md bg-amber-wash px-4 py-3 text-sm text-amber">
+        <strong className="font-semibold">{requirement.orgName} requires two-factor sign-in.</strong> Set it up by {due} to keep using Plain Theory.
       </div>
     );
   }
+  return (
+    <div role="alert" className="my-4 flex flex-wrap items-center justify-between gap-3 rounded-md bg-amber-wash px-4 py-3 text-sm text-amber">
+      <p>
+        <strong className="font-semibold">{requirement.orgName} requires two-factor sign-in.</strong>{" "}
+        {requirement.canSkip ? `Set it up below. You can skip until ${due}.` : "Set it up below to keep using Plain Theory."}
+      </p>
+      {requirement.canSkip ? (
+        <Button
+          variant="ghost"
+          size="sm"
+          loading={pending}
+          loadingLabel="Skipping"
+          onClick={() =>
+            start(async () => {
+              const r = await skipMfaSetup();
+              if (r?.error) toast(r.error, "error");
+            })
+          }
+        >
+          Skip for now
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
+/* ---------- passkeys ---------- */
+
+function PasskeysRow({
+  passkeys,
+  totp,
+  primary,
+  defaultName,
+  lastLocked,
+  orgRequiring,
+  onCodes,
+}: {
+  passkeys: PasskeyRow[];
+  totp: boolean;
+  primary: boolean;
+  defaultName: string;
+  lastLocked: boolean;
+  orgRequiring?: string;
+  onCodes: (c: CodesShown) => void;
+}) {
+  const supported = useWebAuthnSupport();
+  const toast = useToast();
+  const [name, setName] = useState(defaultName);
+  const [state, setState] = useState<PasskeyAddState>(null);
+  const [pending, start] = useTransition();
+  const [removing, setRemoving] = useState<PasskeyRow | null>(null);
+
+  const add = () =>
+    start(async () => {
+      setState(null);
+      const o = await startPasskeyRegistration(name);
+      if (!o.ok) return setState({ error: o.error, fieldErrors: o.field ? { name: [o.error] } : undefined });
+      let response;
+      try {
+        response = await startRegistration({ optionsJSON: o.options });
+      } catch (e) {
+        return setState({ error: passkeyErrorMessage(e, "create") });
+      }
+      const r = await finishPasskeyRegistration(response, name);
+      if (r?.recoveryCodes) onCodes({ ok: r.ok, codes: r.recoveryCodes });
+      else if (r?.ok) toast(r.ok);
+      setState(r?.error ? r : null);
+    });
+
+  return (
+    <SettingsRow
+      label={
+        <span className="inline-flex items-center gap-2">
+          Passkey <Badge tone="neutral">Recommended</Badge>
+        </span>
+      }
+      description="Face ID, Touch ID, Windows Hello or a security key. Nothing to type, and it can't be phished."
+    >
+      <div className="space-y-4">
+        {passkeys.length ? (
+          <ul className="divide-y divide-line rounded-lg border border-line" aria-label="Your passkeys">
+            {passkeys.map((p) => (
+              <li key={p.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-ink">{p.name}</p>
+                  <p className="mt-0.5 text-xs text-ink-3">
+                    Added {day(p.createdAt)} · {p.lastUsedAt ? `last used ${day(p.lastUsedAt)}` : "not used to sign in yet"}
+                  </p>
+                </div>
+                <Button variant="danger-quiet" size="sm" onClick={() => setRemoving(p)}>
+                  Remove<span className="sr-only"> passkey {p.name}</span>
+                </Button>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        {supported === false ? (
+          <p className="text-sm text-ink-3">This browser can&apos;t create passkeys. Use an authenticator app, or open Plain Theory in a browser that supports them.</p>
+        ) : (
+          <form
+            className="space-y-3"
+            noValidate
+            onSubmit={(e) => {
+              e.preventDefault();
+              add();
+            }}
+          >
+            <TextField
+              id="passkey-name"
+              name="name"
+              label="Passkey name"
+              hint="So you can tell your passkeys apart later."
+              maxLength={60}
+              autoComplete="off"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              error={state?.fieldErrors?.name}
+            />
+            {state?.error && !state.fieldErrors ? <FormMessage state={state} /> : null}
+            <Button type="submit" variant={primary ? "primary" : "ghost"} loading={pending} loadingLabel="Waiting for your device" disabled={supported === null}>
+              {passkeys.length ? "Add another passkey" : "Add a passkey"}
+            </Button>
+          </form>
+        )}
+      </div>
+      <RemoveFactorDialog
+        open={Boolean(removing)}
+        onClose={() => setRemoving(null)}
+        title={removing ? `Remove “${removing.name}”?` : "Remove passkey"}
+        action={removePasskey}
+        hidden={removing ? { passkeyId: removing.id } : {}}
+        confirmLabel="Remove passkey"
+        totp={totp}
+        passkeys={passkeys.length > 0}
+        last={(totp ? 1 : 0) + passkeys.length === 1}
+        lastLocked={lastLocked}
+        orgRequiring={orgRequiring}
+      />
+    </SettingsRow>
+  );
+}
+
+/** Confirm a removal with a fresh second-factor check. Blocked when it's the only method and an org requires one. */
+function RemoveFactorDialog({
+  open,
+  onClose,
+  title,
+  action,
+  hidden,
+  confirmLabel,
+  totp,
+  passkeys,
+  last,
+  lastLocked,
+  orgRequiring,
+}: {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  action: (s: ActionResult, f: FormData) => Promise<ActionResult>;
+  hidden: Record<string, string>;
+  confirmLabel: string;
+  totp: boolean;
+  passkeys: boolean;
+  last: boolean;
+  lastLocked: boolean;
+  orgRequiring?: string;
+}) {
+  const toast = useToast();
+  const [state, run] = useActionState<ActionResult, FormData>(async (prev, form) => {
+    const r = await action(prev, form);
+    if (r?.ok) {
+      toast(r.ok);
+      onClose();
+      return null;
+    }
+    return r;
+  }, null);
+  return (
+    <Dialog open={open} onClose={onClose} title={title} description={lastLocked ? undefined : "Confirm it's you to remove it."}>
+      {lastLocked ? (
+        <div className="space-y-4">
+          <p className="text-sm text-ink-2">
+            This is your only two-factor method, and {orgRequiring} requires two-factor. Add another passkey or an authenticator app first, then remove this one.
+          </p>
+          <div className="flex justify-end">
+            <Button variant="ghost" onClick={onClose}>
+              Close
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <form action={run} className="space-y-4" noValidate>
+          {Object.entries(hidden).map(([k, v]) => (
+            <input key={k} type="hidden" name={k} value={v} />
+          ))}
+          {last ? (
+            <p className="rounded-md bg-rose-wash px-3 py-2.5 text-sm text-rose">
+              This is your only two-factor method. Removing it turns two-factor off, and your recovery codes stop working.
+            </p>
+          ) : null}
+          <SecondFactorProof id="remove-proof" totp={totp} passkeys={passkeys} error={state?.fieldErrors?.code} />
+          {state?.error && !state.fieldErrors ? <FormMessage state={state} /> : null}
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button variant="ghost" onClick={onClose}>
+              Cancel
+            </Button>
+            <SubmitButton variant="danger" pending="Removing">
+              {confirmLabel}
+            </SubmitButton>
+          </div>
+        </form>
+      )}
+    </Dialog>
+  );
+}
+
+/* ---------- authenticator app ---------- */
+
+function AuthenticatorRow({
+  totp,
+  passkeys,
+  lastLocked,
+  orgRequiring,
+  onEnrolling,
+  onCodes,
+}: {
+  totp: boolean;
+  passkeys: boolean;
+  lastLocked: boolean;
+  orgRequiring?: string;
+  onEnrolling: (v: boolean) => void;
+  onCodes: (c: CodesShown) => void;
+}) {
+  const [removing, setRemoving] = useState(false);
+  return (
+    <SettingsRow label="Authenticator app" description="A 6-digit code from 1Password, Google Authenticator, Authy or similar.">
+      {totp ? (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Badge tone="released">Set up</Badge>
+          <Button variant="danger-quiet" size="sm" onClick={() => setRemoving(true)}>
+            Remove<span className="sr-only"> authenticator app</span>
+          </Button>
+          <RemoveFactorDialog
+            open={removing}
+            onClose={() => setRemoving(false)}
+            title="Remove your authenticator app?"
+            action={removeAuthenticatorApp}
+            hidden={{}}
+            confirmLabel="Remove app"
+            totp
+            passkeys={passkeys}
+            last={!passkeys}
+            lastLocked={lastLocked}
+            orgRequiring={orgRequiring}
+          />
+        </div>
+      ) : (
+        <TotpEnrol onEnrolling={onEnrolling} onCodes={onCodes} />
+      )}
+    </SettingsRow>
+  );
+}
+
+function TotpEnrol({ onEnrolling, onCodes }: { onEnrolling: (v: boolean) => void; onCodes: (c: CodesShown) => void }) {
+  const toast = useToast();
+  const [setup, setSetup] = useState<EnrolState>(null);
+  const [pending, start] = useTransition();
+  const [state, action] = useActionState<EnrolState, FormData>(async (prev, form) => {
+    const r = await confirmMfaEnrolment(prev, form);
+    if (r?.ok) {
+      if (r.recoveryCodes) onCodes({ ok: r.ok, codes: r.recoveryCodes });
+      else toast(r.ok);
+      onEnrolling(false);
+      setSetup(null);
+    }
+    return r;
+  }, null);
+
   if (!setup?.secret) {
     return (
-      <SettingsRow label="Status" description="Two-factor isn't on for your account.">
-        <div className="flex flex-wrap items-center gap-3">
-          <Badge tone="held">Off</Badge>
-          <Button loading={pending} loadingLabel="Preparing" onClick={() => start(async () => setSetup(await startMfaEnrolment()))}>
-            Set up two-factor
-          </Button>
-        </div>
-        {setup?.error ? <div className="mt-3"><FormMessage state={setup} /></div> : null}
-      </SettingsRow>
+      <div className="space-y-3">
+        <Button
+          variant="ghost"
+          loading={pending}
+          loadingLabel="Preparing"
+          onClick={() =>
+            start(async () => {
+              const r = await startMfaEnrolment();
+              setSetup(r);
+              if (r?.secret) onEnrolling(true);
+            })
+          }
+        >
+          Set up authenticator app
+        </Button>
+        {setup?.error ? <FormMessage state={setup} /> : null}
+      </div>
     );
   }
   const grouped = setup.secret.match(/.{1,4}/g)!.join(" ");
   return (
-    <>
-      <SettingsRow label="1. Add Plain Theory to your app" description="On your phone, tap the link, or add an account in your authenticator and type the key. The key expires in 15 minutes.">
-        <div className="space-y-3">
-          <div>
-            <p className="label" id="mfa-key-label">Setup key</p>
-            <p aria-labelledby="mfa-key-label" className="select-all break-all rounded-md border border-line bg-paper px-3 py-2.5 font-mono text-base tracking-wider text-ink">
-              {grouped}
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <CopyButton value={setup.secret} label="Copy key" />
-            <a href={setup.uri} className="inline-flex h-9 items-center rounded-md px-3 text-sm font-semibold text-brand-ink hover:bg-paper">
-              Open in authenticator app
-            </a>
-          </div>
-          <p className="text-xs text-ink-3">Type: time-based (TOTP) · 6 digits · 30 seconds · SHA-1</p>
+    <div className="space-y-5">
+      <div className="space-y-3">
+        <p className="text-sm font-semibold text-ink">1. Scan this QR code with your authenticator app</p>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+          <TotpQr uri={setup.uri!} />
+          <p className="text-sm text-ink-3">
+            In 1Password, Google Authenticator, Microsoft Authenticator or Authy, add an account and scan the code. Can&apos;t scan? Type the setup key below, or on your phone tap
+            &ldquo;Open in authenticator app&rdquo;. The key expires in 15 minutes.
+          </p>
         </div>
-      </SettingsRow>
-      <SettingsRow label="2. Confirm" description="Enter the code your app shows now.">
-        <form action={action} className="space-y-3" noValidate>
-          <CodeField id="mfa-confirm" error={state?.fieldErrors?.code} />
-          {state?.error && !state.fieldErrors ? <FormMessage state={state} /> : null}
-          <SubmitButton pending="Checking">Turn on two-factor</SubmitButton>
-        </form>
-      </SettingsRow>
-    </>
+        <div>
+          <p className="label" id="mfa-key-label">
+            Setup key
+          </p>
+          <p aria-labelledby="mfa-key-label" className="select-all break-all rounded-md border border-line bg-paper px-3 py-2.5 font-mono text-base tracking-wider text-ink">
+            {grouped}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <CopyButton value={setup.secret} label="Copy key" />
+          <a href={setup.uri} className="inline-flex h-9 items-center rounded-md px-3 text-sm font-semibold text-brand-ink hover:bg-paper">
+            Open in authenticator app
+          </a>
+        </div>
+        <p className="text-xs text-ink-3">Type: time-based (TOTP) · 6 digits · 30 seconds · SHA-1</p>
+      </div>
+      <form action={action} className="space-y-3" noValidate>
+        <p className="text-sm font-semibold text-ink">2. Confirm with the code your app shows now</p>
+        <CodeField id="mfa-confirm" error={state?.fieldErrors?.code} />
+        {state?.error && !state.fieldErrors ? <FormMessage state={state} /> : null}
+        <div className="flex flex-wrap gap-2">
+          <SubmitButton pending="Checking">Turn on authenticator app</SubmitButton>
+          <Button
+            variant="quiet"
+            onClick={() => {
+              setSetup(null);
+              onEnrolling(false);
+            }}
+          >
+            Cancel
+          </Button>
+        </div>
+      </form>
+    </div>
   );
 }
 
-function MfaOn({ enabledAt, recoveryLeft, locked, orgRequiring }: { enabledAt: string; recoveryLeft: number; locked: boolean; orgRequiring?: string }) {
+/* ---------- recovery codes ---------- */
+
+function RecoveryRow({ totp, passkeys }: { totp: boolean; passkeys: boolean }) {
   const [codes, regen] = useActionState<RecoveryState, FormData>(newRecoveryCodes, null);
-  const [off, disable] = useActionState<ActionResult, FormData>(turnOffMfa, null);
   return (
-    <>
-      <SettingsRow label="Status" description={`On since ${when(enabledAt)}.`}>
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge tone="released">On</Badge>
-          <Badge tone={recoveryLeft <= 2 ? "held" : "neutral"}>
-            {recoveryLeft} recovery code{recoveryLeft === 1 ? "" : "s"} left
-          </Badge>
-        </div>
-      </SettingsRow>
-      <SettingsRow label="Recovery codes" description="Make a new set if you've used some or think they've been seen. The old set stops working.">
-        {codes?.recoveryCodes ? (
-          <RecoveryCodes codes={codes.recoveryCodes} />
-        ) : (
-          <form action={regen} className="space-y-3" noValidate>
-            <CodeField id="mfa-regen" error={codes?.fieldErrors?.code} />
-            {codes?.error && !codes.fieldErrors ? <FormMessage state={codes} /> : null}
-            <SubmitButton variant="ghost" pending="Creating">
-              Create new recovery codes
-            </SubmitButton>
-          </form>
-        )}
-      </SettingsRow>
-      <SettingsRow label="Turn off" description={locked ? `${orgRequiring} requires two-factor, so it stays on.` : "You'll sign in with your password only."}>
-        {locked ? (
-          <p className="text-sm text-ink-3">Ask an owner if you need this changed.</p>
-        ) : off?.ok ? (
-          <FormMessage state={off} />
-        ) : (
-          <form action={disable} className="space-y-3" noValidate>
-            <CodeField id="mfa-off" label="Code or recovery code" error={off?.fieldErrors?.code} />
-            {off?.error && !off.fieldErrors ? <FormMessage state={off} /> : null}
-            <SubmitButton variant="danger" pending="Turning off">
-              Turn off two-factor
-            </SubmitButton>
-          </form>
-        )}
-      </SettingsRow>
-    </>
+    <SettingsRow label="Recovery codes" description="Each signs you in once if you lose your devices. Make a new set if you've used some or think they've been seen; the old set stops working.">
+      {codes?.recoveryCodes ? (
+        <RecoveryCodes codes={codes.recoveryCodes} />
+      ) : (
+        <form action={regen} className="space-y-3" noValidate>
+          <SecondFactorProof id="mfa-regen" totp={totp} passkeys={passkeys} error={codes?.fieldErrors?.code} />
+          {codes?.error && !codes.fieldErrors ? <FormMessage state={codes} /> : null}
+          <SubmitButton variant="ghost" pending="Creating">
+            Create new recovery codes
+          </SubmitButton>
+        </form>
+      )}
+    </SettingsRow>
   );
 }
 
@@ -260,7 +680,7 @@ export function SessionsSection({ sessions }: { sessions: SessionRow[] }) {
 
 /* ---------------- password ---------------- */
 
-export function PasswordSection({ mfa, changedAt, hint }: { mfa: boolean; changedAt?: string; hint: string }) {
+export function PasswordSection({ mfa, totp, passkeys, changedAt, hint }: { mfa: boolean; totp: boolean; passkeys: boolean; changedAt?: string; hint: string }) {
   const [state, action] = useActionState<ActionResult, FormData>(changePassword, null);
   const toast = useToast();
   const fe = state?.fieldErrors;
@@ -282,7 +702,7 @@ export function PasswordSection({ mfa, changedAt, hint }: { mfa: boolean; change
             error={fe?.next}
           />
           <TextField id="pw-confirm" name="confirm" type="password" label="Confirm new password" autoComplete="new-password" error={fe?.confirm} />
-          {mfa ? <CodeField id="pw-code" error={fe?.code} /> : null}
+          {mfa ? <SecondFactorProof id="pw-code" totp={totp} passkeys={passkeys} error={fe?.code} /> : null}
           {state?.error && !fe ? <FormMessage state={state} /> : null}
           <div>
             <SubmitButton pending="Changing" variant="ghost">

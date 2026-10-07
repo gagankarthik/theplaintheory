@@ -22,8 +22,8 @@ const CAPABILITIES: { icon: (p: IconProps) => React.ReactNode; title: string; bo
   },
   {
     icon: IconScan,
-    title: "Leak alerts from real visits",
-    body: "After a visitor declines, the script watches for tracker requests that still fire and reports them, page by page, before a regulator finds them.",
+    title: "Leak detection from real visits",
+    body: "After a visitor declines, the script watches for tracker requests that still fire. Each one shows up on your Leaks page, page by page, before a regulator finds it.",
   },
   {
     icon: IconReceipt,
@@ -32,8 +32,8 @@ const CAPABILITIES: { icon: (p: IconProps) => React.ReactNode; title: string; bo
   },
   {
     icon: IconShieldCheck,
-    title: "Public daily anchors",
-    body: "The last hash of each day is published, so an auditor can pin your chain independently without asking us for access.",
+    title: "Verify it yourself",
+    body: "Verification runs in one click. Anyone with your export can recompute the SHA-256 chain on their own and see that nothing was changed.",
   },
 ];
 

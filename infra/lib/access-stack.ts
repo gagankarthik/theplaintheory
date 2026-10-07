@@ -106,6 +106,11 @@ export class AccessStack extends Stack {
           "cognito-idp:AdminRemoveUserFromGroup",
           "cognito-idp:AdminListGroupsForUser",
           "cognito-idp:ListUsersInGroup",
+          // Staff "trust this browser for 30 days" (remembered devices on the staff pool)
+          "cognito-idp:ConfirmDevice",
+          "cognito-idp:UpdateDeviceStatus",
+          "cognito-idp:AdminListDevices",
+          "cognito-idp:AdminForgetDevice",
         ],
         resources: [props.customerPool.userPoolArn, props.staffPool.userPoolArn],
       }),

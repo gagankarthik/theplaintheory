@@ -22,16 +22,16 @@ export const metadata = pageMetadata({
 
 const FAQ: FaqItem[] = [
   {
-    q: "What counts as a pageview?",
-    a: "One pageview is counted each time the consent script loads on a page, whether or not the banner is shown. Pageviews are pooled across all the sites on your account, so a quiet site and a busy one share the same allowance.",
+    q: "What counts as a banner view?",
+    a: "We count banner views: each time a visitor is shown the banner. Banner views are pooled across all the sites on your account, so a quiet site and a busy one share the same allowance.",
   },
   {
     q: "What happens if we go over our limit?",
-    a: "Nothing breaks and nothing is charged. Your banner keeps blocking trackers and receipts keep being written. We email the account owner at 80% and 100% of the allowance and give you 30 days to choose a bigger plan or reduce traffic. We never move you up a plan or bill overage automatically.",
+    a: "Nothing breaks and nothing is charged. Your banner keeps blocking trackers and receipts keep being written. Your usage is shown on the Billing page; going over never charges you automatically, and everything keeps working for 30 days while you decide on a bigger plan or less traffic. We never move you up a plan.",
   },
   {
-    q: "Do you invoice in Indian rupees with GST?",
-    a: "Yes. Choose INR and you're billed in rupees, with 18% GST added on the invoice. Invoices can carry your GSTIN so you can claim input tax credit.",
+    q: "Do you bill in Indian rupees? Can we get a GST invoice?",
+    a: "Yes, choose INR and you're billed in rupees. Prices exclude taxes. For a GST invoice, contact us.",
   },
   {
     q: "How does annual billing work?",

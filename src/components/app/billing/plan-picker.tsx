@@ -18,7 +18,7 @@ export function Price({ plan, currency, interval }: { plan: Plan; currency: Curr
   if (monthly === 0)
     return (
       <span className="flex items-baseline gap-1">
-        <span className="text-[2rem] font-semibold leading-none tracking-[-0.03em]">{fmt(0)}</span>
+        <span className="text-2xl font-semibold leading-none tracking-tight">{fmt(0)}</span>
         <span className="text-sm text-ink-3">forever</span>
       </span>
     );
@@ -27,7 +27,7 @@ export function Price({ plan, currency, interval }: { plan: Plan; currency: Curr
   return (
     <span className="block">
       <span className="flex items-baseline gap-1">
-        <span className="text-[2rem] font-semibold tabular-nums leading-none tracking-[-0.03em]">{fmt(perMonth)}</span>
+        <span className="text-2xl font-semibold tabular-nums leading-none tracking-tight">{fmt(perMonth)}</span>
         <span className="text-sm text-ink-3">per month{currency === "inr" ? " + GST" : currency === "usd" ? "" : " + VAT"}</span>
       </span>
       <span className="mt-1 block text-xs text-ink-3">
@@ -77,13 +77,15 @@ export function PlanPicker({
         </div>
       </div>
 
-      <ul className="grid overflow-hidden rounded-[16px] border border-line bg-line md:grid-cols-2 xl:grid-cols-4" style={{ gap: 1 }}>
+      <ul className="grid overflow-hidden rounded-lg border border-line bg-line md:grid-cols-2 xl:grid-cols-4" style={{ gap: 1 }}>
         {plans.map((p) => {
           const isCurrent = p.id === current;
           const upgrade = rank(p.id) > rank(current);
+          // one primary action on the page: the next plan up; every other choice is ghost
+          const next = rank(p.id) === rank(current) + 1;
           const canBuy = purchasable[p.id]?.[interval];
           return (
-            <li key={p.id} className={`flex flex-col p-6 ${isCurrent ? "bg-brand-wash/30 shadow-[inset_0_0_0_2px_var(--color-brand)]" : "bg-surface"}`}>
+            <li key={p.id} className={`flex flex-col p-6 ${isCurrent ? "bg-brand-wash/30 ring-2 ring-inset ring-brand" : "bg-surface"}`}>
               <div className="flex items-center justify-between gap-2">
                 <h3 className="text-base font-semibold">{p.name}</h3>
                 {isCurrent ? <Badge tone="brand">Current</Badge> : null}
@@ -116,7 +118,7 @@ export function PlanPicker({
                     <input type="hidden" name="plan" value={p.id} />
                     <input type="hidden" name="interval" value={interval} />
                     <input type="hidden" name="currency" value={currency} />
-                    <button className={buttonClass(upgrade ? "primary" : "ghost", "md", "w-full")} disabled={!canBuy} aria-describedby={canBuy ? undefined : `buy-${p.id}`}>
+                    <button className={buttonClass(next ? "primary" : "ghost", "md", "w-full")} disabled={!canBuy} aria-describedby={canBuy ? undefined : `buy-${p.id}`}>
                       {upgrade ? `Upgrade to ${p.name}` : `Switch to ${p.name}`}
                     </button>
                     {!canBuy ? (

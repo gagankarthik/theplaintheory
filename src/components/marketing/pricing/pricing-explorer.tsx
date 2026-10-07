@@ -43,7 +43,7 @@ export function BillingControls({ tone = "light" }: { tone?: "light" | "dark" })
         <CurrencySelect tone={tone} value={currency} onChange={setCurrency} />
       </div>
       <p className={`text-[13px] ${dark ? "text-white/75" : "text-ink-3"}`} aria-live="polite">
-        Prices in {currencyInfo(currency).plural}, {currencyInfo(currency).tax}.{currency === "inr" ? " GST invoices for Indian businesses." : ""}{" "}
+        Prices in {currencyInfo(currency).plural}, {currencyInfo(currency).tax}.{currency === "inr" ? " For a GST invoice, contact us." : ""}{" "}
         {period === "annual" ? "Billed once a year." : "Billed monthly."}
       </p>
     </div>

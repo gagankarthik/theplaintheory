@@ -8,32 +8,15 @@
  * production IAM policy is exercised). Every id carries a unique prefix, and everything written is
  * deleted afterwards with a separate admin client (AWS_* keys), audit items included.
  */
-import { readFileSync } from "node:fs";
-import path from "node:path";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DeleteCommand, DynamoDBDocumentClient, GetCommand, PutCommand, ScanCommand } from "@aws-sdk/lib-dynamodb";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { loadEnvLocal } from "./env";
 import type { Store } from "@/lib/store/types";
 import type { ConsentReceipt, Organization, Property, User } from "@/lib/types";
 
 const RUN = process.env.RUN_DYNAMO_INTEGRATION === "1";
 
-/** .env.local values that aren't already set (never printed). */
-function loadEnvLocal() {
-  let raw = "";
-  try {
-    raw = readFileSync(path.join(process.cwd(), ".env.local"), "utf8");
-  } catch {
-    return {} as Record<string, string>;
-  }
-  const out: Record<string, string> = {};
-  for (const line of raw.split(/\r?\n/)) {
-    const m = /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/.exec(line);
-    if (!m) continue;
-    out[m[1]] = m[2].replace(/^(['"])(.*)\1$/, "$2");
-  }
-  return out;
-}
 
 const P = `itest${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 const TABLE_IDS = ["core", "receipts", "telemetry", "audit", "leads", "ephemeral"] as const;

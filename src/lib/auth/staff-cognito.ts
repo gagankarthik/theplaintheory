@@ -6,23 +6,29 @@ import {
   AdminDeleteUserCommand,
   AdminDisableUserCommand,
   AdminEnableUserCommand,
+  AdminForgetDeviceCommand,
+  AdminListDevicesCommand,
   AdminRemoveUserFromGroupCommand,
   AdminSetUserPasswordCommand,
   AdminUserGlobalSignOutCommand,
   AssociateSoftwareTokenCommand,
+  ConfirmDeviceCommand,
   InitiateAuthCommand,
   ListUsersInGroupCommand,
   RespondToAuthChallengeCommand,
   RevokeTokenCommand,
+  UpdateDeviceStatusCommand,
   VerifySoftwareTokenCommand,
   type AttributeType,
   type AuthenticationResultType,
   type ChallengeNameType,
+  type NewDeviceMetadataType,
 } from "@aws-sdk/client-cognito-identity-provider";
 import { createRemoteJWKSet, type JWTVerifyGetKey } from "jose";
 import { awsRegion, cognitoClient } from "../aws";
 import type { StaffIdentity } from "../types";
 import { cognitoErrorName } from "./cognito-errors";
+import { createDeviceVerifier, startDeviceSrp } from "./cognito-srp";
 import { PLATFORM_ROLES, staffGroupName, type PlatformRole, type StaffMember } from "./platform";
 import {
   STAFF_NO_ROLE,
@@ -35,6 +41,7 @@ import {
   type StaffChallenge,
   type StaffFailure,
 } from "./staff-auth";
+import { deviceTrustLapsed, staffRememberDeviceEnabled, type DeviceSecret, type TrustedDevice } from "./staff-device";
 
 /**
  * The Plain Theory staff user pool (COGNITO_STAFF_POOL_ID / COGNITO_STAFF_CLIENT_ID), separate from
@@ -45,6 +52,9 @@ import {
  * Sign-in is a small state machine over USER_PASSWORD_AUTH:
  *   password -> NEW_PASSWORD_REQUIRED (first sign-in) -> MFA_SETUP (first sign-in) -> signed in
  *   password -> SOFTWARE_TOKEN_MFA (every later sign-in) -> signed in
+ *   password + DEVICE_KEY -> DEVICE_SRP_AUTH -> DEVICE_PASSWORD_VERIFIER -> signed in (a trusted
+ *     browser, STAFF_REMEMBER_DEVICE=1: Cognito itself swaps the TOTP challenge for the device's SRP
+ *     proof; anything else falls back to the code path above)
  * Each step returns either the next challenge (whose Session the caller seals into an httpOnly
  * cookie) or a verified identity. Cognito's tokens are verified, then the refresh token is revoked:
  * the app keeps its own server-side staff session.
@@ -80,10 +90,27 @@ function staffJwks() {
 
 /* ---------------- sign-in ---------------- */
 
-export type StaffAuthOutcome =
+/** How a sign-in finished, for the audit trail. */
+export type StaffSignInMethod = "code" | "trusted_device" | "authenticator_setup";
+
+/** The trusted-browser cookie had to go: Cognito no longer accepts the device, or its 30 days are up. */
+export interface DroppedDevice {
+  reason: "not_remembered" | "device_error" | "expired";
+  /** AdminForgetDevice succeeded (or the device was already gone) */
+  forgotten: boolean;
+}
+
+export type StaffAuthOutcome = (
   | { kind: "challenge"; challenge: Omit<StaffChallenge, "expiresAt"> }
-  | { kind: "signed_in"; identity: StaffIdentity }
-  | { kind: "failed"; failure: StaffFailure };
+  | {
+      kind: "signed_in";
+      identity: StaffIdentity;
+      method: StaffSignInMethod;
+      /** a device Cognito now remembers for this browser (the box was ticked) */
+      trusted?: DeviceSecret;
+    }
+  | { kind: "failed"; failure: StaffFailure }
+) & { droppedDevice?: DroppedDevice };
 
 const failed = (failure: StaffFailure): StaffAuthOutcome => ({ kind: "failed", failure });
 
@@ -102,25 +129,54 @@ async function revokeRefreshToken(token: string | undefined) {
   }
 }
 
-/** Tokens arrived: verify the ID token, read the role, and drop Cognito's refresh token. */
-async function signedIn(auth: AuthenticationResultType): Promise<StaffAuthOutcome> {
-  await revokeRefreshToken(auth.RefreshToken);
-  if (!auth.IdToken) return failed({ kind: "unavailable", message: STAFF_UNAVAILABLE, name: "NoIdToken" });
-  const v = await verifyStaffIdToken(auth.IdToken, { jwks: staffJwks(), issuer: staffIssuer(region(), poolId()), clientId: clientId() });
-  if (!v.ok) {
-    if (v.reason === "no_role") return failed({ kind: "no_role", message: STAFF_NO_ROLE, name: "NoStaffGroup" });
-    console.error("[staff-cognito] ID token failed verification");
-    return failed({ kind: "unavailable", message: STAFF_UNAVAILABLE, name: "InvalidIdToken" });
-  }
-  return { kind: "signed_in", identity: v.identity };
+/** Options for the step that may finish sign-in. */
+interface FinishOptions {
+  method: StaffSignInMethod;
+  /** "Trust this browser" was ticked: remember the device Cognito offers, named after the browser */
+  trust?: { deviceName: string };
 }
 
+/**
+ * Register the device Cognito just offered (NewDeviceMetadata) with a fresh SRP verifier, then mark
+ * it remembered (the pool only remembers on request). Needs the access token, so it runs before the
+ * refresh token is revoked. Best effort: on failure the sign-in still succeeds, untrusted.
+ */
+async function rememberDevice(accessToken: string, meta: NewDeviceMetadataType, deviceName: string): Promise<DeviceSecret | undefined> {
+  if (!meta.DeviceKey || !meta.DeviceGroupKey) return undefined;
+  try {
+    const v = await createDeviceVerifier(meta.DeviceGroupKey, meta.DeviceKey);
+    await cognitoClient().send(new ConfirmDeviceCommand({ AccessToken: accessToken, DeviceKey: meta.DeviceKey, DeviceSecretVerifierConfig: v.config, DeviceName: deviceName.slice(0, 1024) }));
+    await cognitoClient().send(new UpdateDeviceStatusCommand({ AccessToken: accessToken, DeviceKey: meta.DeviceKey, DeviceRememberedStatus: "remembered" }));
+    return { deviceKey: meta.DeviceKey, deviceGroupKey: meta.DeviceGroupKey, devicePassword: v.devicePassword };
+  } catch (e) {
+    logError("ConfirmDevice/UpdateDeviceStatus", e);
+    return undefined;
+  }
+}
+
+/** Tokens arrived: verify the ID token, read the role, maybe remember the device, and drop Cognito's refresh token. */
+async function signedIn(auth: AuthenticationResultType, o: FinishOptions): Promise<StaffAuthOutcome> {
+  try {
+    if (!auth.IdToken) return failed({ kind: "unavailable", message: STAFF_UNAVAILABLE, name: "NoIdToken" });
+    const v = await verifyStaffIdToken(auth.IdToken, { jwks: staffJwks(), issuer: staffIssuer(region(), poolId()), clientId: clientId() });
+    if (!v.ok) {
+      if (v.reason === "no_role") return failed({ kind: "no_role", message: STAFF_NO_ROLE, name: "NoStaffGroup" });
+      console.error("[staff-cognito] ID token failed verification");
+      return failed({ kind: "unavailable", message: STAFF_UNAVAILABLE, name: "InvalidIdToken" });
+    }
+    const trusted = o.trust && auth.NewDeviceMetadata && auth.AccessToken ? await rememberDevice(auth.AccessToken, auth.NewDeviceMetadata, o.trust.deviceName) : undefined;
+    return { kind: "signed_in", identity: v.identity, method: o.method, ...(trusted ? { trusted } : {}) };
+  } finally {
+    // Revoking the refresh token also ends its access token, so this comes after ConfirmDevice.
+    await revokeRefreshToken(auth.RefreshToken);
+  }
+}
+
+type AuthResponse = { ChallengeName?: ChallengeNameType; Session?: string; ChallengeParameters?: Record<string, string>; AuthenticationResult?: AuthenticationResultType };
+
 /** Turn any auth response into the next step. MFA_SETUP starts TOTP association straight away. */
-async function next(
-  r: { ChallengeName?: ChallengeNameType; Session?: string; ChallengeParameters?: Record<string, string>; AuthenticationResult?: AuthenticationResultType },
-  ctx: { email: string; username: string; next?: string },
-): Promise<StaffAuthOutcome> {
-  if (r.AuthenticationResult) return signedIn(r.AuthenticationResult);
+async function next(r: AuthResponse, ctx: { email: string; username: string; next?: string }, finish: FinishOptions): Promise<StaffAuthOutcome> {
+  if (r.AuthenticationResult) return signedIn(r.AuthenticationResult, finish);
   const username = r.ChallengeParameters?.USER_ID_FOR_SRP || ctx.username;
   const base = { email: ctx.email, username, next: ctx.next };
   if (!r.Session) return failed({ kind: "unavailable", message: STAFF_UNAVAILABLE, name: "NoSession" });
@@ -144,14 +200,84 @@ async function next(
   }
 }
 
-/** Step 1: email and password. */
-export async function staffSignIn(emailRaw: string, password: string, nextPath?: string): Promise<StaffAuthOutcome> {
+const initiate = (email: string, password: string, deviceKey?: string) =>
+  cognitoClient().send(
+    new InitiateAuthCommand({ ClientId: clientId(), AuthFlow: "USER_PASSWORD_AUTH", AuthParameters: { USERNAME: email, PASSWORD: password, ...(deviceKey ? { DEVICE_KEY: deviceKey } : {}) } }),
+  );
+
+/** Thrown inside the device path to fall back to the code step. */
+class DeviceChallengeError extends Error {
+  override name = "DeviceChallengeError";
+}
+
+/**
+ * Answer Cognito's device challenge with the trusted browser's sealed device secret:
+ * DEVICE_SRP_AUTH (send SRP_A) -> DEVICE_PASSWORD_VERIFIER (prove the device password) -> tokens.
+ */
+async function answerDeviceChallenge(r: AuthResponse, d: TrustedDevice): Promise<StaffAuthOutcome> {
+  const username = r.ChallengeParameters?.USERNAME || r.ChallengeParameters?.USER_ID_FOR_SRP || d.sub;
+  const srp = await startDeviceSrp(d.deviceGroupKey);
+  const r1 = await cognitoClient().send(
+    new RespondToAuthChallengeCommand({ ClientId: clientId(), ChallengeName: "DEVICE_SRP_AUTH", Session: r.Session, ChallengeResponses: { USERNAME: username, DEVICE_KEY: d.deviceKey, SRP_A: srp.srpA } }),
+  );
+  const p = r1.ChallengeParameters;
+  if (r1.ChallengeName !== "DEVICE_PASSWORD_VERIFIER" || !r1.Session || !p?.SRP_B || !p.SALT || !p.SECRET_BLOCK) throw new DeviceChallengeError(`unexpected ${r1.ChallengeName ?? "response"} to DEVICE_SRP_AUTH`);
+  const proof = await srp.respond({ deviceKey: d.deviceKey, devicePassword: d.devicePassword, srpB: p.SRP_B, salt: p.SALT, secretBlock: p.SECRET_BLOCK });
+  const r2 = await cognitoClient().send(
+    new RespondToAuthChallengeCommand({
+      ClientId: clientId(),
+      ChallengeName: "DEVICE_PASSWORD_VERIFIER",
+      Session: r1.Session,
+      ChallengeResponses: { USERNAME: p.USERNAME || username, DEVICE_KEY: d.deviceKey, ...proof },
+    }),
+  );
+  if (!r2.AuthenticationResult) throw new DeviceChallengeError(`unexpected ${r2.ChallengeName ?? "response"} to DEVICE_PASSWORD_VERIFIER`);
+  return signedIn(r2.AuthenticationResult, { method: "trusted_device" });
+}
+
+/**
+ * Step 1: email and password. With a trusted browser's device (the caller only passes one that's
+ * for this email and still inside its 30 days), DEVICE_KEY goes with the password and Cognito
+ * answers with its device challenge instead of the TOTP one. If Cognito asks for anything else, or a
+ * device step fails, the device is forgotten in Cognito and sign-in starts again without it, so the
+ * person simply gets the code step.
+ */
+export async function staffSignIn(emailRaw: string, password: string, nextPath?: string, opts: { device?: TrustedDevice } = {}): Promise<StaffAuthOutcome> {
   const email = norm(emailRaw);
+  const ctx = { email, username: email, next: nextPath };
+  const plain = async (): Promise<StaffAuthOutcome> => {
+    try {
+      return await next(await initiate(email, password), ctx, { method: "code" });
+    } catch (e) {
+      return failFrom(e, "signIn", "InitiateAuth");
+    }
+  };
+  const d = opts.device;
+  if (!d) return plain();
+
+  const fallBack = async (reason: DroppedDevice["reason"], e?: unknown): Promise<StaffAuthOutcome> => {
+    if (e) logError("device sign-in", e);
+    const forgotten = await forgetStaffDevice(d.sub, d.deviceKey);
+    return { ...(await plain()), droppedDevice: { reason, forgotten } };
+  };
+
+  let r: AuthResponse;
   try {
-    const r = await cognitoClient().send(new InitiateAuthCommand({ ClientId: clientId(), AuthFlow: "USER_PASSWORD_AUTH", AuthParameters: { USERNAME: email, PASSWORD: password } }));
-    return next(r, { email, username: email, next: nextPath });
+    r = await initiate(email, password, d.deviceKey);
   } catch (e) {
-    return failFrom(e, "signIn", "InitiateAuth");
+    const f = classifyStaffError(e, "signIn");
+    const msg = e instanceof Error ? e.message : "";
+    // A wrong password or throttling says nothing about the device: keep it.
+    if (f.kind === "throttled" || (f.kind === "invalid_credentials" && !/device/i.test(msg))) return failFrom(e, "signIn", "InitiateAuth");
+    return fallBack("device_error", e);
+  }
+  // Anything but the device challenge means Cognito doesn't remember this device (any more).
+  if (r.ChallengeName !== "DEVICE_SRP_AUTH" || !r.Session) return fallBack("not_remembered");
+  try {
+    return await answerDeviceChallenge(r, d);
+  } catch (e) {
+    if (classifyStaffError(e, "signIn").kind === "throttled") return failFrom(e, "signIn", "RespondToAuthChallenge(DEVICE)");
+    return fallBack("device_error", e);
   }
 }
 
@@ -166,7 +292,7 @@ export async function staffSetNewPassword(c: StaffChallenge, newPassword: string
         ChallengeResponses: { USERNAME: c.username, NEW_PASSWORD: newPassword },
       }),
     );
-    return next(r, c);
+    return next(r, c, { method: "code" });
   } catch (e) {
     return failFrom(e, "newPassword", "RespondToAuthChallenge(NEW_PASSWORD_REQUIRED)");
   }
@@ -184,14 +310,17 @@ export async function staffConfirmMfaSetup(c: StaffChallenge, code: string): Pro
   }
   try {
     const r = await cognitoClient().send(new RespondToAuthChallengeCommand({ ClientId: clientId(), ChallengeName: "MFA_SETUP", Session: session, ChallengeResponses: { USERNAME: c.username } }));
-    return next(r, c);
+    return next(r, c, { method: "authenticator_setup" });
   } catch (e) {
     return failFrom(e, "mfaSetup", "RespondToAuthChallenge(MFA_SETUP)");
   }
 }
 
-/** Every later sign-in: the current code from the authenticator app. */
-export async function staffVerifyMfa(c: StaffChallenge, code: string): Promise<StaffAuthOutcome> {
+/**
+ * Every later sign-in: the current code from the authenticator app. With `trust`, the device Cognito
+ * offers once the code is accepted is remembered for this browser.
+ */
+export async function staffVerifyMfa(c: StaffChallenge, code: string, opts: { trust?: { deviceName: string } } = {}): Promise<StaffAuthOutcome> {
   try {
     const r = await cognitoClient().send(
       new RespondToAuthChallengeCommand({
@@ -201,11 +330,56 @@ export async function staffVerifyMfa(c: StaffChallenge, code: string): Promise<S
         ChallengeResponses: { USERNAME: c.username, SOFTWARE_TOKEN_MFA_CODE: code },
       }),
     );
-    return next(r, c);
+    return next(r, c, { method: "code", trust: opts.trust });
   } catch (e) {
     return failFrom(e, "mfa", "RespondToAuthChallenge(SOFTWARE_TOKEN_MFA)");
   }
 }
+
+/* ---------------- remembered devices ---------------- */
+
+/** Forget one device. True when it's gone (including already gone). */
+export async function forgetStaffDevice(username: string, deviceKey: string): Promise<boolean> {
+  try {
+    await cognitoClient().send(new AdminForgetDeviceCommand({ UserPoolId: poolId(), Username: username, DeviceKey: deviceKey }));
+    return true;
+  } catch (e) {
+    const name = cognitoErrorName(e);
+    if (name === "ResourceNotFoundException" || name === "UserNotFoundException") return true;
+    logError("AdminForgetDevice", e);
+    return false;
+  }
+}
+
+/**
+ * Forget a staff member's remembered devices: all of them, or only those `which` picks. Returns how
+ * many were forgotten, or null when the list couldn't be read. A no-op (0) with the feature off.
+ */
+export async function forgetStaffDevices(username: string, which: (createdAt: Date | undefined) => boolean = () => true): Promise<number | null> {
+  if (!staffRememberDeviceEnabled()) return 0;
+  const keys: string[] = [];
+  try {
+    let token: string | undefined;
+    do {
+      const r = await cognitoClient().send(new AdminListDevicesCommand({ UserPoolId: poolId(), Username: username, Limit: 60, PaginationToken: token }));
+      for (const d of r.Devices ?? []) if (d.DeviceKey && which(d.DeviceCreateDate)) keys.push(d.DeviceKey);
+      token = r.PaginationToken;
+    } while (token);
+  } catch (e) {
+    if (cognitoErrorName(e) === "UserNotFoundException") return 0;
+    logError("AdminListDevices", e);
+    return null;
+  }
+  let n = 0;
+  for (const k of keys) if (await forgetStaffDevice(username, k)) n++;
+  return n;
+}
+
+/**
+ * After a sign-in: forget this person's devices registered more than 30 days ago. Their browsers'
+ * cookies have expired by then, so this is when a lapsed device is next "seen".
+ */
+export const forgetLapsedStaffDevices = (username: string, now = Date.now()) => forgetStaffDevices(username, (created) => deviceTrustLapsed(created, now));
 
 /* ---------------- staff management (superadmin) ---------------- */
 
@@ -219,7 +393,7 @@ export interface StaffAccount extends StaffMember {
   updatedAt?: string;
 }
 
-export type AdminResult = { ok: true } | { ok: false; error: string };
+export type AdminResult = { ok: true; devicesForgotten?: number | null } | { ok: false; error: string };
 
 const attr = (attrs: AttributeType[] | undefined, name: string) => attrs?.find((a) => a.Name === name)?.Value;
 
@@ -344,8 +518,10 @@ export async function resetStaffPassword(username: string, opts: { deliver?: boo
   } catch (e) {
     return adminFailure("AdminSetUserPassword", e);
   }
-  await staffGlobalSignOut(username);
-  return opts.deliver === false ? { ok: true } : resendStaffInvite(username);
+  const { devicesForgotten } = await staffGlobalSignOut(username);
+  if (opts.deliver === false) return { ok: true, devicesForgotten };
+  const sent = await resendStaffInvite(username);
+  return sent.ok ? { ok: true, devicesForgotten } : sent;
 }
 
 export async function setStaffEnabled(username: string, enabled: boolean): Promise<AdminResult> {
@@ -354,8 +530,9 @@ export async function setStaffEnabled(username: string, enabled: boolean): Promi
   } catch (e) {
     return adminFailure(enabled ? "AdminEnableUser" : "AdminDisableUser", e);
   }
-  if (!enabled) await staffGlobalSignOut(username);
-  return { ok: true };
+  if (enabled) return { ok: true };
+  const { devicesForgotten } = await staffGlobalSignOut(username);
+  return { ok: true, devicesForgotten };
 }
 
 export async function deleteStaff(username: string): Promise<AdminResult> {
@@ -367,13 +544,18 @@ export async function deleteStaff(username: string): Promise<AdminResult> {
   }
 }
 
-/** Invalidate every Cognito refresh token for the person. Best effort; app sessions are revoked separately. */
-export async function staffGlobalSignOut(username: string): Promise<boolean> {
+/**
+ * Sign the person out of Cognito everywhere: invalidate every refresh token and forget every
+ * remembered device, so no browser skips the authenticator code any more. Best effort; app sessions
+ * are revoked separately. `devicesForgotten` is null when the device list couldn't be read.
+ */
+export async function staffGlobalSignOut(username: string): Promise<{ signedOut: boolean; devicesForgotten: number | null }> {
+  let signedOut = false;
   try {
     await cognitoClient().send(new AdminUserGlobalSignOutCommand({ UserPoolId: poolId(), Username: username }));
-    return true;
+    signedOut = true;
   } catch (e) {
     if (cognitoErrorName(e) !== "UserNotFoundException") logError("AdminUserGlobalSignOut", e);
-    return false;
   }
+  return { signedOut, devicesForgotten: await forgetStaffDevices(username) };
 }

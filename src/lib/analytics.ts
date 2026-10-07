@@ -1,3 +1,4 @@
+import { formatNumber, formatPct as fmtPct } from "./format";
 import type { CategoryId, ConsentAction, ConsentReceipt, Framework, LeakReport, PageviewCounter, Tracker } from "./types";
 
 export type Outcome = "accepted" | "partial" | "rejected";
@@ -130,8 +131,9 @@ export function summarize(receipts: ConsentReceipt[], counters: PageviewCounter[
   };
 }
 
-export const formatPct = (n: number) => `${(n * 100).toFixed(n > 0 && n < 0.1 ? 1 : 0)}%`;
-export const formatInt = (n: number) => n.toLocaleString("en-US");
+// Kept for existing callers; new code imports formatNumber / formatPct from @/lib/format.
+export const formatInt = (n: number) => formatNumber(n);
+export const formatPct = (n: number) => fmtPct(n);
 
 export type MetricId = "optIn" | "optOut" | "partial" | "bounce";
 

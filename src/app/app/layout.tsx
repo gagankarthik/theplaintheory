@@ -3,6 +3,7 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { site } from "@/lib/site";
 import { Shell } from "@/components/app/shell/shell";
+import { mfaRequirementState } from "@/lib/auth/second-factor";
 import { requireUser } from "@/lib/auth/session";
 import { getStore } from "@/lib/store";
 import { evaluateFairness } from "@/lib/fairness";
@@ -17,7 +18,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // redirect; every page and action checks it again. /app/account stays open for enrolment.
   const { user, org, role, memberships } = await requireUser({ allowWithoutMfa: true });
   const path = (await headers()).get("x-pt-path") ?? "";
-  if (org.security?.requireMfa && !user.mfa && !path.startsWith("/app/account")) redirect("/app/account?mfa=required");
+  if (mfaRequirementState(org, user) === "required" && !path.startsWith("/app/account")) redirect("/app/account?mfa=required");
   const store = await getStore();
   const jar = await cookies();
   const sidebarCollapsed = jar.get("pt-sidebar")?.value === "collapsed";

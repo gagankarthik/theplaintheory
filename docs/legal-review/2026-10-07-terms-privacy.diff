@@ -1,0 +1,122 @@
+diff --git a/src/app/(marketing)/legal/privacy/page.tsx b/src/app/(marketing)/legal/privacy/page.tsx
+index 2e85b79..d02a45e 100644
+--- a/src/app/(marketing)/legal/privacy/page.tsx
++++ b/src/app/(marketing)/legal/privacy/page.tsx
+@@ -46,7 +46,7 @@ function GrievanceOfficer() {
+ 
+ export default function PrivacyPage() {
+   return (
+-    <LegalPage title="Privacy notice" path="/legal/privacy" updated={{ iso: "2026-10-06", label: "6 October 2026" }} toc={TOC}>
++    <LegalPage title="Privacy notice" path="/legal/privacy" updated={{ iso: "2026-10-07", label: "7 October 2026" }} toc={TOC}>
+       <p>
+         This notice explains what personal data {site.legalName} collects, why we collect it, who we share it with, how long we
+         keep it and what you can do about it. It covers our website, our dashboard and the data we process for our customers.
+@@ -97,7 +97,7 @@ export default function PrivacyPage() {
+           there;
+         </li>
+         <li>multi-factor authentication settings: an encrypted authenticator secret and hashed recovery codes;</li>
+-        <li>your organization&apos;s name, its websites, the data region it chose, team members and their roles;</li>
++        <li>your organization&apos;s name, its websites, its data region, team members and their roles;</li>
+         <li>the settings you make in the dashboard, such as banner text, categories and tracker rules.</li>
+       </ul>
+ 
+@@ -159,8 +159,8 @@ export default function PrivacyPage() {
+       </ul>
+       <p>
+         Each receipt is linked to the one before it by a cryptographic hash, so the customer can prove the log hasn&apos;t been
+-        altered. Receipts are stored in the data region the customer chose: Mumbai or Hyderabad in India, Frankfurt in the EU, or
+-        N. Virginia in the US.
++        altered. Receipts are stored in India, in the AWS Mumbai region (ap-south-1). An Enterprise customer may agree a different
++        region with us in its contract.
+       </p>
+       <p>
+         We also keep, for the customer, reports of tracker requests seen after a visitor declined (page and tracker address with
+@@ -291,7 +291,7 @@ export default function PrivacyPage() {
+             "Amazon Web Services",
+             "Hosting, databases (DynamoDB), file storage (S3), content delivery (CloudFront) and optional sign-in (Cognito)",
+             "All account data, and customers' consent records",
+-            "The region each customer chooses: Mumbai, Hyderabad, Frankfurt or N. Virginia. The script is delivered from CloudFront edge locations worldwide.",
++            "India (Mumbai, ap-south-1), or a region agreed in an Enterprise contract. The script is delivered from CloudFront edge locations worldwide.",
+           ],
+           ["Stripe", "Payments, invoices and subscription management", "Billing data", "United States and other Stripe locations"],
+           [
+@@ -312,7 +312,7 @@ export default function PrivacyPage() {
+ 
+       <h2 id="transfers">International transfers</h2>
+       <p>
+-        Customers&apos; consent records stay in the data region the customer chooses. Account and billing data may be processed in
++        Customers&apos; consent records stay in India (Mumbai), or in the region agreed in an Enterprise contract. Account and billing data may be processed in
+         India, the European Union and the United States by us and our sub-processors.
+       </p>
+       <p>
+diff --git a/src/app/(marketing)/legal/terms/page.tsx b/src/app/(marketing)/legal/terms/page.tsx
+index 79bdd78..36d9241 100644
+--- a/src/app/(marketing)/legal/terms/page.tsx
++++ b/src/app/(marketing)/legal/terms/page.tsx
+@@ -37,7 +37,7 @@ const legalMail = <a href={`mailto:${site.legalEmail}`}>{site.legalEmail}</a>;
+ 
+ export default function TermsPage() {
+   return (
+-    <LegalPage title="Terms of service" path="/legal/terms" updated={{ iso: "2026-10-06", label: "6 October 2026" }} toc={TOC}>
++    <LegalPage title="Terms of service" path="/legal/terms" updated={{ iso: "2026-10-07", label: "7 October 2026" }} toc={TOC}>
+       <h2 id="agreement">The agreement</h2>
+       <p>
+         These terms are an agreement between you, or the organization you represent, and {site.legalName} (&ldquo;Plain
+@@ -71,15 +71,15 @@ export default function TermsPage() {
+         </li>
+         <li>
+           <strong>Taxes.</strong> Prices exclude taxes. We add GST, VAT or other sales taxes where the law requires, and you pay
+-          them. If you give us a valid tax ID, it will appear on your invoices.
++          them. If you need a tax invoice that carries your tax ID, such as a GSTIN, contact us.
+         </li>
+         <li>
+           <strong>Changing plans.</strong> Upgrades take effect immediately and are prorated. Downgrades take effect at the end of the
+           billing period.
+         </li>
+         <li>
+-          <strong>Limits.</strong> Each plan has limits on pageviews, websites and seats. These are soft limits: if you go over, we
+-          tell the account owner and give you a 30-day grace period to reduce usage or change plan. We never upgrade you or charge
++          <strong>Limits.</strong> Each plan has limits on banner views, websites and seats. These are soft limits: your usage is shown
++          on the Billing page, and if you go over you have a 30-day grace period to reduce usage or change plan. We never upgrade you or charge
+           for overage without your explicit choice.
+         </li>
+         <li>
+@@ -108,7 +108,7 @@ export default function TermsPage() {
+         <li>listing the trackers your sites load, and placing them under the categories and controls the service provides;</li>
+         <li>having a lawful basis for any processing you carry out, and for how you use the data you collect;</li>
+         <li>answering requests from your visitors, with our help where the service supports it;</li>
+-        <li>choosing a data region and retention period that suit your obligations.</li>
++        <li>choosing a retention period, and confirming that our data region suits your obligations.</li>
+       </ul>
+ 
+       <h2 id="not-legal-advice">Not legal advice</h2>
+@@ -160,7 +160,7 @@ export default function TermsPage() {
+         <li>remove, hide or alter any copyright, trademark or other notices, including the &ldquo;Powered by Plain Theory&rdquo; link in the consent banner.</li>
+       </ul>
+       <p>
+-        Open-source components we publish, such as our framework packages, are licensed under the licence that comes with them
++        Open-source components we publish, such as framework packages we release, are licensed under the licence that comes with them
+         (currently MIT), which takes priority for that component.
+       </p>
+       <p>
+@@ -180,7 +180,7 @@ export default function TermsPage() {
+         terms and includes the Standard Contractual Clauses where they are needed. Contact {legalMail} for a signed copy.
+       </p>
+       <p>
+-        Customer data is stored in the data region you choose. We may use aggregated, de-identified statistics about how the service
++        Customer data is stored in India (Mumbai), or in the region agreed in an Enterprise contract. We may use aggregated, de-identified statistics about how the service
+         performs, which can&apos;t identify you, your visitors or your sites, to run and improve it. Our{" "}
+         <Link href="/legal/privacy">privacy notice</Link> covers the data we hold about you as a customer.
+       </p>
+@@ -198,9 +198,8 @@ export default function TermsPage() {
+       <h2 id="availability">Availability</h2>
+       <p>
+         We work to keep the service available at all times, but we don&apos;t promise it will be uninterrupted or error free on the
+-        Free, Starter and Growth plans. On the Business plan we aim to keep consent script delivery available 99.9% of the time,
+-        and on Enterprise 99.99%, measured monthly. Service credits, where they apply, are described in your order form or service
+-        level agreement and are your only remedy for missing those targets.
++        Free, Starter, Growth and Business plans. An Enterprise contract may include an uptime commitment; its service credits, where
++        they apply, are described in your order form or service level agreement and are your only remedy for missing it.
+       </p>
+       <p>
+         If the service is unreachable, the script fails closed: trackers stay held and no banner is shown. We may carry out planned

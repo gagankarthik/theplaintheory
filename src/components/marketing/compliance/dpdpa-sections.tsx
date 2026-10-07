@@ -211,7 +211,7 @@ export function ConsentManagerSection() {
           </p>
           <p className="mt-2 text-sm leading-relaxed text-ink-2">
             Consent arriving from another system can be applied with <code className="font-mono text-[13px]">PlainConsent.set()</code>{" "}
-            and is logged like any other decision. Withdrawals can be pushed to your systems with signed webhooks.
+            and is logged like any other decision. On Business, withdrawals can be pushed to your systems with signed webhooks.
           </p>
         </div>
         <div className="rounded-[var(--radius-lg)] bg-paper p-5 sm:p-6">

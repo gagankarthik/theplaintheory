@@ -25,6 +25,8 @@ export interface MemberRow {
   role: Role;
   since: string;
   mfa: boolean;
+  /** required by the org but not set up yet: the end of the member's grace period */
+  mfaDue?: string;
   lastActiveAt?: string;
   invitedBy?: string;
 }
@@ -161,7 +163,7 @@ export function TeamManager({
         ) : (
           <span className="inline-flex items-center gap-1.5 text-amber">
             <IconAlert size={14} />
-            Off
+            {m.mfaDue ? `Not set up · due ${date(m.mfaDue)}` : "Off"}
           </span>
         ),
     },

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BANNER_SCENE, BLOCKING_SCENE, IsoScene, LEDGER_SCENE, REGIONS_SCENE, type SceneItem } from "@/components/illustrations/iso-scene";
+import { SDK_URL } from "@/lib/install-snippets";
 import { FRAMEWORK_LOGOS } from "../framework-logos";
 import { ArrowLink, Section, SectionIntro } from "../primitives";
 
@@ -46,13 +47,13 @@ const MODULES: Module[] = [
   },
 ];
 
-const SNIPPET = `import { PlainConsentProvider, ConsentGate } from "@plaintheory/react";
+const SNIPPET = `import Script from "next/script";
 
-<PlainConsentProvider siteKey="pk_live_7Hq">
-  <ConsentGate category="analytics">
-    <Analytics />
-  </ConsentGate>
-</PlainConsentProvider>`;
+<Script
+  src="${SDK_URL}"
+  data-site="pk_live_7Hq"
+  strategy="beforeInteractive"
+/>`;
 
 function ModuleCell({ m }: { m: Module }) {
   return (
@@ -95,8 +96,8 @@ export function PlatformGrid() {
             <div className="lg:col-span-5">
               <h3 className="text-xl font-semibold">Built for your stack</h3>
               <p className="mt-3 max-w-[44ch] text-[15px] leading-relaxed text-white/75">
-                One script tag for any site, a WordPress plugin, or typed packages for React, Next.js, Vue, Svelte and Angular. Headless mode lets
-                you render your own banner while we handle blocking and receipts.
+                One script tag that works with React, Next.js, Vue, Svelte, Angular and WordPress, or any site that renders HTML. Headless mode
+                lets you render your own banner while we handle blocking and receipts.
               </p>
               <ul className="mt-7 grid max-w-[420px] grid-cols-4 gap-2.5" aria-label="Works with">
                 {FRAMEWORK_LOGOS.map((f) => (
@@ -109,7 +110,7 @@ export function PlatformGrid() {
                 ))}
               </ul>
               <Link href="/docs#frameworks" className="mt-8 inline-flex text-sm font-medium text-white link-draw">
-                Read the framework guides
+                See how to install
               </Link>
             </div>
             <figure className="lg:col-span-7">
@@ -121,7 +122,7 @@ export function PlatformGrid() {
                   <code>{SNIPPET}</code>
                 </pre>
               </div>
-              <figcaption className="sr-only">Wrapping analytics in a consent gate with the React package</figcaption>
+              <figcaption className="sr-only">Adding the consent script to a Next.js root layout</figcaption>
             </figure>
           </div>
         </li>

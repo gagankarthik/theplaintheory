@@ -1,5 +1,6 @@
 "use server";
 
+import type { PublicKeyCredentialRequestOptionsJSON } from "@simplewebauthn/server";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -9,6 +10,8 @@ import { allowCodeEmail } from "@/lib/auth/code-limits";
 import { CODE_MISMATCH, maskEmail } from "@/lib/auth/cognito-errors";
 import { allowIpAttempt, isLocked, registerFailure } from "@/lib/auth/lockout";
 import { verifySecondFactor } from "@/lib/auth/mfa";
+import { parseAuthenticationJson, passkeyAuthenticationOptions, verifyPasskeyAssertion } from "@/lib/auth/passkeys";
+import { passkeysOf } from "@/lib/auth/second-factor";
 import {
   RESET_COOKIE,
   SIGNUP_COOKIE,
@@ -143,38 +146,81 @@ const codeSchema = z.object({
     .max(20, "Codes are at most 20 characters. Check what you entered."),
 });
 
-export async function verifyLoginCode(_: AuthState, form: FormData): Promise<AuthState> {
+const CODE_FAILED = "That code didn't match. Use the newest code from your app, or a recovery code.";
+const PASSKEY_FAILED = "That passkey didn't check out. Try again, or use a code instead.";
+const SIGN_IN_EXPIRED = "This sign-in expired. Start again with your email and password.";
+
+/** The user waiting at the second step, from the signed challenge cookie, or null when it's gone. */
+async function pendingSecondStep() {
   const jar = await cookies();
   const challenge = await verifyMfaChallenge(jar.get(MFA_COOKIE)?.value);
-  if (!challenge) return { error: "This sign-in expired. Start again with your email and password." };
-  if (honeypotFilled(form)) return { error: "That code didn't match. Use the newest code from your app, or a recovery code." };
+  if (!challenge) return null;
+  const user = await (await getStore()).getUser(challenge.userId);
+  return user?.mfa ? { jar, challenge, user } : null;
+}
+
+/** A wrong second factor counts towards the same lockout as a wrong password. */
+async function secondStepFailed(user: User, jar: Awaited<ReturnType<typeof cookies>>, method: "code" | "passkey"): Promise<AuthState> {
+  const next = registerFailure(user);
+  await (await getStore()).updateUser(user.id, { loginFailures: next.loginFailures, lockedUntil: next.lockedUntil });
+  await recordUserAudit(user.id, user.email, "auth.login_failed", { reason: method === "passkey" ? "passkey" : "mfa" });
+  if (next.locked) {
+    jar.delete(MFA_COOKIE);
+    await recordUserAudit(user.id, user.email, "auth.locked", { minutes: 15 });
+    return { error: "Too many failed attempts. Sign-in for this account is paused for 15 minutes." };
+  }
+  return { error: method === "passkey" ? PASSKEY_FAILED : CODE_FAILED };
+}
+
+/** Second factor passed: start the session (mfaVerified) and go where the sign-in was headed. */
+async function secondStepPassed(user: User, next: string, method: "totp" | "recovery" | "passkey", remaining?: number): Promise<never> {
+  await createSession({ userId: user.id, email: user.email }, { mfaVerified: true });
+  if (method === "recovery") await recordUserAudit(user.id, user.email, "auth.mfa_recovery_used", { remaining: remaining ?? 0 });
+  await recordUserAudit(user.id, user.email, "auth.login", { mfa: true, method });
+  redirect(next);
+}
+
+export async function verifyLoginCode(_: AuthState, form: FormData): Promise<AuthState> {
+  const pending = await pendingSecondStep();
+  if (!pending) return { error: SIGN_IN_EXPIRED };
+  if (honeypotFilled(form)) return { error: CODE_FAILED };
   const parsed = codeSchema.safeParse({ code: String(form.get("code") ?? "") });
   if (!parsed.success) return invalid(parsed.error);
-
-  const store = await getStore();
-  const user = await store.getUser(challenge.userId);
-  if (!user?.mfa) return { error: "This sign-in expired. Start again with your email and password." };
 
   const { ipHash } = await requestContext();
   if (!(await allowIpAttempt(ipHash))) return { error: "Too many attempts from your network. Wait 15 minutes and try again." };
 
-  const result = await verifySecondFactor(user, parsed.data.code);
-  if (!result.ok) {
-    const next = registerFailure(user);
-    await store.updateUser(user.id, { loginFailures: next.loginFailures, lockedUntil: next.lockedUntil });
-    await recordUserAudit(user.id, user.email, "auth.login_failed", { reason: "mfa" });
-    if (next.locked) {
-      jar.delete(MFA_COOKIE);
-      await recordUserAudit(user.id, user.email, "auth.locked", { minutes: 15 });
-      return { error: "Too many failed attempts. Sign-in for this account is paused for 15 minutes." };
-    }
-    return { error: "That code didn't match. Use the newest code from your app, or a recovery code." };
-  }
+  const result = await verifySecondFactor(pending.user, parsed.data.code.replace(/\s/g, ""));
+  if (!result.ok) return secondStepFailed(pending.user, pending.jar, "code");
+  return secondStepPassed(pending.user, pending.challenge.next, result.method, result.remaining);
+}
 
-  await createSession({ userId: user.id, email: user.email }, { mfaVerified: true });
-  if (result.method === "recovery") await recordUserAudit(user.id, user.email, "auth.mfa_recovery_used", { remaining: result.remaining ?? 0 });
-  await recordUserAudit(user.id, user.email, "auth.login", { mfa: true, method: result.method });
-  redirect(challenge.next);
+/** Options for navigator.credentials.get() at the second step; the challenge is kept server-side. */
+export async function loginPasskeyOptions(): Promise<{ ok: true; options: PublicKeyCredentialRequestOptionsJSON } | { ok: false; error: string }> {
+  const pending = await pendingSecondStep();
+  if (!pending) return { ok: false, error: SIGN_IN_EXPIRED };
+  if (!passkeysOf(pending.user.mfa).length) return { ok: false, error: "Your account has no passkey. Use a code instead." };
+  return { ok: true, options: await passkeyAuthenticationOptions(pending.user) };
+}
+
+/** Finish sign-in with a passkey. Same throttle, lockout and session as the code path. */
+export async function verifyLoginPasskey(response: unknown): Promise<AuthState> {
+  const pending = await pendingSecondStep();
+  if (!pending) return { error: SIGN_IN_EXPIRED };
+  const { ipHash } = await requestContext();
+  if (!(await allowIpAttempt(ipHash))) return { error: "Too many attempts from your network. Wait 15 minutes and try again." };
+  const parsed = parseAuthenticationJson(response);
+  if (!parsed) return secondStepFailed(pending.user, pending.jar, "passkey");
+
+  const r = await verifyPasskeyAssertion(pending.user.id, parsed);
+  if (!r.ok) {
+    if (r.reason === "counter") {
+      await recordUserAudit(pending.user.id, pending.user.email, "auth.passkey_counter_mismatch", { credential: r.passkey?.id.slice(0, 16) ?? "", name: r.passkey?.name ?? "" });
+    }
+    if (r.reason === "expired") return { error: "The passkey check timed out. Try again." };
+    return secondStepFailed(pending.user, pending.jar, "passkey");
+  }
+  return secondStepPassed(pending.user, pending.challenge.next, "passkey");
 }
 
 /** Abandon a pending second-factor step. */

@@ -41,7 +41,7 @@ function Price({ plan, currency, period, featured }: { plan: Plan; currency: Cur
 function Limits({ plan, featured }: { plan: Plan; featured: boolean }) {
   const rows: [string, string][] = [
     ["Sites", plan.properties === null ? "Unlimited" : String(plan.properties)],
-    ["Pageviews / mo", plan.pageviews === null ? "Custom" : compactNumber(plan.pageviews)],
+    ["Banner views / mo", plan.pageviews === null ? "Custom" : compactNumber(plan.pageviews)],
     ["Seats", plan.seats === null ? "Unlimited" : String(plan.seats)],
     ["Log kept", retentionLabel(plan.logRetentionDays)],
   ];

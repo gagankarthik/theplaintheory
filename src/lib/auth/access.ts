@@ -2,6 +2,7 @@ import "server-only";
 import { notFound, redirect } from "next/navigation";
 import { getStore } from "../store";
 import { assertCan, type Permission } from "./rbac";
+import { mfaRequirementState } from "./second-factor";
 import { requireUser } from "./session";
 
 /**
@@ -18,6 +19,6 @@ export async function requireProperty(propertyId: string, permission: Permission
   assertCan(membership.role, permission);
   const org = property.orgId === ctx.org.id ? ctx.org : (await store.getOrg(property.orgId))!;
   if (org.suspendedAt) redirect(`/suspended?org=${encodeURIComponent(org.id)}`);
-  if (org.security?.requireMfa && !ctx.user.mfa) redirect("/app/account?mfa=required");
+  if (mfaRequirementState(org, ctx.user) === "required") redirect("/app/account?mfa=required");
   return { ...ctx, org, role: membership.role, property, store };
 }

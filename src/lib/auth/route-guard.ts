@@ -3,7 +3,10 @@ import { getStore } from "../store";
 import type { Store } from "../store/types";
 import type { Organization, Property, Role, User } from "../types";
 import { can, type Permission } from "./rbac";
+import { mfaRequirementState } from "./second-factor";
 import { getSession } from "./session";
+
+export { mfaRequirementState };
 
 type Fail = { ok: false; response: Response };
 type Guard = { ok: true; user: User; org: Organization; role: Role } | Fail;
@@ -11,8 +14,11 @@ type PropertyGuard = { ok: true; user: User; org: Organization; role: Role; prop
 
 const fail = (error: string, status: number): Fail => ({ ok: false, response: Response.json({ error }, { status }) });
 
-/** True when the organization requires MFA and this user hasn't enrolled (SOC 2 CC6.1). */
-export const blockedByMfaPolicy = (org: Organization, user: User) => Boolean(org.security?.requireMfa && !user.mfa);
+/**
+ * True when the organization requires MFA and this user hasn't enrolled and isn't inside a skipped
+ * grace period (SOC 2 CC6.1). Every enforcement point goes through mfaRequirementState, so they agree.
+ */
+export const blockedByMfaPolicy = (org: Organization, user: User) => mfaRequirementState(org, user) === "required";
 const MFA_REQUIRED = "This organization requires two-factor sign-in. Turn it on in Account first.";
 const SUSPENDED = "This organization is suspended. Contact support@theplaintheory.in.";
 

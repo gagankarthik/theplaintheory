@@ -1,17 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useEffect, useRef, useState } from "react";
+import { startAuthentication } from "@simplewebauthn/browser";
+import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import { useFormStatus } from "react-dom";
 import {
   cancelLoginCode,
   login,
+  loginPasskeyOptions,
   requestPasswordReset,
   resetPassword,
   restartReset,
   restartSignup,
   signup,
   verifyLoginCode,
+  verifyLoginPasskey,
   verifySignup,
   type AuthState,
 } from "@/app/(auth)/actions";
@@ -21,6 +24,7 @@ import { FormMessage } from "@/components/app/ui/toast";
 import { SubmitButton } from "@/components/app/ui/submit-button";
 import { TextField } from "@/components/app/ui/field";
 import { FormGuard, useFocusOnError } from "@/components/app/ui/form-guard";
+import { passkeyErrorMessage, useWebAuthnSupport } from "./passkey-client";
 
 export function PasswordField({
   id = "password",
@@ -179,42 +183,110 @@ export function SignupForm({ formToken, plan, passwordHint, email }: { formToken
   );
 }
 
-/** Second sign-in step: a code from the authenticator app, or a single-use recovery code. */
-export function VerifyCodeForm() {
-  const [state, action] = useActionState<AuthState, FormData>(verifyLoginCode, null);
-  const formRef = useRef<HTMLFormElement>(null);
-  useFocusOnError(state, formRef);
+type SecondStepMode = "passkey" | "totp" | "recovery";
+
+/**
+ * Second sign-in step. With a passkey on the account (and a browser that supports them), "Use a
+ * passkey" is the one primary action; a code from the authenticator app or a recovery code are the
+ * alternatives. Without passkeys it's the code form, as before.
+ */
+export function VerifySecondStep({ passkeys, totp }: { passkeys: boolean; totp: boolean }) {
+  const supported = useWebAuthnSupport();
+  const [mode, setMode] = useState<SecondStepMode>(passkeys ? "passkey" : totp ? "totp" : "recovery");
+  const canPasskey = passkeys && supported !== false;
+  const effective: SecondStepMode = mode === "passkey" && !canPasskey ? (totp ? "totp" : "recovery") : mode;
+  const alternatives: { mode: SecondStepMode; label: string }[] = [
+    ...(canPasskey ? [{ mode: "passkey" as const, label: "Use a passkey instead" }] : []),
+    ...(totp ? [{ mode: "totp" as const, label: "Use a code from your authenticator app" }] : []),
+    { mode: "recovery" as const, label: "Use a recovery code" },
+  ].filter((a) => a.mode !== effective);
+
   return (
     <div className="space-y-5 short:space-y-4 shorter:space-y-3">
-      <form ref={formRef} action={action} className="space-y-5 short:space-y-4 shorter:space-y-3" noValidate>
-        <FormGuard />
-        <TextField
-          id="code"
-          name="code"
-          label="Verification code"
-          hint="The 6-digit code from your authenticator app, or one of your recovery codes."
-          inputMode="text"
-          autoComplete="one-time-code"
-          autoFocus
-          required
-          minLength={6}
-          maxLength={20}
-          autoCapitalize="none"
-          spellCheck={false}
-          className="[&_input]:font-mono [&_input]:tracking-[0.2em]"
-          error={state?.fieldErrors?.code}
-        />
-        <FormMessage state={state && !state.fieldErrors ? state : null} />
-        <SubmitButton className="w-full" pending="Checking">
-          Verify and sign in
-        </SubmitButton>
-      </form>
+      {passkeys && supported === false ? (
+        <p className="text-sm text-ink-3">This browser can&apos;t use passkeys, so use a code instead.</p>
+      ) : null}
+      {effective === "passkey" ? <PasskeyStep /> : <VerifyCodeForm key={effective} mode={effective} />}
+      <ul className="space-y-1">
+        {alternatives.map((a) => (
+          <li key={a.mode}>
+            <button
+              type="button"
+              onClick={() => setMode(a.mode)}
+              className="inline-flex min-h-11 w-full items-center justify-center text-sm font-medium text-brand underline-offset-4 hover:underline"
+            >
+              {a.label}
+            </button>
+          </li>
+        ))}
+      </ul>
       <form action={cancelLoginCode}>
         <button type="submit" className="w-full text-center text-sm text-ink-3 underline-offset-4 hover:text-ink hover:underline">
           Use a different account
         </button>
       </form>
     </div>
+  );
+}
+
+function PasskeyStep() {
+  const [state, setState] = useState<AuthState>(null);
+  const [pending, start] = useTransition();
+  const run = () =>
+    start(async () => {
+      setState(null);
+      const o = await loginPasskeyOptions();
+      if (!o.ok) return setState({ error: o.error });
+      let response;
+      try {
+        response = await startAuthentication({ optionsJSON: o.options });
+      } catch (e) {
+        return setState({ error: passkeyErrorMessage(e, "get") });
+      }
+      // Redirects into the app on success.
+      setState(await verifyLoginPasskey(response));
+    });
+  return (
+    <div className="space-y-4">
+      <Button className="w-full" autoFocus loading={pending} loadingLabel="Waiting for your passkey" onClick={run}>
+        Use a passkey
+      </Button>
+      <p className="text-center text-xs text-ink-3">Face ID, Touch ID, Windows Hello or a security key.</p>
+      <FormMessage state={state} />
+    </div>
+  );
+}
+
+/** A code from the authenticator app, or a single-use recovery code. The server accepts either. */
+function VerifyCodeForm({ mode }: { mode: "totp" | "recovery" }) {
+  const [state, action] = useActionState<AuthState, FormData>(verifyLoginCode, null);
+  const formRef = useRef<HTMLFormElement>(null);
+  useFocusOnError(state, formRef);
+  const totp = mode === "totp";
+  return (
+    <form ref={formRef} action={action} className="space-y-5 short:space-y-4 shorter:space-y-3" noValidate>
+      <FormGuard />
+      <TextField
+        id="code"
+        name="code"
+        label={totp ? "Verification code" : "Recovery code"}
+        hint={totp ? "The 6-digit code from your authenticator app, or one of your recovery codes." : "One of the codes you saved when you turned on two-factor. Each works once."}
+        inputMode="text"
+        autoComplete="one-time-code"
+        autoFocus
+        required
+        minLength={6}
+        maxLength={20}
+        autoCapitalize="none"
+        spellCheck={false}
+        className="[&_input]:font-mono [&_input]:tracking-[0.2em]"
+        error={state?.fieldErrors?.code}
+      />
+      <FormMessage state={state && !state.fieldErrors ? state : null} />
+      <SubmitButton className="w-full" pending="Checking">
+        Verify and sign in
+      </SubmitButton>
+    </form>
   );
 }
 

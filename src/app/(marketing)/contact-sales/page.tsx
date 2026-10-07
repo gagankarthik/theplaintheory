@@ -6,15 +6,15 @@ import { issueFormToken } from "@/lib/form-guard";
 
 export const metadata = pageMetadata({
   title: "Talk to sales",
-  description: "Plan an enterprise rollout of Plain Theory: data residency, single sign-on, a 99.99% SLA and a named compliance contact. We reply within one business day.",
+  description: "Plan an enterprise rollout of Plain Theory: EU or US data residency by arrangement, SSO on request, an uptime SLA in your contract and a named compliance contact. We reply within one business day.",
   path: "/contact-sales",
   socialTitle: "Plan your rollout with our team",
 });
 
 const WHAT_YOU_GET = [
   "A walkthrough on your own site, with your trackers held and released",
-  "Volume pricing for many sites or more than 250k pageviews a month",
-  "Data residency in Mumbai, Hyderabad or Frankfurt",
+  "Volume pricing for many sites or more than 2M banner views a month",
+  "Stored in India (Mumbai) by default, with EU or US residency by arrangement",
   "Security review support: our answers, DPA and architecture notes",
   "A named contact for your DPDPA, GDPR or CCPA rollout",
 ];

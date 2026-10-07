@@ -348,7 +348,8 @@ export async function resetStaffPassword(_: ActionResult, form: FormData): Promi
     const r = await cognito.resetStaffPassword(t.target.username);
     if (!r.ok) return { error: r.error };
     const ended = await revokeStaffSessions(t.target.sub);
-    await staffAudit(ctx, "staff.password_reset", t.target, { sessionsEnded: ended });
+    await staffAudit(ctx, "staff.password_reset", t.target, { sessionsEnded: ended, devicesForgotten: r.devicesForgotten ?? null });
+    if (r.devicesForgotten) await staffAudit(ctx, "staff.device_forgotten", t.target, { reason: "password_reset", devices: r.devicesForgotten });
     return done(`${t.target.email} was signed out and emailed a temporary password. Their authenticator app stays set up.`);
   } catch (e) {
     return failure(e);
@@ -367,7 +368,8 @@ export async function setStaffEnabled(_: ActionResult, form: FormData): Promise<
     const r = await cognito.setStaffEnabled(t.target.username, enable);
     if (!r.ok) return { error: r.error };
     const ended = enable ? 0 : await revokeStaffSessions(t.target.sub);
-    await staffAudit(ctx, enable ? "staff.enabled" : "staff.disabled", t.target, enable ? undefined : { sessionsEnded: ended });
+    await staffAudit(ctx, enable ? "staff.enabled" : "staff.disabled", t.target, enable ? undefined : { sessionsEnded: ended, devicesForgotten: r.devicesForgotten ?? null });
+    if (r.devicesForgotten) await staffAudit(ctx, "staff.device_forgotten", t.target, { reason: "disabled", devices: r.devicesForgotten });
     return done(enable ? `${t.target.email} can sign in to the console again.` : `${t.target.email} is disabled and was signed out of the console.`);
   } catch (e) {
     return failure(e);

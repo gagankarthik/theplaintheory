@@ -9,11 +9,11 @@ const ABOUT: Record<string, [title: string, about: string]> = {
   "/": ["Home", "What Plain Theory is, the laws it covers and how the consent log works"],
   "/pricing": ["Pricing", "Plans, limits and prices in USD, EUR, GBP and INR"],
   "/contact": ["Contact us", "Every way to reach Plain Theory: support, sales, Help Center, partners and enterprise, with emails and response times"],
-  "/contact-sales": ["Talk to sales", "Enterprise rollouts, data residency and SSO"],
+  "/contact-sales": ["Talk to sales", "Enterprise rollouts, EU or US data residency by arrangement, and SSO on request"],
   "/contact/support": ["Support ticket", "Raise a ticket with our support engineers; replies within one business day"],
   "/contact/partners": ["Partner support", "Account, campaign, program and payout queries for agency, affiliate, technology and strategic partners"],
   "/contact/enterprise": ["Enterprise and compliance requests", "DPA requests, data residency, audit evidence, custom terms, security questionnaires and procurement"],
-  "/docs": ["Documentation", "Install guides for HTML, Next.js, React, Vite, Vue, Svelte, Angular and WordPress, plus the REST API"],
+  "/docs": ["Documentation", "One script tag that works with HTML, Next.js, React, Vue, Svelte, Angular, WordPress and more, plus the JavaScript and REST APIs"],
   "/compliance/gdpr": ["GDPR guide", "GDPR and ePrivacy cookie consent requirements"],
   "/compliance/ccpa": ["CCPA/CPRA guide", "Opt-out rights and Global Privacy Control in California"],
   "/compliance/dpdpa": ["DPDPA guide", "India's DPDP Act 2023 and DPDP Rules 2025 readiness"],
@@ -49,7 +49,8 @@ export async function GET() {
 Key facts:
 - Consent script: ${sdkSizeKb()} KB gzipped, blocks known trackers until the visitor chooses, honours Global Privacy Control and sends Google Consent Mode v2 signals.
 - Laws covered: GDPR and UK GDPR, CCPA/CPRA, and India's DPDP Act 2023 with the DPDP Rules 2025 (notices in all 22 Eighth Schedule languages).
-- Proof: every decision is a receipt chained to the previous one by a SHA-256 hash; daily anchors are published; an Evidence Pack exports the verified chain.
+- Proof: every decision is a receipt chained to the previous one by a SHA-256 hash; verification runs in one click, and anyone with the export can verify the chain; an Evidence Pack exports the verified chain.
+- Data residency: stored in India (AWS Mumbai, ap-south-1). EU or US residency on Enterprise, by arrangement.
 - Pricing (monthly, excluding tax): ${prices}. Enterprise is custom. Priced per account, not per domain.
 - Plain Theory provides software, not legal advice.
 

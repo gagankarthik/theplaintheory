@@ -3,11 +3,16 @@
 import { useActionState, useEffect, useOptimistic, useState, useTransition } from "react";
 import { addTracker, removeTracker, updateTrackerCategory } from "@/app/app/sites/[propertyId]/actions";
 import { approveTrackers, ignoreTrackers, restoreTracker, scanTrackers } from "@/app/app/sites/[propertyId]/tracker-actions";
+import { Alert } from "@/components/app/ui/alert";
 import { Badge } from "@/components/app/ui/badge";
 import { Button } from "@/components/app/ui/button";
+import { Card, CardHeader } from "@/components/app/ui/card";
+import { ConfirmDialog } from "@/components/app/ui/confirm-dialog";
 import { DataTable, type Column } from "@/components/app/ui/data-table";
+import { DateText } from "@/components/app/ui/date-text";
 import { Dialog } from "@/components/app/ui/dialog";
 import { SelectField, TextField } from "@/components/app/ui/field";
+import { PageSection } from "@/components/app/ui/page-section";
 import { Select } from "@/components/app/ui/select";
 import { StatStrip } from "@/components/app/ui/stat-strip";
 import { SubmitButton } from "@/components/app/ui/submit-button";
@@ -15,6 +20,7 @@ import { TabPanel, Tabs } from "@/components/app/ui/tabs";
 import { FormMessage, useToast } from "@/components/app/ui/toast";
 import { CATEGORY_ICONS, IconAlert, IconCheck, IconChevronDown, IconClock, IconPlus, IconScan, IconTrash } from "@/components/icons";
 import type { ActionResult } from "@/lib/action-result";
+import { formatDate } from "@/lib/format";
 import { statusOf, suggested } from "@/lib/trackers";
 import type { CategoryId, Tracker, TrackerStatus } from "@/lib/types";
 
@@ -47,16 +53,7 @@ const KIND_LABEL: Record<NonNullable<Tracker["kind"]>, string> = { script: "Scri
 
 type Op = { type: "remove"; id: string } | { type: "category"; id: string; category: CategoryId } | { type: "status"; ids: string[]; status: TrackerStatus; category?: CategoryId };
 
-/** "7 Oct 2026", in UTC so server and browser render the same text */
-function day(iso: string) {
-  return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
-}
-
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
-
-function when(iso: string) {
-  return new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
-}
 
 /** "/pricing" from a full URL; "/" for the homepage */
 function pathOf(url: string) {
@@ -106,6 +103,7 @@ export function TrackersManager({
 
   const [tab, setTab] = useState<TrackerStatus>(review.length || !approved.length ? "review" : "approved");
   const [adding, setAdding] = useState(false);
+  const [removing, setRemoving] = useState<Tracker | null>(null);
 
   const approve = (t: Tracker) => {
     if (!t.category) return toast(`Choose a category for ${t.name} first.`, "error");
@@ -201,7 +199,7 @@ export function TrackersManager({
             header: <span className="sr-only">Actions</span>,
             mobileLabel: "Actions",
             align: "right" as const,
-            cell: (t: Tracker) => <RowActions t={t} onApprove={approve} run={run} propertyId={propertyId} />,
+            cell: (t: Tracker) => <RowActions t={t} onApprove={approve} onRemove={setRemoving} run={run} propertyId={propertyId} />,
           },
         ]
       : []),
@@ -242,10 +240,10 @@ export function TrackersManager({
           },
           { label: "Ignored", value: String(ignored.length), note: "Not suggested again" },
           lastScan?.status === "failed"
-            ? { label: "Last scan", value: "Failed", note: day(lastScan.finishedAt), tone: "bad" as const }
+            ? { label: "Last scan", value: "Failed", note: formatDate(lastScan.finishedAt), tone: "bad" as const }
             : {
                 label: "Last scan",
-                value: lastOk ? day(lastOk.finishedAt) : "No scan yet",
+                value: lastOk ? formatDate(lastOk.finishedAt) : "No scan yet",
                 note: lastOk ? `${plural(lastOk.pages, "page")} read, ${lastOk.findings} found${lastOk.unknown ? ` (${lastOk.unknown} unknown)` : ""}` : "Scan to find trackers",
               },
         ]}
@@ -253,16 +251,13 @@ export function TrackersManager({
 
       <ScanCard propertyId={propertyId} domain={domain} scans={scans} canWrite={canWrite} knownCount={knownCount} onScanned={(added) => added > 0 && setTab("review")} />
 
-      <section aria-labelledby="inventory-h" className="space-y-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h2 id="inventory-h" className="text-lg font-semibold">
-              Tracker inventory
-            </h2>
-            <p className="text-sm text-ink-3">Approve what you use, ignore what you don&apos;t. Only approved trackers are published.</p>
-          </div>
-          {canWrite ? (
-            <div className="flex flex-wrap gap-2">
+      <PageSection
+        id="inventory"
+        title="Tracker inventory"
+        description="Approve what you use, ignore what you don't. Only approved trackers are published."
+        actions={
+          canWrite ? (
+            <>
               {tab === "review" && ready.length ? (
                 <Button
                   variant="ghost"
@@ -276,18 +271,18 @@ export function TrackersManager({
                     )
                   }
                 >
-                  <IconCheck size={16} />
+                  <IconCheck size={16} aria-hidden />
                   Approve all suggested ({ready.length})
                 </Button>
               ) : null}
               <Button variant="ghost" size="sm" onClick={() => setAdding(true)}>
-                <IconPlus size={16} />
+                <IconPlus size={16} aria-hidden />
                 Add manually
               </Button>
-            </div>
-          ) : null}
-        </div>
-
+            </>
+          ) : null
+        }
+      >
         <div>
           <Tabs<TrackerStatus>
             idBase="trk"
@@ -319,7 +314,8 @@ export function TrackersManager({
                     columns={columns}
                     rowKey={(r) => r.id}
                     initialSort={{ id: "name", dir: "ascending" }}
-                    minWidth={canWrite ? 960 : 760}
+                    // an empty table needs no sideways scroll; rows need room for the category picker
+                    minWidth={!t.rows.length ? 0 : canWrite ? 960 : 760}
                     empty={empty[t.value]}
                     footer={t.rows.length ? footer[t.value] : undefined}
                   />
@@ -327,7 +323,7 @@ export function TrackersManager({
               </TabPanel>
             ))}
         </div>
-      </section>
+      </PageSection>
 
       <ScanHistory scans={scans} />
 
@@ -336,6 +332,23 @@ export function TrackersManager({
           <AddTrackerForm propertyId={propertyId} onDone={() => setAdding(false)} />
         </Dialog>
       ) : null}
+      {canWrite ? (
+        <ConfirmDialog
+          open={removing !== null}
+          onClose={() => setRemoving(null)}
+          title={`Remove ${removing?.name ?? "tracker"}?`}
+          description="It leaves the inventory and is no longer held: after you publish, it runs without consent unless another rule holds it. A later scan may suggest it again."
+          confirmLabel="Remove tracker"
+          pendingLabel="Removing"
+          destructive
+          onConfirm={async () => {
+            if (!removing) return;
+            const r = await removeTracker(propertyId, removing.id);
+            if (r?.error) return { error: r.error };
+            if (r?.ok) toast(r.ok);
+          }}
+        />
+      ) : null}
     </div>
   );
 }
@@ -343,19 +356,21 @@ export function TrackersManager({
 function RowActions({
   t,
   onApprove,
+  onRemove,
   run,
   propertyId,
 }: {
   t: Tracker;
   onApprove: (t: Tracker) => void;
+  onRemove: (t: Tracker) => void;
   run: (op: Op, action: () => Promise<ActionResult>) => void;
   propertyId: string;
 }) {
   const s = statusOf(t);
   const ignore = () => run({ type: "status", ids: [t.id], status: "ignored" }, () => ignoreTrackers(propertyId, [t.id]));
   const remove = (
-    <Button variant="quiet" size="sm" aria-label={`Remove ${t.name}`} title="Remove" onClick={() => run({ type: "remove", id: t.id }, () => removeTracker(propertyId, t.id))}>
-      <IconTrash size={16} />
+    <Button variant="danger-quiet" size="sm" aria-label={`Remove ${t.name}`} title="Remove" onClick={() => onRemove(t)}>
+      <IconTrash size={16} aria-hidden />
       <span className="sm:sr-only">Remove</span>
     </Button>
   );
@@ -427,73 +442,70 @@ function ScanCard({
     });
 
   return (
-    <section aria-labelledby="scan-h" className="overflow-hidden rounded-[16px] border border-line bg-surface">
-      <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-        <div className="min-w-0">
-          <h2 id="scan-h" className="text-lg font-semibold">
-            Scan {domain}
-          </h2>
-          <p className="max-w-[62ch] text-sm text-ink-3">
-            We read up to 10 pages of your site and check every script, embed, pixel and cookie against {knownCount} known trackers. Takes up to 25 seconds.
-          </p>
-        </div>
-        {canWrite ? (
-          <Button loading={scanning} loadingLabel="Scanning" onClick={scan} className="shrink-0 max-sm:w-full">
-            <IconScan size={18} />
-            Scan now
-          </Button>
-        ) : null}
-      </div>
+    <Card aria-labelledby="scan-h">
+      <CardHeader
+        titleId="scan-h"
+        title={`Scan ${domain}`}
+        description={`We read up to 10 pages of your site and check every script, embed, pixel and cookie against ${knownCount} known trackers. Takes up to 25 seconds.`}
+        divider={false}
+        actions={
+          canWrite ? (
+            <Button loading={scanning} loadingLabel="Scanning" onClick={scan} className="max-sm:w-full">
+              <IconScan size={18} aria-hidden />
+              Scan now
+            </Button>
+          ) : null
+        }
+      />
       <div aria-live="polite">
         {scanning ? (
           <p className="border-t border-line px-5 py-3 text-sm text-ink-2 sm:px-6">Reading your pages. New trackers will appear under To review.</p>
         ) : shownError ? (
-          <p role="alert" className="flex gap-2 border-t border-line px-5 py-3 text-sm text-ink sm:px-6">
-            <IconAlert size={18} className="mt-0.5 shrink-0 text-rose" aria-hidden />
-            <span>
-              <span className="font-medium">The scan didn&apos;t finish.</span> {shownError}
-            </span>
-          </p>
+          <div className="border-t border-line px-5 py-4 sm:px-6">
+            <Alert tone="danger" title="The scan didn't finish.">
+              {shownError}
+            </Alert>
+          </div>
         ) : null}
       </div>
-    </section>
+    </Card>
   );
 }
 
 function ScanHistory({ scans }: { scans: ScanSummary[] }) {
   if (!scans.length) return null;
   return (
-    <details className="group rounded-[16px] border border-line bg-surface">
-      <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-[16px] px-5 py-3 text-sm font-semibold hover:bg-paper focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand sm:px-6 [&::-webkit-details-marker]:hidden">
-        <span className="flex items-center gap-2">
-          <IconClock size={16} className="text-ink-3" aria-hidden />
-          Scan history
-          <span className="font-normal text-ink-3">(last {scans.length})</span>
-        </span>
-        <IconChevronDown size={16} className="text-ink-3 transition-transform group-open:rotate-180" aria-hidden />
-      </summary>
-      <ol className="divide-y divide-line border-t border-line">
-        {scans.map((s) => (
-          <li key={s.id} className="flex flex-col gap-1 px-5 py-3 text-sm sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-6">
-            <time dateTime={s.finishedAt} className="tabular-nums text-ink-2" suppressHydrationWarning>
-              {when(s.finishedAt)}
-            </time>
-            {s.status === "ok" ? (
-              <span className="text-ink-2">
-                {s.pages} page{s.pages === 1 ? "" : "s"} read, {s.findings} found{s.unknown ? `, ${s.unknown} unknown` : ""}
-              </span>
-            ) : (
-              <span className="flex items-start gap-1.5 text-ink-2">
-                <IconAlert size={16} className="mt-0.5 shrink-0 text-rose" aria-hidden />
-                <span>
-                  <span className="font-medium text-ink">Failed:</span> {s.error ?? "Unknown error."}
+    <Card as="div">
+      <details className="group">
+        <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-5 py-3 text-sm font-semibold group-open:rounded-b-none hover:bg-paper focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand sm:px-6 [&::-webkit-details-marker]:hidden">
+          <span className="flex items-center gap-2">
+            <IconClock size={16} className="text-ink-3" aria-hidden />
+            Scan history
+            <span className="font-normal text-ink-3">(last {scans.length})</span>
+          </span>
+          <IconChevronDown size={16} className="text-ink-3 transition-transform group-open:rotate-180" aria-hidden />
+        </summary>
+        <ol className="divide-y divide-line border-t border-line">
+          {scans.map((s) => (
+            <li key={s.id} className="flex flex-col gap-1 px-5 py-3 text-sm sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-6">
+              <DateText iso={s.finishedAt} mode="datetime" className="tabular-nums text-ink-2" />
+              {s.status === "ok" ? (
+                <span className="text-ink-2">
+                  {s.pages} page{s.pages === 1 ? "" : "s"} read, {s.findings} found{s.unknown ? `, ${s.unknown} unknown` : ""}
                 </span>
-              </span>
-            )}
-          </li>
-        ))}
-      </ol>
-    </details>
+              ) : (
+                <span className="flex items-start gap-1.5 text-ink-2">
+                  <IconAlert size={16} className="mt-0.5 shrink-0 text-rose" aria-hidden />
+                  <span>
+                    <span className="font-medium text-ink">Failed:</span> {s.error ?? "Unknown error."}
+                  </span>
+                </span>
+              )}
+            </li>
+          ))}
+        </ol>
+      </details>
+    </Card>
   );
 }
 

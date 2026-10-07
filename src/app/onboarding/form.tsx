@@ -22,7 +22,7 @@ type Errors = Partial<Record<string, string>>;
 
 const STEPS = [
   { id: "use", title: "Who it's for" },
-  { id: "workspace", title: "Workspace" },
+  { id: "workspace", title: "Organization" },
   { id: "site", title: "First site" },
   { id: "plan", title: "Plan" },
   { id: "review", title: "Review" },
@@ -299,9 +299,9 @@ export function OnboardingForm({
 
   function validate(i: number): Errors {
     const e: Errors = {};
-    if (i === 0 && !kind) e.kind = "Choose who this workspace is for.";
+    if (i === 0 && !kind) e.kind = "Choose who this organization is for.";
     if (i === 1) {
-      if (org.trim().length < 2) e.org = kind === "personal" ? "Name your workspace." : "Enter your organization's name.";
+      if (org.trim().length < 2) e.org = kind === "personal" ? "Name your organization." : "Enter your organization's name.";
       if (kind === "organization" && !teamSize) e.teamSize = "Choose your team size.";
     }
     if (i === 2) {
@@ -373,9 +373,9 @@ export function OnboardingForm({
         <div key={step} ref={stepRef}>
           {step === 0 ? (
             <fieldset aria-describedby={errors.kind ? fieldId("kind-error") : undefined}>
-              <legend className="sr-only">Who is this workspace for?</legend>
+              <legend className="sr-only">Who is this organization for?</legend>
               {heading(
-                firstName ? `Welcome, ${firstName}. Who's this for?` : "Who's this workspace for?",
+                firstName ? `Welcome, ${firstName}. Who's this for?` : "Who's this organization for?",
                 "We'll tailor the setup and suggest a plan. You can invite a team or change plans later.",
               )}
               <div className="grid gap-3 sm:grid-cols-2">
@@ -408,16 +408,16 @@ export function OnboardingForm({
           {step === 1 ? (
             <div>
               {heading(
-                kind === "personal" ? "Name your workspace" : "Tell us about your organization",
+                kind === "personal" ? "Name your organization" : "Tell us about your organization",
                 kind === "personal"
-                  ? "Your workspace holds your sites and consent records."
+                  ? "Your organization holds your sites and consent records. You can rename it later."
                   : "An organization holds your sites, team, billing and consent records. Agencies usually create one per client.",
               )}
               <div className="space-y-5">
                 <TextField
                   id={fieldId("org")}
                   name=""
-                  label={kind === "personal" ? "Workspace name" : "Organization name"}
+                  label="Organization name"
                   placeholder={kind === "personal" ? "My sites" : "Acme Retail Pvt Ltd"}
                   autoComplete={kind === "personal" ? "off" : "organization"}
                   maxLength={80}
@@ -530,7 +530,7 @@ export function OnboardingForm({
                   const selected = chosenPlan === p.id;
                   const limits = [
                     { label: "Websites", value: p.properties === null ? "Unlimited" : String(p.properties) },
-                    { label: "Pageviews / month", value: p.pageviews === null ? "Custom" : compactNumber(p.pageviews) },
+                    { label: "Banner views / month", value: p.pageviews === null ? "Custom" : compactNumber(p.pageviews) },
                     { label: "Team seats", value: p.seats === null ? "Unlimited" : String(p.seats) },
                     { label: "Consent log", value: retentionLabel(p.logRetentionDays) },
                   ];
@@ -578,7 +578,7 @@ export function OnboardingForm({
                 <div className="flex flex-col gap-3 rounded-[16px] bg-paper p-5 ring-1 ring-inset ring-line sm:flex-row sm:items-center sm:justify-between">
                   <span className="min-w-0">
                     <span className="block text-base font-semibold text-ink">Enterprise</span>
-                    <span className="mt-1 block text-[13px] leading-snug text-ink-3">Custom volume, SSO, dedicated data residency and a 99.99% delivery SLA.</span>
+                    <span className="mt-1 block text-[13px] leading-snug text-ink-3">Custom volume, SSO on request, EU or US residency by arrangement and an uptime SLA in your contract.</span>
                   </span>
                   <Link href="/contact-sales" className="btn btn-pill btn-ghost shrink-0">
                     Talk to sales
@@ -600,8 +600,8 @@ export function OnboardingForm({
               {heading("Review and create", paid ? "Check the details, then confirm payment securely on Stripe." : "Check the details. Your banner can be live in about five minutes.")}
               <dl className="divide-y divide-line overflow-hidden rounded-[14px] ring-1 ring-line">
                 {[
-                  { k: "Type", v: kind === "personal" ? "Personal workspace" : `Organization${teamSize ? `, ${teamSize} people` : ""}`, to: 0 },
-                  { k: kind === "personal" ? "Workspace" : "Organization", v: org, to: 1 },
+                  { k: "Type", v: kind === "personal" ? "Personal organization" : `Company or agency${teamSize ? `, ${teamSize} people` : ""}`, to: 0 },
+                  { k: "Organization", v: org, to: 1 },
                   { k: "Data region", v: regionLabel(region), to: 1 },
                   { k: "First site", v: `${site} · ${normalizeDomain(domain)}`, to: 2 },
                   {
@@ -631,7 +631,7 @@ export function OnboardingForm({
               {paid ? (
                 <p className="mt-4 flex gap-2 rounded-[12px] bg-paper px-4 py-3 text-sm text-ink-2 ring-1 ring-inset ring-line">
                   <IconChevronRight size={16} className="mt-0.5 shrink-0 text-brand" />
-                  We create your workspace first, so your site is protected on Free straight away. {planById(chosenPlan).name} applies as soon as Stripe confirms payment.
+                  We create your organization first, so your site is protected on Free straight away. {planById(chosenPlan).name} applies as soon as Stripe confirms payment.
                 </p>
               ) : null}
             </div>
@@ -656,8 +656,8 @@ export function OnboardingForm({
               <IconArrowRight size={16} />
             </Button>
           ) : (
-            <SubmitButton className="w-full sm:w-auto" pending={paid ? "Opening secure checkout" : "Creating workspace"}>
-              {paid ? `Create workspace and pay` : "Create workspace"}
+            <SubmitButton className="w-full sm:w-auto" pending={paid ? "Opening secure checkout" : "Creating organization"}>
+              {paid ? `Create organization and pay` : "Create organization"}
             </SubmitButton>
           )}
         </div>

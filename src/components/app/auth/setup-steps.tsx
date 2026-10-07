@@ -1,10 +1,10 @@
 import { IconCheck } from "@/components/icons";
 
-const SETUP = ["Account", "Verify email", "Workspace", "Plan"] as const;
+const SETUP = ["Account", "Verify email", "Organization", "Plan"] as const;
 
 /**
  * Where someone is in getting started: create the account, confirm the email, then set up the
- * workspace (with its first site) and choose a plan in onboarding. Finished steps show a tick.
+ * organization (with its first site) and choose a plan in onboarding. Finished steps show a tick.
  */
 export function SetupSteps({ current = 0 }: { current?: number }) {
   return (

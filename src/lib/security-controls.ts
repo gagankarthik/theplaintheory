@@ -56,7 +56,7 @@ export async function evaluateControls(store: Store, org: Organization, now = ne
       title: "Two-factor sign-in is required",
       status: org.security?.requireMfa ? "pass" : "attention",
       detail: org.security?.requireMfa
-        ? "Members without two-factor are sent to set it up before they can use the app or download exports."
+        ? "Members without two-factor are sent to set it up before they can use the app or download exports. They can skip for up to 7 days from the first time they're asked."
         : "Two-factor is optional. An owner can require it in Settings.",
       evidence: [{ label: "Settings", href: "/app/settings" }],
     },
@@ -66,7 +66,7 @@ export async function evaluateControls(store: Store, org: Organization, now = ne
       title: "Every member uses two-factor",
       status: withoutMfa.length ? "attention" : "pass",
       detail: withoutMfa.length
-        ? `${pct}% enrolled. Without two-factor: ${withoutMfa.map((m) => m.user!.email).join(", ")}.`
+        ? `${pct}% enrolled. Without two-factor: ${withoutMfa.map((m) => m.user!.email + (org.security?.requireMfa && m.user!.mfaSetupDeferredUntil ? ` (not set up · due ${new Date(m.user!.mfaSetupDeferredUntil).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })})` : "")).join(", ")}.`
         : `All ${people.length} member${people.length === 1 ? "" : "s"} have two-factor on.`,
       evidence: [
         { label: "Team", href: "/app/team" },

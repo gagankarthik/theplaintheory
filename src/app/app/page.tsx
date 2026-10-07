@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { MfaPrompt } from "@/components/app/account/mfa-prompt";
 import { PageHeader } from "@/components/app/shell/page-header";
 import { AddSite } from "@/components/app/sites/add-site";
 import { SitesTable } from "@/components/app/sites/sites-table";
@@ -7,6 +8,7 @@ import { StatStrip } from "@/components/app/ui/stat-strip";
 import { IconSites } from "@/components/icons";
 import { daysAgoIso, formatInt, formatPct, outcomeOf } from "@/lib/analytics";
 import { can } from "@/lib/auth/rbac";
+import { mfaRequirementState, showMfaPrompt } from "@/lib/auth/second-factor";
 import { requireUser } from "@/lib/auth/session";
 import { planById } from "@/lib/plans";
 import { getStore } from "@/lib/store";
@@ -17,7 +19,7 @@ export const metadata: Metadata = { title: "Sites" };
 const plural = (n: number, word: string) => `${formatInt(n)} ${word}${n === 1 ? "" : "s"}`;
 
 export default async function SitesPage() {
-  const { org, role } = await requireUser();
+  const { org, role, user } = await requireUser();
   const store = await getStore();
   const properties = await store.listProperties(org.id);
   const since = daysAgoIso(30);
@@ -57,9 +59,19 @@ export default async function SitesPage() {
   const leaks = sites.reduce((a, s) => a + s.leaks, 0);
   const leaking = sites.filter((s) => s.leaks > 0);
 
+  // Two-factor nudge: the deadline for a member who skipped required setup, else an optional prompt.
+  const mfaState = mfaRequirementState(org, user);
+  const mfaPrompt =
+    mfaState === "deferred" ? (
+      <MfaPrompt kind="deferred" orgName={org.name} deadline={user.mfaSetupDeferredUntil} />
+    ) : mfaState === "ok" && showMfaPrompt(user) ? (
+      <MfaPrompt kind="optional" />
+    ) : null;
+
   return (
     <>
-      <PageHeader live title="Sites" description={`Every website in ${org.name}. Each has its own banner, trackers and consent log.`} actions={rows.length ? addSite : null} />
+      <PageHeader live title="Sites" description={`Every site in ${org.name}. Each has its own banner, trackers and consent log.`} actions={rows.length ? addSite : null} />
+      {mfaPrompt}
       {rows.length === 0 ? (
         <EmptyState icon={<IconSites size={24} />} title="Add your first site" action={addSite}>
           You&apos;ll get a script tag to paste into your site. Trackers stay held until visitors choose.

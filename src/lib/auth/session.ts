@@ -5,6 +5,7 @@ import { id } from "../crypto";
 import { requestContext } from "../request-context";
 import { getStore } from "../store";
 import type { SessionRecord } from "../types";
+import { mfaRequirementState } from "./second-factor";
 import {
   ABSOLUTE_SECONDS,
   IDLE_SECONDS,
@@ -106,8 +107,9 @@ export async function destroySession() {
 
 /**
  * For server components and actions inside /app: the user and active org, or a redirect.
- * When the organization requires MFA and this user hasn't enrolled, everything except the account
- * page redirects to enrolment (pass `allowWithoutMfa` from the account page and its actions).
+ * When the organization requires MFA and this user hasn't enrolled (and hasn't skipped inside the
+ * grace period), everything except the account page redirects to enrolment (pass `allowWithoutMfa`
+ * from the account page and its actions).
  */
 export async function requireUser(opts: { allowWithoutMfa?: boolean } = {}) {
   const session = await getSession();
@@ -122,7 +124,7 @@ export async function requireUser(opts: { allowWithoutMfa?: boolean } = {}) {
   if (!org) redirect("/onboarding");
   // Suspended by Plain Theory staff: no dashboard access until it's lifted (the page explains why).
   if (org.suspendedAt) redirect("/suspended");
-  if (org.security?.requireMfa && !user.mfa && !opts.allowWithoutMfa) redirect("/app/account?mfa=required");
+  if (!opts.allowWithoutMfa && mfaRequirementState(org, user) === "required") redirect("/app/account?mfa=required");
   return { session, user, org, role: active.role, memberships };
 }
 

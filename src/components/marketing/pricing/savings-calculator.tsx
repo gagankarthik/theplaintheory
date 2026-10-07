@@ -56,7 +56,7 @@ export function SavingsCalculator({ plans }: { plans: Plan[] }) {
         <div>
           <div className="flex items-baseline justify-between gap-4">
             <label htmlFor={pvId} className="text-sm font-medium text-ink">
-              Pageviews a month, all sites together
+              Banner views a month, all sites together
             </label>
             <output htmlFor={pvId} className="display text-3xl tabular-nums">
               {compactNumber(pageviews)}
@@ -70,7 +70,7 @@ export function SavingsCalculator({ plans }: { plans: Plan[] }) {
             step={1}
             value={stop}
             onChange={(e) => setStop(Number(e.target.value))}
-            aria-valuetext={`${pageviews.toLocaleString("en-US")} pageviews a month`}
+            aria-valuetext={`${pageviews.toLocaleString("en-US")} banner views a month`}
             className="mt-4 h-2 w-full cursor-pointer accent-[var(--color-ink)]"
           />
           <div className="mt-2 flex justify-between text-xs text-ink-3" aria-hidden>
@@ -80,7 +80,7 @@ export function SavingsCalculator({ plans }: { plans: Plan[] }) {
         </div>
 
         <p className="text-sm leading-relaxed text-ink-3">
-          Pageviews are pooled across all your sites. Adding a site never adds a fee on its own.
+          Banner views are pooled across all your sites. Adding a site never adds a fee on its own.
         </p>
       </div>
 
@@ -121,7 +121,7 @@ export function SavingsCalculator({ plans }: { plans: Plan[] }) {
 
         {plan.id === "enterprise" ? (
           <Link href="/contact-sales" className="btn btn-pill btn-primary">
-            Talk to sales about {compactNumber(pageviews)} pageviews
+            Talk to sales about {compactNumber(pageviews)} banner views
           </Link>
         ) : (
           <Link href={plan.id === "free" ? "/signup" : `/signup?plan=${plan.id}`} className="btn btn-pill btn-primary">

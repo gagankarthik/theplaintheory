@@ -51,7 +51,7 @@ export default async function TeamPage() {
     {
       label: "Without two-factor",
       value: String(withoutMfa),
-      note: withoutMfa ? (org.security?.requireMfa ? "Required before they can use the app" : "Two-factor is optional") : "Everyone has it on",
+      note: withoutMfa ? (org.security?.requireMfa ? "Required; each gets 7 days to set it up" : "Two-factor is optional") : "Everyone has it on",
       tone: withoutMfa ? "warn" : undefined,
     },
   ];
@@ -84,6 +84,8 @@ export default async function TeamPage() {
           role: m.role,
           since: m.createdAt,
           mfa: Boolean(m.user?.mfa),
+          // inside the grace period of a required setup: show the deadline
+          mfaDue: org.security?.requireMfa && !m.user?.mfa ? m.user?.mfaSetupDeferredUntil : undefined,
           lastActiveAt: m.user?.lastActiveAt,
           invitedBy: m.invitedBy,
         }))}

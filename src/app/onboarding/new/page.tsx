@@ -22,8 +22,8 @@ export default async function NewOrgPage() {
         </Link>
       </header>
       <main className="container-page max-w-4xl py-8 sm:py-12">
-        <h1 className="text-2xl font-bold">New workspace</h1>
-        <p className="mb-8 mt-2 text-base text-ink-2">Each workspace has its own sites, team, billing and consent records.</p>
+        <h1 className="text-2xl font-bold">New organization</h1>
+        <p className="mb-8 mt-2 text-base text-ink-2">Each organization has its own sites, team, billing and consent records.</p>
         <OnboardingForm plans={(await getLivePlans()).filter((p) => p.id !== "enterprise")} />
       </main>
     </div>

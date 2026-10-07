@@ -352,7 +352,7 @@ export function SiteHeader() {
               ))}
             </ul>
             <pre className="mt-4 overflow-x-auto rounded-[10px] bg-black/25 px-3 py-2.5 font-mono text-[12px] text-white/85">
-              <code>npm i @plaintheory/react</code>
+              <code>{'<script src="…/plain-consent.js" data-site="pk_live_…">'}</code>
             </pre>
           </div>
         </div>,

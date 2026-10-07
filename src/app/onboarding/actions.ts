@@ -20,8 +20,8 @@ export type OnboardState = ActionResult;
 
 const schema = z
   .object({
-    kind: z.enum(["personal", "organization"], "Choose who this workspace is for."),
-    org: z.string().trim().min(2, "Name your workspace.").max(80, "Keep the name under 80 characters."),
+    kind: z.enum(["personal", "organization"], "Choose who this organization is for."),
+    org: z.string().trim().min(2, "Name your organization.").max(80, "Keep the name under 80 characters."),
     teamSize: z.enum(TEAM_SIZES).optional(),
     dataRegion: z.enum(["ap-south-1", "ap-south-2", "eu-central-1", "us-east-1"], "Pick where records are stored."),
     site: z.string().trim().min(2, "Name your first site.").max(60, "Keep the site name under 60 characters."),
@@ -75,7 +75,7 @@ export async function createWorkspace(_: OnboardState, form: FormData): Promise<
   const d = parsed.data;
   // Records are written where this deployment's tables live; never claim a region we don't store in.
   if (process.env.STORE_DRIVER === "dynamodb" && d.dataRegion !== awsRegion) {
-    const msg = `New workspaces store their records in ${regionLabel(awsRegion as Organization["dataRegion"])}. For another region, talk to sales.`;
+    const msg = `New organizations store their records in ${regionLabel(awsRegion as Organization["dataRegion"])}. For another region, talk to sales.`;
     return { error: msg, fieldErrors: { dataRegion: [msg] } };
   }
 

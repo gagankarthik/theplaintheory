@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
 import { IconAlert } from "@/components/icons";
+import { Card, CardFooter, CardHeader } from "./card";
 
-/** Group of settings rows in one card: heading on top, rows separated by hairlines, actions in the footer. */
+/** Group of settings rows in one Card: heading on top, rows separated by hairlines, actions in the footer. */
 export function SettingsSection({
   title,
   description,
@@ -19,19 +20,12 @@ export function SettingsSection({
   /** anchor for deep links, e.g. /app/settings#dpo */
   id?: string;
 }) {
-  const danger = tone === "danger";
   return (
-    <section id={id} className={`mb-6 scroll-mt-20 overflow-hidden rounded-[16px] border bg-surface ${danger ? "border-rose/40" : "border-line"}`}>
-      <div className={`border-b px-5 py-4 sm:px-6 ${danger ? "border-rose/25 bg-rose-wash/60" : "border-line"}`}>
-        <h2 className={`flex items-center gap-2 text-base font-semibold ${danger ? "text-rose" : ""}`}>
-          {danger ? <IconAlert size={18} /> : null}
-          {title}
-        </h2>
-        {description ? <p className="mt-0.5 max-w-[68ch] text-sm text-ink-3">{description}</p> : null}
-      </div>
+    <Card id={id} tone={tone} className="mb-6 scroll-mt-20">
+      <CardHeader title={title} description={description} icon={tone === "danger" ? <IconAlert size={18} /> : undefined} />
       <div className="divide-y divide-line px-5 sm:px-6">{children}</div>
-      {footer ? <div className="flex flex-wrap items-center justify-end gap-3 border-t border-line bg-paper/60 px-5 py-3.5 sm:px-6">{footer}</div> : null}
-    </section>
+      {footer ? <CardFooter>{footer}</CardFooter> : null}
+    </Card>
   );
 }
 

@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { loadEnv } from "vite";
+import { loadEnvLocal } from "./env";
 
 /**
  * Runs the staff sign-in state machine against the REAL staff user pool. Skipped unless
@@ -43,7 +43,7 @@ describe.skipIf(!RUN)("staff Cognito pool (integration)", () => {
   }
 
   beforeAll(async () => {
-    const env = loadEnv("development", process.cwd(), "");
+    const env = loadEnvLocal();
     // The module under test gets the app's keys; the admin client below uses the default chain.
     for (const k of ["COGNITO_STAFF_POOL_ID", "COGNITO_STAFF_CLIENT_ID", "COGNITO_REGION", "PT_AWS_REGION", "PT_AWS_ACCESS_KEY_ID", "PT_AWS_SECRET_ACCESS_KEY", "SESSION_SECRET"]) {
       if (env[k] && !process.env[k]) process.env[k] = env[k];

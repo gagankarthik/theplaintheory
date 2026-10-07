@@ -191,13 +191,6 @@
   .btn-primary:hover {
     background: var(--color-brand-ink);
   }
-  .btn-ink {
-    background: var(--color-ink);
-    color: white;
-  }
-  .btn-ink:hover {
-    background: #222a44;
-  }
   .btn-white {
     background: white;
     color: var(--color-ink);
@@ -225,6 +218,36 @@
   .btn-danger {
     background: var(--color-rose);
     color: white;
+  }
+  .btn-danger:hover {
+    background: color-mix(in srgb, var(--color-rose) 86%, black);
+  }
+  /* Row-level remove: as quiet as a text button until hovered or focused, then rose. */
+  .btn-danger-quiet {
+    background: transparent;
+    color: var(--color-ink-2);
+  }
+  .btn-danger-quiet:hover,
+  .btn-danger-quiet:focus-visible {
+    background: var(--color-rose-wash);
+    color: var(--color-rose);
+  }
+  /* Text button: no box, underlined, for secondary actions in running text and filter bars. */
+  .btn-link {
+    height: auto;
+    min-height: 1.5rem;
+    padding: 0;
+    color: var(--color-ink-2);
+    text-decoration: underline;
+    text-decoration-color: var(--color-line-strong);
+    text-underline-offset: 4px;
+  }
+  .btn-link:hover {
+    color: var(--color-ink);
+    text-decoration-color: currentColor;
+  }
+  .btn-link:active {
+    transform: none;
   }
 
   /* Text link with an underline that draws in on hover */

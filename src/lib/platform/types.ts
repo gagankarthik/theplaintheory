@@ -15,6 +15,10 @@ export type PlatformAuditAction =
   | "staff.disabled"
   | "staff.enabled"
   | "staff.removed"
+  | "staff.signed_in"
+  | "staff.device_trusted"
+  | "staff.device_forgotten"
+  | "staff.signed_out_everywhere"
   /** from the earlier model (roles stored on customer accounts); kept so old events still display */
   | "staff.granted"
   | "staff.revoked"
@@ -70,6 +74,10 @@ export const PLATFORM_AUDIT_LABELS: Record<PlatformAuditAction, string> = {
   "staff.disabled": "Disabled staff account",
   "staff.enabled": "Enabled staff account",
   "staff.removed": "Removed staff account",
+  "staff.signed_in": "Signed in to the console",
+  "staff.device_trusted": "Trusted a browser for 30 days",
+  "staff.device_forgotten": "Forgot trusted browsers",
+  "staff.signed_out_everywhere": "Signed out everywhere",
   "staff.granted": "Granted staff role",
   "staff.revoked": "Removed staff role",
   "lead.status_changed": "Changed request status",

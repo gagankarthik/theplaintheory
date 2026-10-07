@@ -29,7 +29,7 @@ export const metadata: Metadata = {
 const faq = (sizeKb: string): FaqItem[] => [
   {
     q: "Does Plain Theory block trackers before consent, or only show a banner?",
-    a: "It blocks them. Scripts you mark, and known trackers it recognises, are held in place and only run after the visitor agrees to their category. If one still fires after a decline, you get a leak alert with the page and the script.",
+    a: "It blocks them. Scripts you mark, and known trackers it recognises, are held in place and only run after the visitor agrees to their category. If one still fires after a decline, it shows up on your Leaks page with the page and the script (and, on Business, as a signed webhook).",
   },
   {
     q: "Do we need to register with India's Data Protection Board to use a consent platform?",
@@ -46,11 +46,11 @@ const faq = (sizeKb: string): FaqItem[] => [
   },
   {
     q: "How do I prove consent to an auditor or the Data Protection Board?",
-    a: "Every decision is a receipt linked to the previous one by a SHA-256 hash. Verify the whole chain in one click, check it against the daily anchors we publish, and export an Evidence Pack with the banner you showed and the signals you honoured.",
+    a: "Every decision is a receipt linked to the previous one by a SHA-256 hash. Verify the whole chain in one click, hand over the export so anyone can check the chain themselves, and export an Evidence Pack with the banner you showed and the signals you honoured.",
   },
   {
     q: "Where is consent data stored?",
-    a: "In the AWS region you choose: Mumbai or Hyderabad for India, Frankfurt for Europe, or N. Virginia. Raw IP addresses are never stored. They're truncated and hashed before anything is written.",
+    a: "In India, in AWS Mumbai (ap-south-1). EU or US residency is available on Enterprise, by arrangement. Raw IP addresses are never stored. They're truncated and hashed before anything is written.",
   },
   {
     q: "Will it slow my site down?",

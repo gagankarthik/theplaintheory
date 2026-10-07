@@ -16,10 +16,25 @@ export interface User {
   /** Cognito user pool `sub` (AUTH_DRIVER=cognito). Linked by e-mail at sign-up and refreshed at each sign-in. */
   cognitoSub?: string;
   passwordChangedAt?: string;
-  /** TOTP multi-factor authentication, run by the app for both auth drivers (Cognito's own MFA isn't used). */
+  /**
+   * Two-factor sign-in, run by the app for both auth drivers (Cognito's own MFA isn't used).
+   * Present exactly when at least one factor (authenticator app or passkey) is set up, so `user.mfa`
+   * means "two-factor is on" everywhere.
+   */
   mfa?: UserMfa;
   /** enrolment started but not yet confirmed with a code; expires after 15 minutes */
   mfaPending?: { secretEnc: string; createdAt: string };
+  /** an outstanding WebAuthn challenge (passkey registration or sign-in); single use, 5 minutes */
+  webauthnChallenge?: WebAuthnChallenge;
+  /**
+   * Under an organization that requires two-factor: the end of the grace period, set to 7 days after
+   * the first time the member was asked to set it up. Never moved later.
+   */
+  mfaSetupDeferredUntil?: string;
+  /** when the member chose "Skip for now" on the required setup screen (keeps them working until the deadline) */
+  mfaSetupSkippedAt?: string;
+  /** when the optional "Protect your account" prompt was dismissed; it stays away for 30 days */
+  mfaPromptDismissedAt?: string;
   /** failed sign-ins inside the current lockout window (SOC 2 CC6.1) */
   loginFailures?: { count: number; windowStart: string };
   lockedUntil?: string;
@@ -28,13 +43,40 @@ export interface User {
 }
 
 export interface UserMfa {
-  /** AES-256-GCM encrypted base32 TOTP secret ("v1:iv:tag:ciphertext", base64url parts) */
-  secretEnc: string;
+  /**
+   * AES-256-GCM encrypted base32 TOTP secret ("v1:iv:tag:ciphertext", base64url parts). Present only
+   * when an authenticator app is set up.
+   */
+  secretEnc?: string;
+  /** passkeys (WebAuthn credentials) registered as a second factor */
+  passkeys?: Passkey[];
   enabledAt: string;
   /** sha256 hashes of unused one-time recovery codes */
   recoveryCodes: string[];
   /** last TOTP time step accepted; codes from this step or earlier are rejected (replay protection) */
   lastStep?: number;
+}
+
+/** A WebAuthn credential used as a second factor. */
+export interface Passkey {
+  /** credential ID, base64url */
+  id: string;
+  /** COSE public key, base64url */
+  publicKey: string;
+  /** signature counter last seen (0 for most synced passkeys, which don't count) */
+  counter: number;
+  transports?: string[];
+  /** the member's own label, e.g. "MacBook Touch ID" */
+  name: string;
+  createdAt: string;
+  lastUsedAt?: string;
+}
+
+export interface WebAuthnChallenge {
+  /** base64url challenge sent to the browser */
+  challenge: string;
+  purpose: "register" | "authenticate";
+  createdAt: string;
 }
 
 /** A signed-in browser. The cookie only carries this id; the record decides whether it's still valid. */
@@ -76,6 +118,11 @@ export type AuditAction =
   | "auth.mfa_enabled"
   | "auth.mfa_disabled"
   | "auth.mfa_recovery_used"
+  | "auth.mfa_setup_skipped"
+  | "auth.passkey_added"
+  | "auth.passkey_removed"
+  | "auth.passkey_counter_mismatch"
+  | "auth.totp_removed"
   | "auth.password_changed"
   | "auth.password_reset"
   | "auth.session_revoked"

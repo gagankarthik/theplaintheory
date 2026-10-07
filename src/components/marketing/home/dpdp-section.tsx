@@ -81,7 +81,7 @@ export function DpdpSection() {
             </h2>
             <p className="mt-5 max-w-[56ch] text-lg text-ink-2">
               Notices in all 22 languages of the Eighth Schedule, an itemised list of data for every purpose, rights and
-              grievance links, and consent records kept in Mumbai or Hyderabad.
+              grievance links, and consent records stored in India, in Mumbai.
             </p>
             <ArrowLink href="/compliance/dpdpa" className="mt-6 text-ink">
               Read the DPDPA readiness guide
@@ -117,7 +117,7 @@ export function DpdpSection() {
               {[
                 ["Itemised notice", "Each purpose lists the data it uses and how long it's kept."],
                 ["Any of 22 languages", "Machine-assisted drafts you review, with who reviewed them and when."],
-                ["Withdrawal as easy as consent", "A Privacy choices button on every page, and webhooks to your other systems."],
+                ["Withdrawal as easy as consent", "A Privacy choices button on every page and, on Business, signed webhooks to your other systems."],
                 ["Rights and grievances", "Links to your rights page, a grievance contact and the Data Protection Board."],
               ].map(([t, d]) => (
                 <li key={t} className="grid gap-1 py-4 sm:grid-cols-[200px_1fr] sm:gap-6">

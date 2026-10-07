@@ -9,6 +9,7 @@ import { getStore } from "../store";
 import type { SessionRecord, StaffIdentity } from "../types";
 import { assertPlatform, canPlatform, type PlatformPermission, type PlatformRole } from "./platform";
 import { STAFF_CHALLENGE_SECONDS, openChallenge, sealChallenge, type StaffChallenge, type StaffStep } from "./staff-auth";
+import { STAFF_DEVICE_COOKIE, openTrustedDevice, sealTrustedDevice, trustedDeviceCookieOptions, type DeviceSecret, type OpenedDevice } from "./staff-device";
 import {
   STAFF_ABSOLUTE_SECONDS,
   STAFF_CHALLENGE_COOKIE,
@@ -142,4 +143,21 @@ export async function requireStaffAction(permission: PlatformPermission): Promis
   if (!s) throw new Error("Your staff session has ended. Sign in again.");
   assertPlatform(s.role, permission);
   return s;
+}
+
+/* ---------------- trusted browser (STAFF_REMEMBER_DEVICE=1) ---------------- */
+
+/** This browser's sealed remembered-device cookie, opened and checked (see staff-device.ts); null when there's none. */
+export async function getTrustedDevice(): Promise<OpenedDevice | null> {
+  const value = (await cookies()).get(STAFF_DEVICE_COOKIE)?.value;
+  return value ? openTrustedDevice(value) : null;
+}
+
+/** Trust this browser for 30 days. Server Functions only. */
+export async function setTrustedDevice(d: DeviceSecret & { sub: string; email: string }) {
+  (await cookies()).set(STAFF_DEVICE_COOKIE, sealTrustedDevice(d), trustedDeviceCookieOptions());
+}
+
+export async function clearTrustedDevice() {
+  (await cookies()).delete({ name: STAFF_DEVICE_COOKIE, path: STAFF_COOKIE_PATH });
 }

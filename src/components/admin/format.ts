@@ -1,12 +1,12 @@
-// Formatting shared by console pages and client components. Fixed locale so server and client agree.
+// Console wrappers over the app-wide formatters in @/lib/format (en-GB, UTC), with "Never" for no date.
+import { formatDate, formatDateTime, formatNumber } from "@/lib/format";
 
-export const fmtInt = (n: number) => n.toLocaleString("en-US");
-export const fmtUsd = (n: number) => `$${n.toLocaleString("en-US")}`;
+export const fmtInt = (n: number) => formatNumber(n);
+export const fmtUsd = (n: number) => `$${formatNumber(n)}`;
 
-export const fmtDate = (iso?: string | null) => (iso ? new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }) : "Never");
+export const fmtDate = (iso?: string | null) => (iso ? formatDate(iso) : "Never");
 
-export const fmtDateTime = (iso?: string | null) =>
-  iso ? new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "UTC" }) + " UTC" : "Never";
+export const fmtDateTime = (iso?: string | null) => (iso ? formatDateTime(iso) : "Never");
 
 export const fmtDay = (d: string) => new Date(d + "T00:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 

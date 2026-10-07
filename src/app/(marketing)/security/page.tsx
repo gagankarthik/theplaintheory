@@ -61,11 +61,11 @@ const GROUPS: { id: string; title: string; summary: string; controls: Control[] 
   {
     id: "infrastructure",
     title: "Infrastructure",
-    summary: "Plain Theory runs on AWS, in the region you choose for consent data.",
+    summary: "Plain Theory runs on AWS, with consent data stored in India.",
     controls: [
       {
         term: "Data residency",
-        detail: "Consent records stay in one region: Mumbai (ap-south-1), Hyderabad (ap-south-2), Frankfurt (eu-central-1) or N. Virginia (us-east-1).",
+        detail: "Stored in India (Mumbai, ap-south-1). EU or US residency on Enterprise, by arrangement.",
       },
       { term: "Encryption in transit", detail: "TLS 1.2 or newer on every endpoint, with TLS 1.3 negotiated where the client supports it." },
       { term: "Encryption at rest", detail: "AES-256 for the consent database, its backups and configuration storage, with database keys managed in AWS KMS." },

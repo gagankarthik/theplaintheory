@@ -3,11 +3,13 @@
 import { useActionState, useRef } from "react";
 import { cancelStaffLogin, staffConfirmMfaSetup, staffLogin, staffNewPassword, staffVerifyMfa, type StaffAuthState } from "@/app/admin/login/actions";
 import { PasswordField } from "@/components/app/auth/auth-forms";
+import { Checkbox } from "@/components/app/ui/checkbox";
 import { CopyButton } from "@/components/app/ui/copy-button";
 import { TextField } from "@/components/app/ui/field";
 import { FormGuard, useFocusOnError } from "@/components/app/ui/form-guard";
 import { SubmitButton } from "@/components/app/ui/submit-button";
 import { FormMessage } from "@/components/app/ui/toast";
+import { TotpQr } from "@/components/app/ui/totp-qr";
 
 /** Summary only when it's not already shown next to a field. */
 const summary = (s: StaffAuthState) => (s && !s.fieldErrors ? s : null);
@@ -124,26 +126,32 @@ export function StaffMfaSetupForm({ secret, uri }: { secret: string; uri: string
   return (
     <div className={STACK}>
       <section aria-labelledby="mfa-step-1" className="rounded-lg border border-line bg-paper p-4 sm:p-5">
-        <h2 id="mfa-step-1" className="text-sm font-bold">
-          1. Add Plain Theory Staff to your authenticator app
+        <h2 id="mfa-step-1" className="text-sm font-semibold">
+          1. Scan this QR code with your authenticator app
         </h2>
-        <p className="mt-1 text-sm text-ink-3">On your phone, open the link below, or add an account by hand and type the setup key. Use an app like 1Password, Google Authenticator or Authy.</p>
+        <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-start">
+          <TotpQr uri={uri} label="QR code to add Plain Theory Staff to your authenticator app" />
+          <p className="text-sm text-ink-3">
+            In 1Password, Google Authenticator, Microsoft Authenticator or Authy, add an account and scan the code. Can&apos;t scan? Type the setup key below, or on your phone open
+            &ldquo;Open in authenticator app&rdquo;.
+          </p>
+        </div>
         <p className="label mt-4" id="mfa-key-label">
           Setup key
         </p>
-        <p aria-labelledby="mfa-key-label" className="select-all break-all rounded-md border border-line bg-surface px-3 py-2.5 font-mono text-[15px] tracking-wider text-ink">
+        <p aria-labelledby="mfa-key-label" className="select-all break-all rounded-md border border-line bg-surface px-3 py-2.5 font-mono text-base tracking-wider text-ink">
           {grouped}
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
           <CopyButton value={secret} label="Copy key" />
-          <a href={uri} className="inline-flex h-9 items-center rounded-md px-3 text-sm font-bold text-brand-ink hover:bg-surface">
+          <a href={uri} className="inline-flex h-9 items-center rounded-md px-3 text-sm font-semibold text-brand-ink hover:bg-surface">
             Open in authenticator app
           </a>
         </div>
         <p className="mt-3 text-xs text-ink-3">Type: time-based (TOTP) · 6 digits · 30 seconds · SHA-1</p>
       </section>
       <form ref={formRef} action={action} className={STACK} noValidate>
-        <h2 className="text-sm font-bold">2. Enter the code your app shows now</h2>
+        <h2 className="text-sm font-semibold">2. Enter the code your app shows now</h2>
         <CodeField state={state} hint="6 digits. You'll need a code from this app every time you sign in to the console." />
         <FormMessage state={summary(state)} />
         <SubmitButton className="w-full" pending="Checking">
@@ -155,7 +163,8 @@ export function StaffMfaSetupForm({ secret, uri }: { secret: string; uri: string
   );
 }
 
-export function StaffVerifyForm() {
+/** `canTrust`: offer "Trust this browser for 30 days" (STAFF_REMEMBER_DEVICE=1 only). */
+export function StaffVerifyForm({ canTrust = false }: { canTrust?: boolean }) {
   const [state, action] = useActionState<StaffAuthState, FormData>(staffVerifyMfa, null);
   const formRef = useRef<HTMLFormElement>(null);
   useFocusOnError(state, formRef);
@@ -163,6 +172,14 @@ export function StaffVerifyForm() {
     <div className={STACK}>
       <form ref={formRef} action={action} className={STACK} noValidate>
         <CodeField state={state} hint="The 6-digit code from the authenticator app you set up for the staff console." />
+        {canTrust ? (
+          <Checkbox
+            id="trust"
+            name="trust"
+            label="Trust this browser for 30 days"
+            description="You won't need a code to sign in here until then. Your password is still required. Don't tick this on a shared or public computer."
+          />
+        ) : null}
         <FormMessage state={summary(state)} />
         <SubmitButton className="w-full" pending="Checking">
           Verify and sign in

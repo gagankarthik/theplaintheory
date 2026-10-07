@@ -92,6 +92,12 @@ export class IdentityStack extends Stack {
       passwordPolicy: { ...passwordPolicy, tempPasswordValidity: Duration.days(1) },
       mfa: cognito.Mfa.REQUIRED,
       mfaSecondFactor: { otp: true, sms: false },
+      // "Trust this browser for 30 days": every new device still gets the TOTP challenge, and a
+      // device is only remembered when the staff member ticks the box (the console calls
+      // ConfirmDevice + UpdateDeviceStatus). A remembered device answers Cognito's device SRP
+      // challenge instead of the code, so MFA stays REQUIRED and Cognito, not the app, skips it.
+      // An in-place update of the pool (DeviceConfiguration), not a replacement.
+      deviceTracking: { challengeRequiredOnNewDevice: true, deviceOnlyRememberedOnUserPrompt: true },
       // A superadmin resets staff passwords; there's no self-service recovery for the console.
       accountRecovery: cognito.AccountRecovery.NONE,
       featurePlan: cognito.FeaturePlan.ESSENTIALS,

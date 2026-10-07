@@ -26,7 +26,7 @@ const GROUPS: { name: string; rows: Row[] }[] = [
     name: "Usage",
     rows: [
       { feature: "Websites", value: (p) => unlimited(p.properties) },
-      { feature: "Pageviews a month, pooled", value: (p) => (p.pageviews === null ? "Custom" : compactNumber(p.pageviews)) },
+      { feature: "Banner views a month, pooled", value: (p) => (p.pageviews === null ? "Custom" : compactNumber(p.pageviews)) },
       { feature: "Team seats", value: (p) => unlimited(p.seats) },
       { feature: "Consent log retention", value: (p) => retentionLabel(p.logRetentionDays) },
     ],
@@ -42,30 +42,29 @@ const GROUPS: { name: string; rows: Row[] }[] = [
       { feature: "All 22 Indian languages, with review status", value: (p) => p.limits.indianLanguages },
       { feature: "Itemised data per purpose (DPDP Rule 3)", value: () => true },
       { feature: "Fairness check before publishing", value: () => true },
-      { feature: "Headless mode and consent API", value: (p) => (p.limits.apiAccess ? true : "Script API only") },
+      { feature: "Headless mode and JavaScript API", value: () => true },
     ],
   },
   {
     name: "Proof",
     rows: [
       { feature: "Tamper-evident consent log", value: () => true },
-      { feature: "Leak alerts after a decline", value: (p) => p.limits.leakDetection },
-      { feature: "CSV export", value: from("starter") },
-      { feature: "Evidence Pack and chain verification report", value: (p) => p.limits.evidencePack },
-      { feature: "Consent analytics by country and device", value: from("growth") },
+      { feature: "Leak detection after a decline", value: (p) => p.limits.leakDetection },
+      { feature: "CSV export", value: () => true },
+      { feature: "Chain verification report", value: () => true },
+      { feature: "Consent analytics by country, device and browser", value: () => true },
+      { feature: "Compliance Evidence Pack", value: (p) => p.limits.evidencePack },
       { feature: "Signed withdrawal webhooks", value: (p) => p.limits.webhooks },
     ],
   },
   {
     name: "Data and security",
     rows: [
-      { feature: "Choice of data region (India, EU, US)", value: (p) => p.limits.residencyChoice },
+      { feature: "Data stored in India (Mumbai)", value: () => true },
+      { feature: "EU or US data residency", value: (p) => (p.id === "enterprise" ? "By arrangement" : false) },
       { feature: "Owner, admin, editor, auditor and viewer roles", value: from("starter") },
-      { feature: "Single sign-on", value: from("enterprise") },
-      {
-        feature: "Delivery SLA",
-        value: (p) => (p.id === "enterprise" ? "99.99%" : p.id === "business" ? "99.9%" : false),
-      },
+      { feature: "Single sign-on (SAML/OIDC)", value: (p) => (p.id === "enterprise" ? "On request" : false) },
+      { feature: "Uptime SLA", value: (p) => (p.id === "enterprise" ? "In your contract" : false) },
       {
         feature: "Support",
         value: (p) =>

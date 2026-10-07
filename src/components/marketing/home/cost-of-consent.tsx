@@ -28,7 +28,7 @@ const SAFEGUARDS: { icon: (p: IconProps) => ReactNode; title: string; body: stri
   {
     icon: IconScan,
     title: "Leaks caught early",
-    body: "If a tag fires after a decline, you're alerted.",
+    body: "If a tag fires after a decline, it shows up on your Leaks page.",
     fine: "Healthline, $1.55M · California AG 2025",
   },
 ];

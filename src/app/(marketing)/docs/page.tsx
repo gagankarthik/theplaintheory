@@ -1,21 +1,21 @@
 import { pageMetadata } from "@/lib/seo";
 import type { ReactNode } from "react";
 import { CodeBlock, CodeTabs } from "@/components/marketing/docs/code-block";
-import { INSTALL_SNIPPETS, PACKAGE_SNIPPETS } from "@/components/marketing/docs/framework-snippets";
+import { INSTALL_SNIPPETS } from "@/components/marketing/docs/framework-snippets";
 import { PageHero } from "@/components/marketing/page-hero";
 import { Toc, type TocItem } from "@/components/marketing/toc";
 import { sdkSizeLabel } from "@/lib/sdk-size";
 
 export const metadata = pageMetadata({
   title: "Developer documentation",
-  description: "Install the Plain Theory consent script in HTML, Next.js, React, Vite, Vue, Svelte, Angular or WordPress, then set up banners, regions and the API.",
+  description: "Install the Plain Theory consent script with one tag in HTML, Next.js, React, Vue, Svelte, Angular, WordPress and more, then set up banners, regions and the JavaScript API.",
   path: "/docs",
   socialTitle: "Install in one line, then configure",
 });
 
 const TOC: TocItem[] = [
   { id: "install", label: "Install" },
-  { id: "frameworks", label: "Framework packages" },
+  { id: "frameworks", label: "Frameworks" },
   { id: "wordpress", label: "WordPress" },
   { id: "blocking", label: "Block trackers" },
   { id: "banner", label: "Banner and copy" },
@@ -92,23 +92,6 @@ function Params({ caption, rows }: { caption: string; rows: [name: string, type:
   );
 }
 
-/** Package, what it targets, and what it exports. Stacks on small screens instead of scrolling sideways. */
-function PackageList({ items }: { items: [name: string, target: string, exports: string][] }) {
-  return (
-    <dl className="divide-y divide-line rounded-[var(--radius-md)] border border-line">
-      {items.map(([name, target, exports]) => (
-        <div key={name} className="grid gap-1.5 px-4 py-3.5 sm:grid-cols-[minmax(0,210px)_minmax(0,1fr)] sm:gap-x-6">
-          <dt>
-            <span className="block font-mono text-[13px] text-ink">{name}</span>
-            <span className="mt-0.5 block text-xs text-ink-3">{target}</span>
-          </dt>
-          <dd className="text-sm text-ink-2">{exports}</dd>
-        </div>
-      ))}
-    </dl>
-  );
-}
-
 export default function DocsPage() {
   return (
     <>
@@ -139,9 +122,9 @@ export default function DocsPage() {
               </p>
               <CodeTabs tabs={INSTALL_SNIPPETS} />
               <p>
-                Using a framework? The tag above is still the best first step, because it&apos;s the only way to hold trackers written
-                into your HTML. Then add the <a href="#frameworks" className="font-medium text-ink underline underline-offset-4">framework package</a>{" "}
-                for typed state, hooks and consent-gated components. The packages see the tag and don&apos;t load a second copy.
+                Using a framework? The same tag works in every one, and it&apos;s the only way to hold trackers written into your HTML.
+                See <a href="#frameworks" className="font-medium text-ink underline underline-offset-4">Frameworks</a> for reading consent
+                from your own code.
               </p>
               <p>The script reads these attributes from its own tag:</p>
               <Params
@@ -155,62 +138,65 @@ export default function DocsPage() {
               />
             </DocSection>
 
-            <DocSection id="frameworks" title="Framework packages">
+            <DocSection id="frameworks" title="Frameworks">
               <p>
-                Each package wraps the same script, so behaviour is identical everywhere. They&apos;re ESM, tree-shakeable, typed, and safe
-                to import during server rendering: state is <code>null</code> on the server and until the script is ready.
+                Plain Theory works with React, Next.js, Vue, Nuxt, Svelte, SvelteKit, Angular and any other stack that renders HTML. Add
+                the script tag from <a href="#install" className="font-medium text-ink underline underline-offset-4">Install</a>, then read
+                and change consent from your components with the{" "}
+                <a href="#api" className="font-medium text-ink underline underline-offset-4">JavaScript API</a>. Nothing to install
+                from npm.
               </p>
-              <PackageList
-                items={[
-                  ["@plaintheory/consent", "Any framework", "loadPlainConsent, getConsent, onConsentChange, whenAllowed, loadScriptWhenAllowed and the types."],
-                  ["@plaintheory/react", "React 18+, Next.js, Vite", "PlainConsentProvider, useConsent, useConsentAllowed, ConsentGate, ConsentScript, PrivacyChoicesButton."],
-                  ["@plaintheory/vue", "Vue 3.3+, Nuxt 3", "createPlainConsent plugin, useConsent composable, ConsentGate component."],
-                  ["@plaintheory/svelte", "Svelte 4 and 5, SvelteKit", "consent store, allowed(category) store, init and actions."],
-                  ["PlainConsentService", "Angular 16+", "Signals service with state, ready, allowed(category), init and actions. Copy it from packages/angular."],
-                ]}
+              <CodeBlock
+                title="React: read consent in a component"
+                language="jsx"
+                code={`import { useEffect, useState } from "react";
+
+// true once the visitor allows analytics
+export function useAnalyticsAllowed() {
+  const [allowed, setAllowed] = useState(false);
+  useEffect(() => {
+    const update = (e) => setAllowed(!!e.detail.categories.analytics);
+    window.addEventListener("plainconsent:change", update);
+    window.PlainConsent = window.PlainConsent || [];
+    window.PlainConsent.push((pc) => setAllowed(!!pc.get().categories.analytics));
+    return () => window.removeEventListener("plainconsent:change", update);
+  }, []);
+  return allowed;
+}`}
               />
-              <CodeBlock title="Install" language="bash" code={`npm i @plaintheory/react    # or @plaintheory/vue, @plaintheory/svelte, @plaintheory/consent`} />
-              <CodeTabs tabs={PACKAGE_SNIPPETS} />
               <p>
                 Categories are <code>essential</code> (always allowed), <code>functional</code>, <code>analytics</code> and{" "}
-                <code>marketing</code>. Actions such as <code>open()</code> and <code>acceptAll()</code> queue safely if the script hasn&apos;t
-                loaded yet. <code>ConsentScript</code> and <code>loadScriptWhenAllowed</code> add a script once; a later withdrawal takes
-                effect from the next page view, since a running script can&apos;t be unloaded.
+                <code>marketing</code>. A script that has already run can&apos;t be unloaded, so a later withdrawal takes effect from the
+                next page view.
+              </p>
+              <p className="rounded-[var(--radius-md)] border border-line bg-paper px-4 py-3.5 text-sm">
+                <strong className="font-semibold text-ink">Coming soon: typed packages.</strong> Packages with hooks, components and
+                types for React, Vue, Svelte and Angular aren&apos;t published yet. Until they are, the script tag and the JavaScript API
+                do everything they will.
               </p>
             </DocSection>
 
             <DocSection id="wordpress" title="WordPress">
               <p>
-                The Plain Theory Consent plugin prints the script first in <code>&lt;head&gt;</code> and can hold scripts that other plugins
-                add, by their WordPress handle. Banner design, regions and languages stay in the dashboard.
+                Works with WordPress: paste the script into your theme header or a header-code plugin. Banner design, regions and
+                languages stay in the dashboard.
               </p>
               <ol className="list-decimal space-y-2 pl-5">
                 <li>
-                  Install the plugin from <code>integrations/wordpress/plain-theory-consent</code> (zip the folder and upload it in Plugins → Add
-                  New → Upload Plugin), then activate it.
-                </li>
-                <li>Open Settings → Plain Theory and paste your site key from Install in the dashboard.</li>
-                <li>
-                  Leave <strong>Load before other scripts</strong> on. A tracker that runs before the consent script can&apos;t be held.
+                  Paste the tag from <a href="#install" className="font-medium text-ink underline underline-offset-4">Install</a> right after{" "}
+                  <code>&lt;head&gt;</code> in your theme&apos;s <code>header.php</code>. Use a child theme so theme updates don&apos;t
+                  remove it.
                 </li>
                 <li>
-                  Under <strong>Hold these scripts</strong>, list handles of scripts other plugins enqueue, one per line, as{" "}
-                  <code>handle = analytics</code>, <code>marketing</code> or <code>functional</code>.
+                  Or use a header-code plugin such as WPCode: add a snippet, choose <strong>Site wide header</strong> and give it the
+                  highest priority, so it loads before other scripts.
+                </li>
+                <li>
+                  To hold a script another plugin adds, mark it as described in{" "}
+                  <a href="#blocking" className="font-medium text-ink underline underline-offset-4">Block trackers</a>. Known trackers
+                  are held automatically.
                 </li>
               </ol>
-              <CodeBlock
-                title="Settings → Plain Theory"
-                language="text"
-                code={`Site key                 pk_live_YOUR_SITE_KEY
-Load before other scripts  on
-Hold these scripts       google-analytics = analytics
-                         facebook-pixel   = marketing`}
-              />
-              <p>
-                Held scripts are rewritten to <code>type=&quot;text/plain&quot; data-consent=&quot;…&quot;</code> through the{" "}
-                <code>script_loader_tag</code> filter and run once the visitor allows that category. Known trackers inserted later are held
-                automatically. The plugin stores one option and removes it on uninstall; it never shows review requests or admin notices.
-              </p>
             </DocSection>
 
             <DocSection id="blocking" title="Block trackers">
@@ -321,7 +307,7 @@ Hold these scripts       google-analytics = analytics
 
             <DocSection id="scanner" title="Tracker scanner">
               <p>
-                The Trackers page can scan your site&apos;s homepage and list the third-party scripts it loads, matched against known
+                The Trackers page scans up to 10 pages of your site, starting from the homepage, and lists the third-party scripts they load, matched against known
                 trackers and sorted into categories. Review the list and add what you want held. The scanner only fetches public{" "}
                 <code>http(s)</code> addresses and refuses private and internal networks.
               </p>

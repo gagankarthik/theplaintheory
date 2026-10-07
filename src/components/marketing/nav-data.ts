@@ -46,7 +46,7 @@ export const PRODUCT_GROUPS: NavGroup[] = [
     label: "Prove",
     items: [
       { href: "/#proof", title: "Consent log", description: "Hash-chained receipts anyone can verify.", icon: IconChain },
-      { href: "/#proof", title: "Leak alerts", description: "Know when a tracker fires after a decline.", icon: IconAlert },
+      { href: "/#proof", title: "Leak detection", description: "See when a tracker fires after a decline.", icon: IconAlert },
       { href: "/#proof", title: "Evidence Pack", description: "One export for your auditor or regulator.", icon: IconReceipt },
     ],
   },
@@ -71,9 +71,9 @@ export const COMPLIANCE_NAV: NavItem[] = [
 
 export const DEVELOPER_NAV: NavItem[] = [
   { href: "/docs", title: "Documentation", description: "Install in one line, then configure.", icon: IconCode },
-  { href: "/docs#frameworks", title: "Framework packages", description: "React, Next.js, Vue, Svelte, Angular.", icon: IconPlug },
-  { href: "/docs#rest-api", title: "REST API", description: "Config, consent receipts and anchors.", icon: IconInstall },
-  { href: "/docs#wordpress", title: "WordPress plugin", description: "Add the script without touching code.", icon: IconSites },
+  { href: "/docs#frameworks", title: "Frameworks", description: "Works with React, Next.js, Vue, Svelte, Angular.", icon: IconPlug },
+  { href: "/docs#rest-api", title: "REST API", description: "Config, consent receipts and banner events.", icon: IconInstall },
+  { href: "/docs#wordpress", title: "WordPress", description: "Paste the script into your theme header.", icon: IconSites },
 ];
 
 /** Help and contact. Help Center is the documentation, which holds the setup and troubleshooting guides. */
@@ -90,7 +90,7 @@ export const FOOTER_NAV: NavGroup[] = [
       { href: "/#platform", title: "Consent banner", description: "" },
       { href: "/#platform", title: "Tracker blocking", description: "" },
       { href: "/#proof", title: "Consent log", description: "" },
-      { href: "/#proof", title: "Leak alerts", description: "" },
+      { href: "/#proof", title: "Leak detection", description: "" },
       { href: "/#tour", title: "Consent analytics", description: "" },
       { href: "/pricing", title: "Pricing", description: "" },
     ],
@@ -99,9 +99,9 @@ export const FOOTER_NAV: NavGroup[] = [
     label: "Developers",
     items: [
       { href: "/docs", title: "Documentation", description: "" },
-      { href: "/docs#frameworks", title: "Framework packages", description: "" },
+      { href: "/docs#frameworks", title: "Frameworks", description: "" },
       { href: "/docs#rest-api", title: "REST API", description: "" },
-      { href: "/docs#wordpress", title: "WordPress plugin", description: "" },
+      { href: "/docs#wordpress", title: "WordPress", description: "" },
       ...(demoEnabled ? [{ href: "/demo", title: "Demo store", description: "" }] : []),
     ],
   },

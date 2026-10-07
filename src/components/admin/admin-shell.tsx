@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
-import { staffSignOut } from "@/app/admin/login/actions";
+import { staffSignOut, staffSignOutEverywhere } from "@/app/admin/login/actions";
 import { BrandMark } from "@/components/brand/logo";
 import { Dropdown, menuItemClass } from "@/components/app/shell/dropdown";
 import { ToastProvider } from "@/components/app/ui/toast";
@@ -26,7 +26,20 @@ const active = (href: string, exact: boolean | undefined, path: string) => (exac
  * Staff console frame. Deliberately unlike the customer dashboard: an ink top bar with a "Staff
  * console" label on every page, so staff never mistake it for a customer's view.
  */
-export function AdminShell({ user, roleLabel, nav, children }: { user: { name: string; email: string }; roleLabel: string; nav: AdminNavId[]; children: React.ReactNode }) {
+export function AdminShell({
+  user,
+  roleLabel,
+  nav,
+  trustedBrowsers,
+  children,
+}: {
+  user: { name: string; email: string };
+  roleLabel: string;
+  nav: AdminNavId[];
+  /** Present with STAFF_REMEMBER_DEVICE=1: this browser's trust (a formatted end date, or null) and "Sign out everywhere". */
+  trustedBrowsers?: { thisBrowserUntil: string | null };
+  children: React.ReactNode;
+}) {
   const pathname = usePathname();
   const items = NAV.filter((n) => nav.includes(n.id));
   const tabsRef = useRef<HTMLElement>(null);
@@ -80,6 +93,11 @@ export function AdminShell({ user, roleLabel, nav, children }: { user: { name: s
                       <p className="truncate text-sm font-medium text-ink">{user.name}</p>
                       <p className="truncate text-xs text-ink-3">{user.email}</p>
                       <p className="mt-1 text-xs text-ink-3">Staff role: {roleLabel}</p>
+                      {trustedBrowsers ? (
+                        <p className="mt-1 text-xs text-ink-3">
+                          {trustedBrowsers.thisBrowserUntil ? `Trusted browser: no code needed here until ${trustedBrowsers.thisBrowserUntil}` : "Trusted browser: no, this browser asks for a code"}
+                        </p>
+                      ) : null}
                     </div>
                     <div className="my-1 h-px bg-line" />
                     <form action={staffSignOut}>
@@ -87,6 +105,13 @@ export function AdminShell({ user, roleLabel, nav, children }: { user: { name: s
                         <IconSignOut size={16} /> Sign out
                       </button>
                     </form>
+                    {trustedBrowsers ? (
+                      <form action={staffSignOutEverywhere}>
+                        <button type="submit" role="menuitem" tabIndex={-1} className={menuItemClass}>
+                          <IconSignOut size={16} /> Sign out everywhere
+                        </button>
+                      </form>
+                    ) : null}
                   </>
                 )}
               </Dropdown>

@@ -6,13 +6,14 @@ import { useMemo, useTransition } from "react";
 import { verifyPropertyChain } from "@/app/app/sites/[propertyId]/actions";
 import { Badge } from "@/components/app/ui/badge";
 import { Button } from "@/components/app/ui/button";
+import { DateText } from "@/components/app/ui/date-text";
 import { DataTable, type Column } from "@/components/app/ui/data-table";
 import { useToast } from "@/components/app/ui/toast";
 import { IconChain, IconChevronRight } from "@/components/icons";
-import { formatInt } from "@/lib/analytics";
+import { formatNumber } from "@/lib/format";
 import { FRAMEWORK_META } from "@/lib/defaults";
 import type { CategoryId, ConsentReceipt } from "@/lib/types";
-import { ACTION, CAT_SHORT, utcShort as time } from "./receipt-labels";
+import { ACTION, CAT_SHORT } from "./receipt-labels";
 
 const columns = (propertyId: string): Column<ConsentReceipt>[] => [
   {
@@ -26,13 +27,11 @@ const columns = (propertyId: string): Column<ConsentReceipt>[] => [
           href={`/app/sites/${propertyId}/logs/${r.seq}`}
           className="inline-flex min-h-6 items-center gap-1 rounded font-semibold tabular-nums text-ink after:absolute after:inset-0 after:content-[''] hover:text-brand hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
         >
-          #{formatInt(r.seq)}
+          #{formatNumber(r.seq)}
           <span className="sr-only">, open proof of consent</span>
           <IconChevronRight size={14} aria-hidden className="text-ink-3" />
         </Link>
-        <time dateTime={r.timestamp} className="block text-xs text-ink-3">
-          {time(r.timestamp)}
-        </time>
+        <DateText iso={r.timestamp} mode="datetime" className="block text-xs text-ink-3" />
       </>
     ),
   },
@@ -111,28 +110,32 @@ export function LogsTable({ propertyId, rows, footer, empty = "No receipts in th
 
 /**
  * Re-hashes the whole chain on demand. The result is saved on the site as its last check, so the
- * "Chain" number above the log updates on refresh; a toast says what was found.
+ * "Chain" number above the log updates on refresh; a toast says what was found. It is the consent
+ * log's one primary action: checking the chain is what the log is for.
  */
-export function VerifyChainButton({ propertyId }: { propertyId: string }) {
+/** Primary only when there is a chain to check; with no receipts it's a quiet, disabled action. */
+export function VerifyChainButton({ propertyId, receipts }: { propertyId: string; receipts: number }) {
   const [pending, start] = useTransition();
   const toast = useToast();
   const router = useRouter();
   return (
     <Button
-      variant="ghost"
+      variant={receipts ? "primary" : "ghost"}
+      disabled={!receipts}
+      title={receipts ? undefined : "Nothing to verify until the first receipt is recorded"}
       loading={pending}
       loadingLabel="Verifying"
       onClick={() =>
         start(async () => {
           const r = await verifyPropertyChain(propertyId);
-          if (r.ok) toast(`Chain intact. All ${formatInt(r.checked)} receipts link correctly; none were altered or removed.`);
+          if (r.ok) toast(`Chain intact. All ${formatNumber(r.checked)} receipts link correctly; none were altered or removed.`);
           else if (r.error) toast(r.error, "error");
-          else toast(`Chain broken at receipt #${formatInt(r.brokenAt ?? 0)}. A record was changed or removed after it was written. Export the log and contact support.`, "error");
+          else toast(`Chain broken at receipt #${formatNumber(r.brokenAt ?? 0)}. A record was changed or removed after it was written. Export the log and contact support.`, "error");
           router.refresh();
         })
       }
     >
-      <IconChain size={18} />
+      <IconChain size={18} aria-hidden />
       Verify chain
     </Button>
   );

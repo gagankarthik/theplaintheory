@@ -2,22 +2,26 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { PageHeader } from "@/components/app/shell/page-header";
 import { PlanPicker } from "@/components/app/billing/plan-picker";
+import { Alert, type AlertTone } from "@/components/app/ui/alert";
 import { Badge } from "@/components/app/ui/badge";
-import { buttonClass } from "@/components/app/ui/button";
-import { IconAlert, IconBilling, IconCheck, IconDownload, IconExternal, IconInfo } from "@/components/icons";
-import { formatInt } from "@/lib/analytics";
+import { Button, ButtonAnchor, ButtonLink } from "@/components/app/ui/button";
+import { Card, CardBody, CardFooter, CardHeader } from "@/components/app/ui/card";
+import { DateText } from "@/components/app/ui/date-text";
+import { DescriptionList } from "@/components/app/ui/description-list";
+import { EmptyState } from "@/components/app/ui/empty-state";
+import { ResourceList } from "@/components/app/ui/resource-list";
+import { IconAlert, IconBilling, IconDownload, IconExternal } from "@/components/icons";
 import { can } from "@/lib/auth/rbac";
 import { requireUser } from "@/lib/auth/session";
 import { billingConfigured, getStripe } from "@/lib/billing";
-import { formatMoney, getBillingSummary, type BillingSummary } from "@/lib/billing-summary";
+import { getBillingSummary, type BillingSummary } from "@/lib/billing-summary";
+import { formatMoney, formatNumber } from "@/lib/format";
 import { getCatalog, getLivePlans } from "@/lib/stripe-catalog";
 import { PLANS, SELF_SERVE_PLANS, planById, type Plan } from "@/lib/plans";
 import { activeGrace } from "@/lib/retention-grace";
 import { getStore } from "@/lib/store";
 
 export const metadata: Metadata = { title: "Billing" };
-
-const day = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 
 /** One usage line: what's used against the plan's limit, with the state in words as well as colour. */
 function Meter({ label, used, limit, href }: { label: string; used: number; limit: number | null; href?: string }) {
@@ -39,8 +43,8 @@ function Meter({ label, used, limit, href }: { label: string; used: number; limi
           )}
         </span>
         <span className="text-sm tabular-nums">
-          <span className="font-semibold text-ink">{formatInt(used)}</span>
-          <span className="text-ink-3"> {limit === null ? "· unlimited" : `of ${formatInt(limit)}`}</span>
+          <span className="font-semibold text-ink">{formatNumber(used)}</span>
+          <span className="text-ink-3"> {limit === null ? "· unlimited" : `of ${formatNumber(limit)}`}</span>
         </span>
       </div>
       {limit !== null ? (
@@ -50,7 +54,7 @@ function Meter({ label, used, limit, href }: { label: string; used: number; limi
           aria-valuemin={0}
           aria-valuemax={limit}
           aria-valuenow={used}
-          aria-valuetext={`${formatInt(used)} of ${formatInt(limit)}${over ? ", over the limit" : full ? ", all in use" : ""}`}
+          aria-valuetext={`${formatNumber(used)} of ${formatNumber(limit)}${over ? ", over the limit" : full ? ", all in use" : ""}`}
           className="h-1.5 overflow-hidden rounded-full bg-paper ring-1 ring-inset ring-line"
         >
           <div className={`h-full rounded-full ${over ? "bg-rose" : full || near ? "bg-amber-bright" : "bg-brand"}`} style={{ width: `${Math.max(pct, 1.5)}%` }} />
@@ -72,10 +76,21 @@ function Meter({ label, used, limit, href }: { label: string; used: number; limi
 }
 
 function statusBadge(s: NonNullable<BillingSummary["subscription"]>) {
-  if (s.cancelAtPeriodEnd) return <Badge tone="held">Cancels {s.periodEnd ? day(s.periodEnd) : "at period end"}</Badge>;
-  if (s.status === "active") return <Badge tone="released">Active</Badge>;
-  if (s.status === "trialing") return <Badge tone="brand">Trial</Badge>;
-  if (s.status === "past_due" || s.status === "unpaid") return <Badge tone="declined">Payment failed</Badge>;
+  if (s.cancelAtPeriodEnd)
+    return (
+      <Badge tone="warning">
+        {s.periodEnd ? (
+          <>
+            Cancels <DateText iso={s.periodEnd} />
+          </>
+        ) : (
+          "Cancels at period end"
+        )}
+      </Badge>
+    );
+  if (s.status === "active") return <Badge tone="success">Active</Badge>;
+  if (s.status === "trialing") return <Badge tone="info">Trial</Badge>;
+  if (s.status === "past_due" || s.status === "unpaid") return <Badge tone="danger">Payment failed</Badge>;
   return <Badge tone="neutral">{s.status.replace("_", " ")}</Badge>;
 }
 
@@ -83,123 +98,108 @@ function CurrentPlan({ plan, summary, canBill, hasPortal }: { plan: Plan; summar
   const sub = summary?.subscription;
   const paid = plan.id !== "free";
   return (
-    <section aria-labelledby="plan-h" className="flex flex-col rounded-[16px] border border-line bg-surface">
-      <div className="flex-1 p-5 sm:p-6">
-        <p className="text-xs font-medium text-ink-3">Current plan</p>
-        <div className="mt-1 flex flex-wrap items-center gap-2.5">
-          <h2 id="plan-h" className="text-xl font-semibold tracking-[-0.02em]">
-            {plan.name}
-          </h2>
-          {sub ? statusBadge(sub) : !paid ? <Badge tone="neutral">Free forever</Badge> : null}
-        </div>
-        <p className="mt-1 max-w-[52ch] text-sm text-ink-3">{plan.summary}</p>
+    <Card aria-labelledby="plan-h" className="flex flex-col">
+      <CardHeader titleId="plan-h" title="Current plan" actions={sub ? statusBadge(sub) : !paid ? <Badge tone="neutral">Free forever</Badge> : null} />
+      <CardBody className="flex-1">
+        <p className="text-xl font-semibold tracking-tight text-ink">{plan.name}</p>
+        <p className="mt-1 max-w-prose text-sm text-ink-3">{plan.summary}</p>
 
-        <dl className="mt-5 grid gap-x-6 gap-y-4 sm:grid-cols-3">
-          <div>
-            <dt className="text-xs text-ink-3">Price</dt>
-            <dd className="mt-0.5 text-sm font-medium text-ink">
-              {sub?.amount != null ? (
-                <>
-                  {formatMoney(sub.amount, sub.currency)}
-                  <span className="font-normal text-ink-3"> / {sub.interval === "year" ? "year" : "month"}</span>
-                </>
-              ) : paid ? (
-                "—"
-              ) : (
-                "$0"
-              )}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-xs text-ink-3">{sub?.cancelAtPeriodEnd ? "Access until" : "Next payment"}</dt>
-            <dd className="mt-0.5 text-sm font-medium text-ink">{sub?.periodEnd ? day(sub.periodEnd) : <span className="font-normal text-ink-3">None</span>}</dd>
-          </div>
-          <div>
-            <dt className="text-xs text-ink-3">Payment method</dt>
-            <dd className="mt-0.5 text-sm font-medium text-ink">
-              {summary?.card ? (
+        <DescriptionList
+          className="mt-5"
+          items={[
+            {
+              label: "Price",
+              value:
+                sub?.amount != null ? (
+                  <>
+                    {formatMoney(sub.amount, sub.currency)}
+                    <span className="font-normal text-ink-3"> / {sub.interval === "year" ? "year" : "month"}</span>
+                  </>
+                ) : paid ? (
+                  "—"
+                ) : (
+                  "Free"
+                ),
+            },
+            { label: sub?.cancelAtPeriodEnd ? "Access until" : "Next payment", value: sub?.periodEnd ? <DateText iso={sub.periodEnd} /> : null },
+            {
+              label: "Payment method",
+              value: summary?.card ? (
                 <span className="inline-flex items-center gap-1.5">
-                  <IconBilling size={16} className="text-ink-3" />
+                  <IconBilling size={16} aria-hidden className="text-ink-3" />
                   <span className="capitalize">{summary.card.brand}</span> •••• {summary.card.last4}
                 </span>
-              ) : (
-                <span className="font-normal text-ink-3">None on file</span>
-              )}
-            </dd>
-          </div>
-        </dl>
+              ) : null,
+            },
+          ]}
+        />
 
         {sub && (sub.status === "past_due" || sub.status === "unpaid") ? (
-          <p role="alert" className="mt-5 flex items-start gap-2 rounded-[10px] bg-rose-wash px-3.5 py-2.5 text-sm text-rose">
-            <IconAlert size={16} className="mt-0.5 shrink-0" />
+          <Alert tone="danger" className="mt-5">
             The last payment didn&apos;t go through. Update the card in the billing portal to keep your plan.
-          </p>
+          </Alert>
         ) : null}
-      </div>
+      </CardBody>
 
-      <div className="flex flex-wrap items-center gap-2 border-t border-line bg-paper/60 px-5 py-3.5 sm:px-6">
+      <CardFooter align="start">
         {canBill ? (
           <>
-            <a href="#plans" className={buttonClass(paid ? "ghost" : "primary", "sm")}>
-              {paid ? "Change plan" : "Upgrade"}
-            </a>
+            <ButtonAnchor href="#plans" size="sm">
+              {paid ? "Change plan" : "See plans"}
+            </ButtonAnchor>
             {hasPortal ? (
               <form action="/api/stripe/portal" method="post">
-                <button className={buttonClass("ghost", "sm")}>
+                <Button type="submit" variant="ghost" size="sm">
                   Manage payment and invoices
-                  <IconExternal size={14} />
-                </button>
+                  <IconExternal size={14} aria-hidden />
+                </Button>
               </form>
             ) : null}
           </>
         ) : (
           <p className="text-xs text-ink-3">Only owners can change the plan or payment details.</p>
         )}
-      </div>
-    </section>
+      </CardFooter>
+    </Card>
   );
 }
 
 function Invoices({ invoices }: { invoices: BillingSummary["invoices"] }) {
   return (
-    <section aria-labelledby="inv-h" className="overflow-hidden rounded-[16px] border border-line bg-surface">
-      <div className="border-b border-line px-5 py-4 sm:px-6">
-        <h2 id="inv-h" className="text-base font-semibold">
-          Invoices
-        </h2>
-      </div>
-      {invoices.length ? (
-        <ul className="divide-y divide-line">
-          {invoices.map((i) => (
-            <li key={i.id} className="flex flex-wrap items-center gap-x-6 gap-y-1 px-5 py-3 text-sm sm:px-6">
-              <span className="w-28 text-ink-2">{day(i.date)}</span>
-              <span className="min-w-0 flex-1 truncate font-mono text-xs text-ink-3">{i.number ?? "Draft"}</span>
-              <span className="w-24 text-right font-medium tabular-nums text-ink">{formatMoney(i.amount, i.currency)}</span>
-              <span className="w-20">
-                {i.status === "paid" ? (
-                  <span className="inline-flex items-center gap-1 text-xs text-ink-2">
-                    <IconCheck size={14} className="text-jade" /> Paid
-                  </span>
-                ) : i.status === "open" ? (
-                  <span className="text-xs font-medium text-amber">Due</span>
-                ) : (
-                  <span className="text-xs capitalize text-ink-3">{i.status ?? "—"}</span>
-                )}
-              </span>
-              <span className="ml-auto">
-                {i.pdf ? (
-                  <a href={i.pdf} className="inline-flex min-h-8 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-ink-2 hover:bg-paper hover:text-ink" rel="noopener noreferrer">
-                    <IconDownload size={14} /> PDF<span className="sr-only"> of invoice {i.number}</span>
-                  </a>
-                ) : null}
-              </span>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="px-5 py-8 text-center text-sm text-ink-3 sm:px-6">No invoices yet. They appear here after your first payment.</p>
-      )}
-    </section>
+    <ResourceList
+      title="Invoices"
+      titleId="inv-h"
+      label="Invoices, newest first"
+      empty={
+        <EmptyState bare headingLevel={3} title="No invoices yet">
+          They appear here after your first payment.
+        </EmptyState>
+      }
+      rows={invoices.map((i) => ({
+        id: i.id,
+        leading: <DateText iso={i.date} className="block w-28 tabular-nums" />,
+        title: <span className="tabular-nums">{formatMoney(i.amount, i.currency)}</span>,
+        meta: <span className="font-mono">{i.number ?? "Draft"}</span>,
+        trailing: (
+          <>
+            {i.status === "paid" ? (
+              <Badge tone="success">Paid</Badge>
+            ) : i.status === "open" ? (
+              <Badge tone="warning">Due</Badge>
+            ) : (
+              <Badge tone="neutral">
+                <span className="capitalize">{i.status ?? "Unknown"}</span>
+              </Badge>
+            )}
+            {i.pdf ? (
+              <ButtonAnchor href={i.pdf} variant="quiet" size="sm" rel="noopener noreferrer">
+                <IconDownload size={14} aria-hidden /> PDF<span className="sr-only"> of invoice {i.number}</span>
+              </ButtonAnchor>
+            ) : null}
+          </>
+        ),
+      }))}
+    />
   );
 }
 
@@ -225,62 +225,61 @@ export default async function BillingPage(props: PageProps<"/app/billing">) {
   const canBill = can(role, "billing:manage");
   const hasPortal = Boolean(org.stripeCustomerId && getStripe());
 
-  const notice =
+  const notice: { tone: AlertTone; text: string } | null =
     sp.checkout === "success"
-      ? { tone: "ok", text: "Thanks. Your plan updates as soon as Stripe confirms the payment, usually within a few seconds." }
+      ? { tone: "success", text: "Thanks. Your plan updates as soon as Stripe confirms the payment, usually within a few seconds." }
       : sp.checkout === "cancelled"
         ? { tone: "info", text: "Checkout was cancelled. Nothing was charged." }
         : sp.error === "not-configured"
-          ? { tone: "error", text: "Payments aren't available right now. Please try again shortly, or contact support." }
+          ? { tone: "danger", text: "Payments aren't available right now. Please try again shortly, or contact support." }
           : sp.error === "no-customer"
-            ? { tone: "error", text: "There's no billing account for this organization yet. Choose a plan below to create one." }
+            ? { tone: "danger", text: "There's no billing account for this organization yet. Choose a plan below to create one." }
             : null;
+  const devNote = !configured && canBill && process.env.NODE_ENV !== "production";
 
   return (
     <>
       <PageHeader title="Billing" description={`Plan, usage and invoices for ${org.name}.`} />
 
-      {notice ? (
-        <p
-          role={notice.tone === "error" ? "alert" : "status"}
-          className={`mb-6 flex items-start gap-2 rounded-[12px] border px-4 py-3 text-sm ${
-            notice.tone === "error" ? "border-rose/30 bg-rose-wash text-rose" : notice.tone === "ok" ? "border-jade/30 bg-jade-wash text-jade" : "border-line bg-surface text-ink-2"
-          }`}
-        >
-          {notice.tone === "error" ? <IconAlert size={16} className="mt-0.5 shrink-0" /> : notice.tone === "ok" ? <IconCheck size={16} className="mt-0.5 shrink-0" /> : <IconInfo size={16} className="mt-0.5 shrink-0" />}
-          {notice.text}
-        </p>
-      ) : null}
-      {grace ? (
-        <p role="status" className="mb-6 flex items-start gap-2 rounded-[12px] border border-line bg-surface px-4 py-3 text-sm text-ink-2">
-          <IconInfo size={16} className="mt-0.5 shrink-0" />
-          Your records from the {planById(grace.fromPlan).name} plan stay available until {day(grace.until)}. Export them before then, or upgrade to keep them.
-        </p>
-      ) : null}
-      {!configured && canBill && process.env.NODE_ENV !== "production" ? (
-        <p className="mb-6 rounded-[12px] border border-dashed border-line-strong px-4 py-3 text-xs text-ink-3">
-          Development: Stripe isn&apos;t connected. Set <code className="font-mono">STRIPE_SECRET_KEY</code> and run <code className="font-mono">npm run stripe:sync</code>.
-        </p>
+      {notice || grace || devNote ? (
+        <div className="mb-6 space-y-3">
+          {notice ? <Alert tone={notice.tone}>{notice.text}</Alert> : null}
+          {grace ? (
+            <Alert tone="info">
+              Your records from the {planById(grace.fromPlan).name} plan stay available until <DateText iso={grace.until} />. Export them before then, or upgrade to keep them.
+            </Alert>
+          ) : null}
+          {devNote ? (
+            <Alert tone="info" title="Development: Stripe isn't connected">
+              Set <code className="font-mono">STRIPE_SECRET_KEY</code> and run <code className="font-mono">npm run stripe:sync</code>.
+            </Alert>
+          ) : null}
+        </div>
       ) : null}
 
       {/* 1. What you're on, and what you've used */}
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
         <CurrentPlan plan={plan} summary={summary} canBill={canBill} hasPortal={hasPortal && canBill} />
 
-        <section aria-labelledby="usage-h" className="rounded-[16px] border border-line bg-surface p-5 sm:p-6">
-          <div className="mb-5 flex items-baseline justify-between gap-3">
-            <h2 id="usage-h" className="text-base font-semibold">
-              Usage
-            </h2>
-            <p className="text-xs text-ink-3">Views reset {day(nextReset)}</p>
-          </div>
-          <div className="space-y-5">
+        <Card aria-labelledby="usage-h" className="flex flex-col">
+          <CardHeader
+            titleId="usage-h"
+            title="Usage"
+            actions={
+              <p className="text-xs text-ink-3">
+                Views reset <DateText iso={nextReset} />
+              </p>
+            }
+          />
+          <CardBody className="flex-1 space-y-5">
             <Meter label="Banner views this month" used={views} limit={plan.pageviews} />
             <Meter label="Sites" used={properties.length} limit={plan.properties} href="/app" />
             <Meter label="Team seats" used={members.length} limit={plan.seats} href="/app/team" />
-          </div>
-          <p className="mt-5 border-t border-line pt-4 text-xs text-ink-3">Going over never charges you automatically. Everything keeps working for 30 days while you decide.</p>
-        </section>
+          </CardBody>
+          <CardFooter align="start">
+            <p className="text-xs text-ink-3">Going over never charges you automatically. Everything keeps working for 30 days while you decide.</p>
+          </CardFooter>
+        </Card>
       </div>
 
       {/* 2. Invoices, once there's a billing account */}
@@ -299,14 +298,16 @@ export default async function BillingPage(props: PageProps<"/app/billing">) {
           hasCustomer={hasPortal}
           purchasable={Object.fromEntries(PLANS.map((p) => [p.id, { monthly: Boolean(catalog?.[p.id]?.priceId.monthly), annual: Boolean(catalog?.[p.id]?.priceId.annual) }]))}
         />
-        <div className="mt-4 flex flex-col gap-3 rounded-[16px] border border-line bg-surface px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-          <p className="text-sm text-ink-2">
-            <span className="font-semibold text-ink">Enterprise{org.plan === "enterprise" ? " (your plan)" : ""}.</span> Custom volume, dedicated data residency, SSO and a 99.99% delivery SLA.
-          </p>
-          <a className={buttonClass("ghost", "sm", "shrink-0")} href={`/contact-sales?org=${encodeURIComponent(org.name)}`}>
-            Talk to sales
-          </a>
-        </div>
+        <Card as="div" className="mt-4">
+          <CardBody className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-ink-2">
+              <span className="font-semibold text-ink">Enterprise{org.plan === "enterprise" ? " (your plan)" : ""}.</span> Custom volume, EU or US data residency, SSO on request and an uptime SLA in your contract.
+            </p>
+            <ButtonLink variant="ghost" size="sm" className="shrink-0" href={`/contact-sales?org=${encodeURIComponent(org.name)}`}>
+              Talk to sales
+            </ButtonLink>
+          </CardBody>
+        </Card>
         <p className="mt-4 text-xs text-ink-3">
           Cancel or downgrade any time from the billing portal. You keep your plan until the end of the period, and every consent receipt stays exportable.{" "}
           <Link href="/pricing#compare" className="font-medium text-brand underline-offset-2 hover:underline">

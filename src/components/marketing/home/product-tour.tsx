@@ -72,17 +72,17 @@ function BuilderPanel() {
 
 function ScanPanel() {
   const rows = [
-    { name: "Google Analytics 4", host: "googletagmanager.com/gtag", cat: "Analytics", found: "All 14 pages" },
+    { name: "Google Analytics 4", host: "googletagmanager.com/gtag", cat: "Analytics", found: "All 10 pages" },
     { name: "Meta Pixel", host: "connect.facebook.net", cat: "Marketing", found: "Checkout, home" },
     { name: "Hotjar", host: "static.hotjar.com", cat: "Analytics", found: "Product pages" },
-    { name: "Intercom", host: "widget.intercom.io", cat: "Preferences", found: "All 14 pages" },
+    { name: "Intercom", host: "widget.intercom.io", cat: "Preferences", found: "All 10 pages" },
   ];
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4">
         <div>
           <p className="text-sm font-semibold">northwind.store</p>
-          <p className="text-xs text-ink-3">Scanned 14 pages in 41 seconds</p>
+          <p className="text-xs text-ink-3">Scanned 10 pages in 18 seconds</p>
         </div>
         <span className="rounded-full bg-amber-wash px-2.5 py-1 text-xs font-medium text-amber">4 trackers need a category</span>
       </div>

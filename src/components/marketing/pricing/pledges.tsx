@@ -12,7 +12,7 @@ const PLEDGES: { title: string; body: string; icon: ReactNode }[] = [
   },
   {
     title: "Your banner never switches off",
-    body: "Go over your pageviews and consent keeps working. We email you, give you 30 days, and never charge overage without your say-so.",
+    body: "Go over your banner views and consent keeps working. Usage is on your Billing page, you get 30 days to decide, and going over never charges you automatically.",
     icon: (
       <>
         <rect x="3.5" y="5" width="17" height="14" rx="2.5" />
