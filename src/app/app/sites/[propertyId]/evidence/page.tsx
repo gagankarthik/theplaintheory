@@ -13,6 +13,7 @@ import { can } from "@/lib/auth/rbac";
 import { FRAMEWORK_META } from "@/lib/defaults";
 import { buildEvidencePack } from "@/lib/evidence";
 import { planById } from "@/lib/plans";
+import { effectivePlanForRecords } from "@/lib/retention-grace";
 
 export const metadata: Metadata = { title: "Evidence Pack" };
 
@@ -46,7 +47,8 @@ function Facts({ rows }: { rows: [string, React.ReactNode][] }) {
 export default async function EvidencePage(props: PageProps<"/app/sites/[propertyId]/evidence">) {
   const { propertyId } = await props.params;
   const { property, org, user, store, role } = await requireProperty(propertyId, "property:read");
-  const plan = planById(org.plan);
+  // During a retention grace after a downgrade, the old plan's records and Evidence Pack stay available.
+  const plan = effectivePlanForRecords(org);
 
   if (!can(role, "logs:export")) {
     return (
@@ -69,7 +71,7 @@ export default async function EvidencePage(props: PageProps<"/app/sites/[propert
             </ButtonLink>
           }
         >
-          {org.name} is on the {plan.name} plan. The consent log and CSV export stay available on every plan.
+          {org.name} is on the {planById(org.plan).name} plan. The consent log and CSV export stay available on every plan.
         </EmptyState>
       </>
     );

@@ -11,6 +11,7 @@ import { LEAD_STATUSES, STATUS_LABEL, TOPIC_LABEL, leadReference } from "@/lib/l
 import { recordPlatformAudit } from "@/lib/platform/audit";
 import type { PlatformAuditAction } from "@/lib/platform/types";
 import { PLANS, planById } from "@/lib/plans";
+import { planChange } from "@/lib/retention-grace";
 import { getStore } from "@/lib/store";
 import { emailSchema } from "@/lib/validation";
 import type { PlanId } from "@/lib/types";
@@ -48,7 +49,9 @@ export async function changeOrgPlan(_: ActionResult, form: FormData): Promise<Ac
     if (!org) return { error: "That organization no longer exists." };
     if (org.plan === parsed.data.plan) return { error: `${org.name} is already on ${planById(org.plan).name}.`, fieldErrors: { plan: ["Pick a different plan."] } };
     const from = org.plan;
-    await store.updateOrg(org.id, { plan: parsed.data.plan });
+    // A drop to shorter retention keeps the old window for 30 days, as it does for a Stripe downgrade.
+    const change = planChange(org, parsed.data.plan);
+    await store.updateOrg(org.id, { plan: parsed.data.plan, ...change.patch });
     await recordPlatformAudit({
       actor: actorOf(ctx),
       action: "org.plan_changed",
@@ -57,7 +60,20 @@ export async function changeOrgPlan(_: ActionResult, form: FormData): Promise<Ac
     });
     // The customer's own audit trail shows the change too, attributed to Plain Theory staff.
     await recordAudit({ orgId: org.id, actor: { system: "plain-theory-staff" }, action: "billing.plan_changed", target: { type: "org", id: org.id, label: org.name }, metadata: { from, to: parsed.data.plan, by: ctx.staff.email } });
-    return done(`${org.name} moved from ${planById(from).name} to ${planById(parsed.data.plan).name}.`);
+    const g = change.graceStarted;
+    if (g) {
+      await recordAudit({
+        orgId: org.id,
+        actor: { system: "plain-theory-staff" },
+        action: "retention.grace_started",
+        target: { type: "org", id: org.id, label: org.name },
+        metadata: { from, to: parsed.data.plan, fromPlan: g.fromPlan, logRetentionDays: g.logRetentionDays, until: g.until, by: ctx.staff.email },
+      });
+    }
+    return done(
+      `${org.name} moved from ${planById(from).name} to ${planById(parsed.data.plan).name}.` +
+        (g ? ` Their ${planById(g.fromPlan).name} records stay until ${g.until.slice(0, 10)}.` : ""),
+    );
   } catch (e) {
     return failure(e);
   }
@@ -101,6 +117,56 @@ export async function unsuspendOrg(_: ActionResult, form: FormData): Promise<Act
       metadata: { suspendedAt: org.suspendedAt, reason: org.suspendedReason ?? null },
     });
     return done(`Suspension lifted. ${org.name} can use the dashboard again.`);
+  } catch (e) {
+    return failure(e);
+  }
+}
+
+const legalHoldSchema = z.object({
+  orgId: idSchema("organization"),
+  reason: z.string().trim().max(300, "Keep the reason under 300 characters.").optional(),
+});
+
+/**
+ * Legal hold: while it's set, the retention job deletes nothing for this organization (consent
+ * receipts, leak reports, webhook logs). Superadmins only. Recorded in both audit trails.
+ */
+export async function setLegalHold(_: ActionResult, form: FormData): Promise<ActionResult> {
+  try {
+    const ctx = await requireStaffAction("orgs:legal_hold");
+    const parsed = legalHoldSchema.safeParse({ orgId: form.get("orgId"), reason: form.get("reason") || undefined });
+    if (!parsed.success) return invalid(parsed.error);
+    const store = await getStore();
+    const org = await store.getOrg(parsed.data.orgId);
+    if (!org) return { error: "That organization no longer exists." };
+    if (org.legalHold) return { error: `${org.name} is already under legal hold.` };
+    const reason = parsed.data.reason || undefined;
+    const hold = { since: new Date().toISOString(), by: ctx.staff.email, ...(reason ? { reason } : {}) };
+    await store.updateOrg(org.id, { legalHold: hold });
+    const target = { type: "org" as const, id: org.id, label: org.name };
+    await recordPlatformAudit({ actor: actorOf(ctx), action: "org.legal_hold_set", target, metadata: { reason: reason ?? null } });
+    await recordAudit({ orgId: org.id, actor: { system: "plain-theory-staff" }, action: "retention.legal_hold_set", target, metadata: { by: ctx.staff.email, reason: reason ?? null } });
+    return done(`${org.name} is under legal hold. Retention deletes nothing until it's lifted.`);
+  } catch (e) {
+    return failure(e);
+  }
+}
+
+export async function clearLegalHold(_: ActionResult, form: FormData): Promise<ActionResult> {
+  try {
+    const ctx = await requireStaffAction("orgs:legal_hold");
+    const parsed = unsuspendSchema.safeParse({ orgId: form.get("orgId") });
+    if (!parsed.success) return invalid(parsed.error);
+    const store = await getStore();
+    const org = await store.getOrg(parsed.data.orgId);
+    if (!org) return { error: "That organization no longer exists." };
+    if (!org.legalHold) return { error: `${org.name} isn't under legal hold.` };
+    await store.updateOrg(org.id, { legalHold: undefined });
+    const target = { type: "org" as const, id: org.id, label: org.name };
+    const meta = { since: org.legalHold.since, placedBy: org.legalHold.by, reason: org.legalHold.reason ?? null };
+    await recordPlatformAudit({ actor: actorOf(ctx), action: "org.legal_hold_cleared", target, metadata: meta });
+    await recordAudit({ orgId: org.id, actor: { system: "plain-theory-staff" }, action: "retention.legal_hold_cleared", target, metadata: { ...meta, by: ctx.staff.email } });
+    return done(`Legal hold lifted. The next retention run applies ${org.name}'s normal retention.`);
   } catch (e) {
     return failure(e);
   }

@@ -2,6 +2,7 @@ import { recordAudit } from "@/lib/audit";
 import { guardProperty } from "@/lib/auth/route-guard";
 import { buildEvidencePack } from "@/lib/evidence";
 import { planById } from "@/lib/plans";
+import { effectivePlanForRecords } from "@/lib/retention-grace";
 
 /**
  * The Evidence Pack as JSON: { digest, pack }. `digest` is SHA-256 over the canonical JSON of
@@ -12,9 +13,10 @@ export async function GET(request: Request, ctx: RouteContext<"/api/app/evidence
   const g = await guardProperty(propertyId, "logs:export", "Your role can't export evidence.");
   if (!g.ok) return g.response;
   const { property, org, user, store } = g;
-  const plan = planById(org.plan);
+  // During a retention grace after a downgrade, the old plan's records and Evidence Pack stay available.
+  const plan = effectivePlanForRecords(org);
   if (!plan.limits.evidencePack) {
-    return Response.json({ error: `The Evidence Pack is on Growth and above. ${org.name} is on ${plan.name}.` }, { status: 402 });
+    return Response.json({ error: `The Evidence Pack is on Growth and above. ${org.name} is on ${planById(org.plan).name}.` }, { status: 402 });
   }
 
   const { pack, digest } = await buildEvidencePack({ property, org, plan, user, store });

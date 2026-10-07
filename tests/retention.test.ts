@@ -146,3 +146,81 @@ describe("retention", () => {
     expect(state.org.retentionLastRunAt).toBe(NOW.toISOString());
   });
 });
+
+describe("retention grace and legal hold", () => {
+  // 1,000 daily receipts: Growth (730 days) keeps most of them, Free (90 days) far fewer.
+  const longFixture = () => receipts(1000, 1, undefined, NOW.getTime() - 999.5 * DAY).map((r) => ({ ...r, propertyId: property.id }));
+  const graceUntil = new Date(NOW.getTime() + 20 * DAY).toISOString();
+  const downgraded = { ...org, plan: "free", retentionGrace: { until: graceUntil, logRetentionDays: 730, fromPlan: "growth" } } as Organization;
+
+  it("keeps the old plan's window during the grace", async () => {
+    const { store, state } = memoryStore({ org: downgraded, property, receipts: longFixture() });
+    const report = await runRetention(store, { now: NOW });
+    // only what Growth would have removed anyway: receipts older than 730 days
+    expect(report.totals.receiptsRemoved).toBe(270);
+    expect(state.receipts).toHaveLength(730);
+    expect(report.orgs[0]).toMatchObject({ plan: "free", logRetentionDays: 730, grace: { fromPlan: "growth", until: graceUntil }, legalHold: false });
+    expect(state.audit.map((e) => e.action)).toEqual(["retention.run"]);
+    expect(state.audit[0].metadata).toMatchObject({ logRetentionDays: 730, planLogRetentionDays: 90, graceUntil });
+    expect(state.org.retentionGrace).toBeDefined();
+    expect(verifyChain(state.receipts, state.property.retentionCheckpoint)).toMatchObject({ ok: true, checked: 730 });
+  });
+
+  it("applies the new plan on the first run after the grace ends, and records that once", async () => {
+    const { store, state } = memoryStore({ org: downgraded, property, receipts: longFixture() });
+    await runRetention(store, { now: NOW });
+    expect(state.receipts).toHaveLength(730);
+
+    const after = new Date(NOW.getTime() + 21 * DAY);
+    const report = await runRetention(store, { now: after });
+    expect(report.orgs[0]).toMatchObject({ logRetentionDays: 90, grace: null });
+    expect(state.receipts).toHaveLength(69);
+    expect(state.org.retentionGrace).toBeUndefined();
+    const actions = state.audit.map((e) => e.action);
+    expect(actions).toEqual(["retention.run", "retention.grace_expired", "retention.run"]);
+    expect(state.audit[1].metadata).toMatchObject({ fromPlan: "growth", graceLogRetentionDays: 730, plan: "free", logRetentionDays: 90 });
+    // the checkpoint still carries the chain across both runs
+    expect(state.property.retentionCheckpoint).toMatchObject({ seq: 931, removedCount: 931 });
+    expect(verifyChain(state.receipts, state.property.retentionCheckpoint)).toMatchObject({ ok: true, checked: 69 });
+    expect(verifyAuditChain(state.audit).ok).toBe(true);
+
+    await runRetention(store, { now: new Date(after.getTime() + DAY) });
+    expect(state.audit.filter((e) => e.action === "retention.grace_expired")).toHaveLength(1);
+  });
+
+  it("a dry run after the grace ends reports the new plan's cutoff without clearing the grace", async () => {
+    const { store, state } = memoryStore({ org: downgraded, property, receipts: longFixture() });
+    const report = await runRetention(store, { dryRun: true, now: new Date(NOW.getTime() + 21 * DAY) });
+    expect(report.orgs[0].logRetentionDays).toBe(90);
+    expect(state.receipts).toHaveLength(1000);
+    expect(state.org.retentionGrace).toBeDefined();
+    expect(state.audit).toHaveLength(0);
+  });
+
+  it("deletes nothing under legal hold, even after the grace ends, and logs the run", async () => {
+    const at = (days: number) => new Date(NOW.getTime() - days * DAY).toISOString();
+    const leaks = [100, 95].map((d, i) => ({ id: `leak_${i}`, propertyId: property.id, createdAt: at(d) }) as LeakReport);
+    const deliveries = [45, 31].map((d, i) => ({ id: `dlv_${i}`, propertyId: property.id, createdAt: at(d) }) as WebhookDelivery);
+    const held = { ...downgraded, retentionGrace: { ...downgraded.retentionGrace!, until: at(1) }, legalHold: { since: at(3), by: "counsel@theplaintheory.in", reason: "Litigation" } };
+    const { store, state } = memoryStore({ org: held, property, receipts: longFixture(), leaks, deliveries });
+    const report = await runRetention(store, { now: NOW });
+    expect(report.totals).toMatchObject({ receiptsRemoved: 0, leaksRemoved: 0, deliveriesRemoved: 0, propertiesSkipped: 0 });
+    expect(report.orgs[0]).toMatchObject({ legalHold: true });
+    expect(report.orgs[0].properties[0].skipped).toBe("legal-hold");
+    expect(state.receipts).toHaveLength(1000);
+    expect(state.leaks).toHaveLength(2);
+    expect(state.deliveries).toHaveLength(2);
+    expect(state.property.retentionCheckpoint).toBeUndefined();
+    expect(state.calls).toEqual([]);
+    const run = state.audit.find((e) => e.action === "retention.run")!;
+    expect(run.metadata).toMatchObject({ legalHold: true, receiptsRemoved: 0 });
+  });
+
+  it("keeps receipts already past the checkpoint under legal hold (no clean-up of an interrupted run)", async () => {
+    const all = fixture();
+    const cp = { seq: 10, hash: all[9].hash, removedThrough: all[9].timestamp, removedCount: 10, at: NOW.toISOString() };
+    const { store, state } = memoryStore({ org: { ...org, legalHold: { since: NOW.toISOString(), by: "a@b.co" } }, property: { ...property, retentionCheckpoint: cp }, receipts: all });
+    await runRetention(store, { now: NOW });
+    expect(state.receipts).toHaveLength(120);
+  });
+});

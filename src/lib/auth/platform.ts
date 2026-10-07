@@ -29,6 +29,8 @@ export type PlatformPermission =
   | "orgs:plan"
   /** suspend or lift a suspension */
   | "orgs:suspend"
+  /** place or lift a legal hold (retention deletes nothing while it's set) */
+  | "orgs:legal_hold"
   /** invite, change, disable or remove staff */
   | "staff:manage"
   /** the contact-request inbox (sales, support, partner and enterprise requests) */
@@ -47,6 +49,7 @@ const GRANTS: Record<PlatformRole, PlatformPermission[]> = {
     "users:revoke_sessions",
     "orgs:plan",
     "orgs:suspend",
+    "orgs:legal_hold",
     "staff:manage",
     "leads:read",
     "leads:manage",
@@ -69,7 +72,7 @@ export function assertPlatform(role: PlatformRole | null | undefined, p: Platfor
 }
 
 export const PLATFORM_ROLE_INFO: Record<PlatformRole, { label: string; summary: string }> = {
-  superadmin: { label: "Superadmin", summary: "Everything, including inviting and managing staff, plan changes and suspensions." },
+  superadmin: { label: "Superadmin", summary: "Everything, including inviting and managing staff, plan changes, suspensions and legal holds." },
   support: { label: "Support", summary: "Read all customer data, unlock accounts, sign users out and work the request inbox." },
   billing: { label: "Billing", summary: "Metrics, the organization and user lists, and plan changes (comps)." },
   analyst: { label: "Analyst", summary: "Read-only metrics, the organization and user lists, and the request inbox." },

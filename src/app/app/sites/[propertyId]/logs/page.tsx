@@ -9,7 +9,7 @@ import { formatInt, formatPct, isoDaysAgo, outcomeOf } from "@/lib/analytics";
 import { requireProperty } from "@/lib/auth/access";
 import { can } from "@/lib/auth/rbac";
 import { FRAMEWORK_META } from "@/lib/defaults";
-import { planById } from "@/lib/plans";
+import { effectiveRetentionDays } from "@/lib/retention-grace";
 import { filterQuery, filterRange, hasFieldFilters, hasFilters, matchesReceipt, parseReceiptFilters } from "@/lib/receipt-filters";
 import { Select } from "@/components/app/ui/select";
 import { StatStrip, type Stat } from "@/components/app/ui/stat-strip";
@@ -53,7 +53,6 @@ export default async function LogsPage(props: PageProps<"/app/sites/[propertyId]
   // Receipts in the chain: the newest sequence number, less any retired by retention.
   const [head] = !before && !hasFilters(filters) ? rows : await store.listReceipts(property.id, { limit: 1 });
   const chainSize = Math.max(0, (head?.seq ?? 0) - (property.retentionCheckpoint?.seq ?? 0));
-  const plan = planById(org.plan);
   const fq = filterQuery(filters);
   const filtered = hasFilters(filters);
   const withQuery = (base: string, extra: Record<string, string> = {}) => {
@@ -137,7 +136,7 @@ export default async function LogsPage(props: PageProps<"/app/sites/[propertyId]
       <PageHeader live={10_000}
         crumbs={[{ href: "/app", label: "Sites" }, { href: `/app/sites/${property.id}`, label: property.name }, { label: "Consent log" }]}
         title="Consent log"
-        description={`Every banner decision on ${property.domain}, hash-chained so any change shows. Kept ${formatInt(plan.logRetentionDays)} days.`}
+        description={`Every banner decision on ${property.domain}, hash-chained so any change shows. Kept ${formatInt(effectiveRetentionDays(org))} days.`}
         actions={
           canExport ? (
             <>

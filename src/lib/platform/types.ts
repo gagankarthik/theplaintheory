@@ -4,6 +4,8 @@ export type PlatformAuditAction =
   | "org.plan_changed"
   | "org.suspended"
   | "org.unsuspended"
+  | "org.legal_hold_set"
+  | "org.legal_hold_cleared"
   | "user.unlocked"
   | "user.sessions_revoked"
   | "staff.invited"
@@ -57,6 +59,8 @@ export const PLATFORM_AUDIT_LABELS: Record<PlatformAuditAction, string> = {
   "org.plan_changed": "Changed plan",
   "org.suspended": "Suspended organization",
   "org.unsuspended": "Lifted suspension",
+  "org.legal_hold_set": "Placed legal hold",
+  "org.legal_hold_cleared": "Lifted legal hold",
   "user.unlocked": "Unlocked account",
   "user.sessions_revoked": "Signed user out everywhere",
   "staff.invited": "Invited staff member",

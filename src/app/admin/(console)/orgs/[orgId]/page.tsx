@@ -12,6 +12,7 @@ import { canPlatform } from "@/lib/auth/platform";
 import { requireStaff, staffMetadata } from "@/lib/auth/staff";
 import { loadOrgDetail } from "@/lib/platform/data";
 import { planById } from "@/lib/plans";
+import { activeGrace } from "@/lib/retention-grace";
 
 export const generateMetadata = () => staffMetadata("Organization");
 
@@ -22,6 +23,7 @@ export default async function AdminOrgPage({ params }: { params: Promise<{ orgId
   if (!detail) notFound();
   const { org, members, sites, invites, audit } = detail;
   const plan = planById(org.plan);
+  const grace = activeGrace(org);
 
   return (
     <>
@@ -39,9 +41,10 @@ export default async function AdminOrgPage({ params }: { params: Promise<{ orgId
         }
         actions={
           <OrgActions
-            org={{ id: org.id, name: org.name, plan: org.plan, suspended: Boolean(org.suspendedAt), hasStripe: Boolean(org.stripeSubscriptionId) }}
+            org={{ id: org.id, name: org.name, plan: org.plan, suspended: Boolean(org.suspendedAt), hasStripe: Boolean(org.stripeSubscriptionId), legalHold: Boolean(org.legalHold) }}
             canPlan={canPlatform(ctx.role, "orgs:plan")}
             canSuspend={canPlatform(ctx.role, "orgs:suspend")}
+            canLegalHold={canPlatform(ctx.role, "orgs:legal_hold")}
           />
         }
       />
@@ -190,6 +193,18 @@ export default async function AdminOrgPage({ params }: { params: Promise<{ orgId
               <dt className="text-ink-3">Retention last ran</dt>
               <dd>{fmtDateTime(org.retentionLastRunAt)}</dd>
             </div>
+            <div>
+              <dt className="text-ink-3">Legal hold</dt>
+              <dd>{org.legalHold ? `Since ${fmtDate(org.legalHold.since)}, by ${org.legalHold.by}${org.legalHold.reason ? `. ${org.legalHold.reason}` : ""}` : "None"}</dd>
+            </div>
+            {grace ? (
+              <div>
+                <dt className="text-ink-3">Retention grace</dt>
+                <dd>
+                  {planById(grace.fromPlan).name} records ({grace.logRetentionDays.toLocaleString("en-GB")} days) kept until {fmtDate(grace.until)}
+                </dd>
+              </div>
+            ) : null}
           </dl>
         </aside>
       </div>

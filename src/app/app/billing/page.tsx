@@ -12,6 +12,7 @@ import { billingConfigured, getStripe } from "@/lib/billing";
 import { formatMoney, getBillingSummary, type BillingSummary } from "@/lib/billing-summary";
 import { getCatalog, getLivePlans } from "@/lib/stripe-catalog";
 import { PLANS, SELF_SERVE_PLANS, planById, type Plan } from "@/lib/plans";
+import { activeGrace } from "@/lib/retention-grace";
 import { getStore } from "@/lib/store";
 
 export const metadata: Metadata = { title: "Billing" };
@@ -208,6 +209,7 @@ export default async function BillingPage(props: PageProps<"/app/billing">) {
   const store = await getStore();
   const plan = planById(org.plan);
   const now = new Date();
+  const grace = activeGrace(org, now);
   const monthStart = `${now.toISOString().slice(0, 7)}-01`;
   const today = now.toISOString().slice(0, 10);
   const nextReset = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)).toISOString();
@@ -247,6 +249,12 @@ export default async function BillingPage(props: PageProps<"/app/billing">) {
         >
           {notice.tone === "error" ? <IconAlert size={16} className="mt-0.5 shrink-0" /> : notice.tone === "ok" ? <IconCheck size={16} className="mt-0.5 shrink-0" /> : <IconInfo size={16} className="mt-0.5 shrink-0" />}
           {notice.text}
+        </p>
+      ) : null}
+      {grace ? (
+        <p role="status" className="mb-6 flex items-start gap-2 rounded-[12px] border border-line bg-surface px-4 py-3 text-sm text-ink-2">
+          <IconInfo size={16} className="mt-0.5 shrink-0" />
+          Your records from the {planById(grace.fromPlan).name} plan stay available until {day(grace.until)}. Export them before then, or upgrade to keep them.
         </p>
       ) : null}
       {!configured && canBill && process.env.NODE_ENV !== "production" ? (

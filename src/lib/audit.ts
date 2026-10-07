@@ -108,4 +108,8 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   "audit.exported": "Exported audit log",
   "audit.chain_verified": "Verified audit log chain",
   "retention.run": "Retention job ran",
+  "retention.grace_started": "Records kept 30 days after plan change",
+  "retention.grace_expired": "Records grace period ended",
+  "retention.legal_hold_set": "Legal hold placed",
+  "retention.legal_hold_cleared": "Legal hold lifted",
 };

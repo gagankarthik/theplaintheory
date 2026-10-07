@@ -117,7 +117,11 @@ export type AuditAction =
   | "access_review.exported"
   | "audit.exported"
   | "audit.chain_verified"
-  | "retention.run";
+  | "retention.run"
+  | "retention.grace_started"
+  | "retention.grace_expired"
+  | "retention.legal_hold_set"
+  | "retention.legal_hold_cleared";
 
 /**
  * Administrative audit trail (SOC 2 CC4.1, CC7.2). Hash-chained per organization like consent
@@ -161,6 +165,14 @@ export interface Organization {
   security?: { requireMfa: boolean };
   /** last run of the retention job across this organization's sites */
   retentionLastRunAt?: string;
+  /**
+   * Set when the plan drops to one that keeps consent receipts for less time (cancellation or
+   * downgrade). Until `until`, retention keeps the old plan's `logRetentionDays` and its export
+   * features stay available, so customers can take their records with them (src/lib/retention-grace.ts).
+   */
+  retentionGrace?: { until: string; logRetentionDays: number; fromPlan: PlanId };
+  /** set by Plain Theory staff: while present, the retention job deletes nothing for this organization */
+  legalHold?: { since: string; by: string; reason?: string };
   /** set by Plain Theory staff: members can't use the dashboard until it's lifted */
   suspendedAt?: string;
   suspendedReason?: string;

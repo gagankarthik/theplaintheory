@@ -1,6 +1,6 @@
 "use client";
 
-import { changeOrgPlan, suspendOrg, unsuspendOrg } from "@/app/admin/actions";
+import { changeOrgPlan, clearLegalHold, setLegalHold, suspendOrg, unsuspendOrg } from "@/app/admin/actions";
 import { SelectField, TextAreaField } from "@/components/app/ui/field";
 import { PLANS } from "@/lib/plans";
 import type { PlanId } from "@/lib/types";
@@ -10,12 +10,14 @@ export function OrgActions({
   org,
   canPlan,
   canSuspend,
+  canLegalHold = false,
 }: {
-  org: { id: string; name: string; plan: PlanId; suspended: boolean; hasStripe: boolean };
+  org: { id: string; name: string; plan: PlanId; suspended: boolean; hasStripe: boolean; legalHold?: boolean };
   canPlan: boolean;
   canSuspend: boolean;
+  canLegalHold?: boolean;
 }) {
-  if (!canPlan && !canSuspend) return null;
+  if (!canPlan && !canSuspend && !canLegalHold) return null;
   return (
     <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-start">
       {canPlan ? (
@@ -81,6 +83,41 @@ export function OrgActions({
                 required
                 maxLength={300}
                 placeholder="e.g. Payment overdue since 1 October. Contact billing@theplaintheory.in."
+                error={state?.fieldErrors?.reason}
+              />
+            )}
+          </ActionDialog>
+        )
+      ) : null}
+      {canLegalHold ? (
+        org.legalHold ? (
+          <ActionDialog
+            trigger="Lift legal hold"
+            title={`Lift the legal hold on ${org.name}?`}
+            description="The next retention run applies their normal retention, so records past it are deleted then."
+            confirmLabel="Lift legal hold"
+            pendingLabel="Lifting"
+            action={clearLegalHold}
+            hidden={{ orgId: org.id }}
+          />
+        ) : (
+          <ActionDialog
+            trigger="Legal hold"
+            title={`Place ${org.name} under legal hold?`}
+            description="The retention job deletes nothing for this organization until the hold is lifted: consent receipts, leak reports and webhook logs are all kept."
+            confirmLabel="Place legal hold"
+            pendingLabel="Placing hold"
+            action={setLegalHold}
+            hidden={{ orgId: org.id }}
+          >
+            {(state) => (
+              <TextAreaField
+                id="hold-reason"
+                name="reason"
+                label="Reason (internal, optional)"
+                rows={2}
+                maxLength={300}
+                placeholder="e.g. Litigation hold requested by counsel, ref. 2026-114"
                 error={state?.fieldErrors?.reason}
               />
             )}
