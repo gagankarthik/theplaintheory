@@ -62,14 +62,14 @@ const GROUPS: { id: string; title: string; summary: string; controls: Control[] 
   {
     id: "infrastructure",
     title: "Infrastructure",
-    summary: "Plain Theory runs on AWS, with consent data stored in India.",
+    summary: "Plain Theory runs on enterprise cloud infrastructure, with consent data kept in a single data region.",
     controls: [
       {
         term: "Data residency",
-        detail: "Stored in India (Mumbai, ap-south-1). EU or US residency on Enterprise, by arrangement.",
+        detail: "Stored in a single data region and never copied out. Dedicated data residency on Enterprise, by arrangement.",
       },
       { term: "Encryption in transit", detail: "TLS 1.2 or newer on every endpoint, with TLS 1.3 negotiated where the client supports it." },
-      { term: "Encryption at rest", detail: "AES-256 for the consent database, its backups and configuration storage, with database keys managed in AWS KMS." },
+      { term: "Encryption at rest", detail: "AES-256 for the consent database, its backups and configuration storage, with database keys held in a managed key service." },
       { term: "Backups", detail: "Point-in-time recovery on the consent database, with 35 days of restore points." },
     ],
   },
@@ -117,7 +117,7 @@ export default function SecurityPage() {
               <Image src={PICTURES.bombayDocks.src} alt={PICTURES.bombayDocks.alt} fill sizes="260px" className="object-cover object-[60%_50%]" />
             </div>
             <figcaption className="text-[1rem] leading-[1.5] text-white/85">
-              Consent records are stored in Mumbai, in AWS ap-south-1. EU or US residency is available on Enterprise.
+              Consent records stay in a single data region. Dedicated data residency is available on Enterprise.
             </figcaption>
           </figure>
         }

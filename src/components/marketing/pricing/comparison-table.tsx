@@ -60,7 +60,7 @@ const GROUPS: { name: string; rows: Row[] }[] = [
   {
     name: "Data and security",
     rows: [
-      { feature: "Data stored in India (Mumbai)", value: () => true },
+      { feature: "Local-only data residency (one region)", value: () => true },
       { feature: "EU or US data residency", value: (p) => (p.id === "enterprise" ? "By arrangement" : false) },
       { feature: "Owner, admin, editor, auditor and viewer roles", value: from("starter") },
       { feature: "Single sign-on (SAML/OIDC)", value: (p) => (p.id === "enterprise" ? "On request" : false) },

@@ -69,7 +69,7 @@ const INDUSTRY_ICONS: Record<string, ComponentType<IconProps>> = {
 export const INDUSTRY_LINKS: NavLink[] = INDUSTRIES.map((i) => ({ href: `/industries/${i.slug}`, title: i.menu, description: i.summary, icon: INDUSTRY_ICONS[i.slug] }));
 
 export const COMPLIANCE_LINKS: NavLink[] = [
-  { href: "/compliance/dpdpa", title: "DPDP Act, India", description: "The 2023 Act and the 2025 Rules." },
+  { href: "/compliance/dpdpa", title: "DPDP Act", description: "The 2023 Act and the 2025 Rules." },
   { href: "/compliance/gdpr", title: "GDPR and UK GDPR", description: "Prior consent, equal choices, records." },
   { href: "/compliance/ccpa", title: "CCPA and CPRA", description: "Opt-out of sale and sharing, Global Privacy Control." },
 ];

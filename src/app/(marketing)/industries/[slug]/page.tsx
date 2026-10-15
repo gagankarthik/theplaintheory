@@ -7,7 +7,7 @@ import { pageMetadata } from "@/lib/seo";
 import { absoluteUrl } from "@/lib/site";
 
 const LAW: Record<string, { name: string; line: string }> = {
-  dpdpa: { name: "DPDP Act, India", line: "Notice in plain language, consent per purpose, easy withdrawal and records." },
+  dpdpa: { name: "DPDP Act", line: "Notice in plain language, consent per purpose, easy withdrawal and records." },
   gdpr: { name: "GDPR and UK GDPR", line: "Prior consent for non-essential cookies, equal choices and proof of consent." },
   ccpa: { name: "CCPA and CPRA", line: "A clear opt-out of sale and sharing, with Global Privacy Control honoured." },
 };

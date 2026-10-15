@@ -225,7 +225,7 @@ export const COMPLIANCE: Record<ComplianceSlug, ComplianceContent> = {
       { requirement: "Proof of notice and consent (s.6(10))", feature: "Hash-chained receipts with the notice version and language, verifiable on demand, exported as an Evidence Pack" },
       { requirement: "Processing actually stops", feature: "Leak detection lists any tracker that still fires after a person declines, page by page, on your Leaks page" },
       { requirement: "Records kept long enough (Rule 6)", feature: "1-year log on Starter, 2 years on Growth, 7 years on Business" },
-      { requirement: "Data localisation", feature: "Receipts are stored in India (Mumbai, ap-south-1)" },
+      { requirement: "Data localisation", feature: "Receipts stay in a single data region; dedicated residency on Enterprise" },
     ],
     extra: {
       title: "When each duty applies",
@@ -257,7 +257,7 @@ export const COMPLIANCE: Record<ComplianceSlug, ComplianceContent> = {
       },
       {
         q: "Is data localisation required?",
-        a: "The Act doesn't require all data to stay in India, but the government can restrict transfers to specific countries and sector regulators may have their own rules. Plain Theory stores receipts in India (Mumbai), which avoids the question for consent records.",
+        a: "The Act doesn't require all data to stay in India, but the government can restrict transfers to specific countries and sector regulators may have their own rules. Plain Theory keeps receipts in a single data region, with dedicated residency available on Enterprise.",
       },
     ],
   },
