@@ -6,6 +6,7 @@ import * as iam from "aws-cdk-lib/aws-iam";
 import type * as kms from "aws-cdk-lib/aws-kms";
 import type * as s3 from "aws-cdk-lib/aws-s3";
 import type * as ses from "aws-cdk-lib/aws-ses";
+import type * as sqs from "aws-cdk-lib/aws-sqs";
 import type { Construct } from "constructs";
 import type { TableId } from "./data-stack";
 import type { Naming } from "./naming";
@@ -20,6 +21,8 @@ export interface AccessStackProps extends StackProps {
   customerPool: cognito.IUserPool;
   staffPool: cognito.IUserPool;
   mailIdentity?: ses.IEmailIdentity;
+  /** Headless crawler queue (Crawler stack): the dashboard's "Scan" button sends to it. */
+  crawlQueue?: sqs.IQueue;
   /**
    * Vercel OIDC federation (preferred: no stored keys). When omitted, an IAM user is created instead
    * and its access key is issued with the CLI (never through CloudFormation, so it's not in a template).
@@ -115,6 +118,9 @@ export class AccessStack extends Stack {
         resources: [props.customerPool.userPoolArn, props.staffPool.userPoolArn],
       }),
     ];
+    if (props.crawlQueue) {
+      appStatements.push(new iam.PolicyStatement({ actions: ["sqs:SendMessage", "sqs:GetQueueAttributes"], resources: [props.crawlQueue.queueArn] }));
+    }
     if (props.mailIdentity) {
       appStatements.push(
         new iam.PolicyStatement({

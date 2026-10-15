@@ -14,6 +14,12 @@ so there are no access keys. One deploy creates one stage (`prod`, `staging` or 
 | `PlainTheory-{Stage}-Mail` | SES domain identity (DKIM, custom MAIL FROM), configuration set | `MAIL_FROM` |
 | `PlainTheory-{Stage}-Access` | Vercel OIDC provider; roles `pt-{stage}-vercel-runtime` (dashboard, staff console) and `pt-{stage}-vercel-ingest` (public endpoints) | `AWS_ROLE_ARN`, `AWS_INGEST_ROLE_ARN` |
 | `PlainTheory-{Stage}-Observability` | SNS alerts topic, DynamoDB throttle and error alarms, monthly budget on the stage tag | none |
+| `PlainTheory-{Stage}-CrawlerImages` | ECR repository `pt-{stage}-aps1-crawler` and CodeBuild project `pt-{stage}-aps1-crawler-image` that builds `services/crawler/Dockerfile` in AWS (no local Docker) | none |
+| `PlainTheory-{Stage}-Crawler` | Crawl queue + dead-letter queue, a public-subnet VPC (no NAT), ECS Fargate Spot service scaling 0→N on queue depth, alarms. `-c crawler=false` leaves both crawler stacks out | `CRAWLER_QUEUE_URL` |
+
+The crawler image is passed with `-c crawlerImage=<RepositoryUri>:<ImageTag>` (outputs of the CrawlerImages stack after
+its CodeBuild run). Without it, `cdk deploy` builds the image locally with Docker. Steps:
+[`docs/architecture/crawler.md`](../docs/architecture/crawler.md#deploy-no-local-docker-needed).
 
 Every resource is named `pt-{stage}-{regionCode}-{component}` and carries the tags `Project`, `Environment`,
 `Component`, `Owner`, `CostCenter`, `DataClassification`, `Compliance`, `ManagedBy` and `Repository`. Synth fails if
