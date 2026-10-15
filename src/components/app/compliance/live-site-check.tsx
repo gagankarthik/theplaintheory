@@ -12,7 +12,7 @@ import { siteAuditFixHref, type SiteAuditReport, type SiteCheck, type SiteCheckS
 const STEPS = ["Fetching homepage", "Finding policy pages", "Checking"] as const;
 
 const ICON: Record<SiteCheckStatus, { el: ReactNode; cls: string; sr: string }> = {
-  fail: { el: <IconClose size={14} />, cls: "bg-rose text-white", sr: "Failing" },
+  fail: { el: <IconClose size={14} />, cls: "bg-rose text-on-inverse", sr: "Failing" },
   warn: { el: <IconAlert size={14} />, cls: "bg-amber-wash text-amber ring-1 ring-inset ring-amber-bright", sr: "Needs review" },
   pass: { el: <IconCheck size={14} />, cls: "bg-jade-wash text-jade", sr: "Passing" },
   unknown: { el: <IconInfo size={14} />, cls: "bg-paper text-ink-3 ring-1 ring-inset ring-line", sr: "Couldn't check" },

@@ -86,7 +86,7 @@ const HOUR = 60 * 60 * 1000;
 /** Limits per public form, per salted IP hash. `signIn` is the network throttle used by auth/lockout.ts; `staffSignIn` guards /admin/login. */
 export const RATE_LIMITS = {
   contactSales: { limit: 5, windowMs: HOUR },
-  /** /contact/support, /contact/partners and /contact/enterprise share one window per network */
+  /** The support, partner and enterprise topics on /contact share one window per network */
   contact: { limit: 5, windowMs: HOUR },
   signup: { limit: 10, windowMs: HOUR },
   signIn: { limit: 30, windowMs: 15 * 60 * 1000 },

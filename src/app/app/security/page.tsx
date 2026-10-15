@@ -164,7 +164,7 @@ export default async function SecurityPage() {
           <Link href="/security" className="btn btn-ghost">
             Our security practices
           </Link>
-          <Link href="/contact/enterprise" className="btn btn-primary">
+          <Link href="/contact?topic=enterprise" className="btn btn-primary">
             Request compliance documents
           </Link>
         </div>

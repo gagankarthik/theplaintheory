@@ -20,7 +20,7 @@ import { domainSchema, emailSchema, plainTextSchema } from "./validation";
 
 /**
  * Every public contact form: schemas per topic, the stored shape, and submission. Sales
- * (/contact-sales) keeps its original fields; support, partner and enterprise requests come from
+ * (/contact?topic=sales) keeps its original fields; support, partner and enterprise requests come from
  * /contact/*. All are stored as leads with a `topic`, so the staff inbox reads one table.
  */
 
@@ -90,7 +90,7 @@ const regionsField = (empty: string) =>
     .max(REGION_OPTIONS.length, "Choose regions from the list.")
     .transform((r) => [...new Set(r)]);
 
-/* ---------- sales (/contact-sales) ---------- */
+/* ---------- sales (/contact?topic=sales) ---------- */
 
 export const leadSchema = z.object({
   name: nameField,
@@ -107,7 +107,7 @@ export const leadSchema = z.object({
 
 export type LeadInput = z.infer<typeof leadSchema>;
 
-/* ---------- support (/contact/support) ---------- */
+/* ---------- support (/contact?topic=support) ---------- */
 
 export const supportSchema = z.object({
   name: nameField,
@@ -126,7 +126,7 @@ export const supportSchema = z.object({
 });
 export type SupportInput = z.infer<typeof supportSchema>;
 
-/* ---------- partners (/contact/partners) ---------- */
+/* ---------- partners (/contact?topic=partners) ---------- */
 
 export const partnerSchema = z.object({
   name: nameField,
@@ -139,7 +139,7 @@ export const partnerSchema = z.object({
 });
 export type PartnerInput = z.infer<typeof partnerSchema>;
 
-/* ---------- enterprise (/contact/enterprise) ---------- */
+/* ---------- enterprise (/contact?topic=enterprise) ---------- */
 
 export const enterpriseSchema = z.object({
   name: nameField,
@@ -247,7 +247,7 @@ export async function submitContact(t: TopicInput, ip: string | null): Promise<S
   return { ok: true, id: lead.id, reference: leadReference(lead.id) };
 }
 
-/** The sales entry point used by /contact-sales. */
+/** The sales entry point used by the sales topic on /contact. */
 export const submitLead = (input: LeadInput, ip: string | null) => submitContact({ topic: "sales", input }, ip);
 
 /** The webhook text for a lead. It starts with the topic, so a shared channel can be scanned or filtered. */

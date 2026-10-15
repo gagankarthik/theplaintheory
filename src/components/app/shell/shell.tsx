@@ -4,26 +4,27 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { signOut, switchOrg } from "@/app/app/actions";
-import { BrandMark } from "@/components/brand/logo";
+import { AppIcon } from "@/components/brand/logo";
 import {
   IconAlert,
   IconBalance,
   IconBilling,
+  IconBook,
   IconBrush,
   IconChain,
   IconCheck,
-  IconCode,
+  IconCookie,
   IconInfo,
-  IconLock,
   IconInstall,
+  IconLock,
   IconLogs,
   IconOverview,
   IconPlainText,
   IconPlug,
   IconPlus,
+  IconRadar,
   IconReceipt,
   IconRegion,
-  IconScan,
   IconSettings,
   IconShieldCheck,
   IconSignOut,
@@ -32,6 +33,7 @@ import {
   type IconProps,
 } from "@/components/icons";
 import { ToastProvider } from "@/components/app/ui/toast";
+import { ThemeScope, ThemeToggle } from "@/components/theme/theme";
 import { can } from "@/lib/auth/rbac";
 import type { Role } from "@/lib/types";
 import { PublishButton } from "@/components/app/sites/publish-button";
@@ -50,7 +52,7 @@ interface ShellProps {
   children: React.ReactNode;
 }
 
-type Tab = { href: string; label: string; icon: (p: IconProps) => React.ReactNode; exact?: boolean };
+type Tab = { href: string; label: string; icon: (p: IconProps) => React.ReactNode; exact?: boolean; };
 
 type TabGroup = { label?: string; tabs: Tab[] };
 
@@ -65,10 +67,11 @@ const siteGroups = (id: string): TabGroup[] => [
   {
     label: "Configure",
     tabs: [
-      { href: `/app/sites/${id}/banner`, label: "Banner", icon: IconBrush },
+      { href: `/app/sites/${id}/banner`, label: "Banner studio", icon: IconBrush },
       { href: `/app/sites/${id}/regions`, label: "Regions", icon: IconRegion },
       { href: `/app/sites/${id}/languages`, label: "Languages", icon: IconPlainText },
-      { href: `/app/sites/${id}/trackers`, label: "Trackers", icon: IconScan },
+      { href: `/app/sites/${id}/trackers`, label: "Cookie catalog", icon: IconCookie },
+      { href: `/app/sites/${id}/scanner`, label: "Scanner", icon: IconRadar },
       { href: `/app/sites/${id}/install`, label: "Install", icon: IconInstall },
     ],
   },
@@ -99,40 +102,6 @@ const orgTabs = (role: Role): Tab[] => [
 export const SIDEBAR_COOKIE = "pt-sidebar";
 export const SITE_COOKIE = "pt-site";
 
-/** One sidebar row. Collapsed rows show the icon only, with the label as a tooltip and accessible name. */
-function SideLink({ tab, active, collapsed }: { tab: Tab; active: boolean; collapsed: boolean }) {
-  const Icon = tab.icon;
-  return (
-    <Link
-      href={tab.href}
-      aria-current={active ? "page" : undefined}
-      aria-label={collapsed ? tab.label : undefined}
-      className={`group/item relative flex h-10 items-center gap-3 rounded-[12px] text-sm transition-[background-color,color,box-shadow] duration-200 ${collapsed ? "justify-center px-0" : "pl-1.5 pr-3"} ${
-        active ? "bg-brand-wash font-medium text-brand-ink" : "text-ink-2 hover:bg-paper hover:text-ink"
-      }`}
-    >
-      <span
-        aria-hidden
-        className={`grid size-7 shrink-0 place-items-center rounded-[8px] transition-colors duration-200 ${
-          active ? "bg-brand text-white shadow-[0_2px_6px_rgb(46_43_214/0.35)]" : "text-ink-3 group-hover/item:bg-surface group-hover/item:text-ink"
-        }`}
-      >
-        <Icon size={16} />
-      </span>
-      {collapsed ? (
-        <span
-          aria-hidden
-          className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 -translate-y-1/2 whitespace-nowrap rounded-md bg-ink px-2 py-1 text-xs font-medium text-white opacity-0 shadow-lg transition-opacity group-hover/item:opacity-100 group-focus-visible/item:opacity-100"
-        >
-          {tab.label}
-        </span>
-      ) : (
-        <span className="truncate">{tab.label}</span>
-      )}
-    </Link>
-  );
-}
-
 const isActive = (t: Tab, pathname: string) => (t.exact ? pathname === t.href : pathname === t.href || pathname.startsWith(`${t.href}/`));
 
 const initials = (s: string) =>
@@ -143,19 +112,20 @@ const initials = (s: string) =>
     .slice(0, 2)
     .toUpperCase();
 
-/** Deterministic two-stop gradient per name, so every org and person has a recognisable avatar. */
-function avatarStyle(seed: string): React.CSSProperties {
+/** Deterministic hue per name, so every org and person has a recognisable (and quiet) avatar. */
+function hueOf(seed: string) {
   let h = 0;
   for (const c of seed) h = (h * 31 + c.charCodeAt(0)) % 360;
-  return { background: `linear-gradient(135deg, hsl(${h} 72% 62%), hsl(${(h + 48) % 360} 70% 46%))` };
+  return h;
 }
 
 function Avatar({ name, seed, size = 24, square }: { name: string; seed: string; size?: number; square?: boolean }) {
+  const h = hueOf(seed);
   return (
     <span
       aria-hidden
-      className={`grid shrink-0 place-items-center font-semibold text-white ${square ? "rounded-[6px]" : "rounded-full"}`}
-      style={{ ...avatarStyle(seed), width: size, height: size, fontSize: Math.round(size * 0.4) }}
+      className={`grid shrink-0 place-items-center font-semibold text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.25)] ${square ? "rounded-[6px]" : "rounded-full"}`}
+      style={{ background: `linear-gradient(140deg, hsl(${h} 62% 58%), hsl(${(h + 40) % 360} 58% 42%))`, width: size, height: size, fontSize: Math.round(size * 0.4) }}
     >
       {initials(name)}
     </span>
@@ -164,54 +134,68 @@ function Avatar({ name, seed, size = 24, square }: { name: string; seed: string;
 
 function UpDown() {
   return (
-    <svg aria-hidden width="14" height="14" viewBox="0 0 16 16" className="shrink-0 text-ink-3">
+    <svg aria-hidden width="14" height="14" viewBox="0 0 16 16" className="ml-auto shrink-0 text-ink-3">
       <path d="m5 6 3-3 3 3M5 10l3 3 3-3" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
 
-function Slash() {
+/** One sidebar row. Collapsed rows show the icon only, with the label as a tooltip and accessible name. */
+function SideLink({ tab, active, collapsed }: { tab: Tab; active: boolean; collapsed: boolean }) {
+  const Icon = tab.icon;
   return (
-    <svg aria-hidden width="16" height="24" viewBox="0 0 16 24" className="shrink-0 text-line-strong">
-      <path d="M11 3 5 21" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" />
-    </svg>
+    <Link
+      href={tab.href}
+      aria-current={active ? "page" : undefined}
+      aria-label={collapsed ? tab.label : undefined}
+      className={`group/item relative flex h-8 items-center gap-2.5 rounded-[7px] text-[0.8125rem] transition-colors duration-150 ${collapsed ? "justify-center px-0" : "px-2"} ${
+        active ? "bg-paper font-medium text-ink shadow-[inset_0_0_0_1px_var(--color-line)]" : "text-ink-2 hover:bg-paper/70 hover:text-ink"
+      }`}
+    >
+      {active ? <span aria-hidden className="absolute -left-3 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-brand" /> : null}
+      <Icon size={16} aria-hidden className={`shrink-0 transition-colors ${active ? "text-brand" : "text-ink-3 group-hover/item:text-ink-2"}`} />
+      {collapsed ? (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 -translate-y-1/2 whitespace-nowrap rounded-[6px] bg-inverse px-2 py-1 text-xs font-medium text-on-inverse opacity-0 shadow-[var(--shadow-lift)] transition-opacity group-hover/item:opacity-100 group-focus-visible/item:opacity-100"
+        >
+          {tab.label}
+        </span>
+      ) : (
+        <span className="truncate">{tab.label}</span>
+      )}
+    </Link>
   );
 }
 
-const barTrigger = "flex h-9 min-w-0 max-w-full items-center gap-2 rounded-[8px] px-2 text-sm font-medium text-ink transition-colors hover:bg-paper aria-expanded:bg-paper";
-const panelTrigger =
-  "flex min-h-11 w-full min-w-0 items-center gap-2.5 rounded-[10px] px-2 py-1.5 text-left text-sm ring-1 ring-inset ring-line transition-colors hover:bg-paper aria-expanded:bg-paper";
+const switcherTrigger =
+  "flex h-10 w-full min-w-0 items-center gap-2.5 rounded-[8px] px-1.5 text-left text-sm transition-colors hover:bg-paper aria-expanded:bg-paper";
 
-type Variant = "bar" | "panel";
-
-/** Organization switcher: a breadcrumb in the top bar, a full-width row in the mobile menu. */
-function OrgSwitcher({ org, orgs, variant }: { org: ShellProps["org"]; orgs: ShellProps["orgs"]; variant: Variant }) {
+/** Organization switcher at the top of the sidebar (and the mobile menu). */
+function OrgSwitcher({ org, orgs, collapsed }: { org: ShellProps["org"]; orgs: ShellProps["orgs"]; collapsed?: boolean }) {
   const [, startTransition] = useTransition();
   return (
     <Dropdown
       label={`Organization: ${org.name}. Switch organization`}
-      triggerClassName={variant === "bar" ? barTrigger : panelTrigger}
+      triggerClassName={collapsed ? "grid size-9 place-items-center rounded-[8px] hover:bg-paper aria-expanded:bg-paper" : switcherTrigger}
       trigger={
-        <>
-          <Avatar name={org.name} seed={org.id} size={variant === "bar" ? 22 : 28} square />
-          {variant === "bar" ? (
-            <>
-              <span className="truncate">{org.name}</span>
-              <span className="hidden shrink-0 rounded-full bg-paper px-2 py-0.5 text-2xs font-medium capitalize text-ink-2 ring-1 ring-inset ring-line md:inline">{org.plan}</span>
-            </>
-          ) : (
+        collapsed ? (
+          <Avatar name={org.name} seed={org.id} size={24} square />
+        ) : (
+          <>
+            <Avatar name={org.name} seed={org.id} size={26} square />
             <span className="min-w-0 flex-1">
-              <span className="block truncate font-semibold text-ink">{org.name}</span>
-              <span className="block truncate text-xs capitalize text-ink-3">{org.plan} plan</span>
+              <span className="block truncate text-[0.8125rem] font-semibold leading-tight text-ink">{org.name}</span>
+              <span className="block truncate text-[0.6875rem] capitalize leading-tight text-ink-3">{org.plan} plan</span>
             </span>
-          )}
-          <UpDown />
-        </>
+            <UpDown />
+          </>
+        )
       }
     >
       {(close) => (
         <>
-          <p className="px-2.5 pb-1 pt-1.5 text-xs text-ink-3">Organizations</p>
+          <p className="eyebrow px-2.5 pb-1 pt-1.5">Organizations</p>
           {orgs.map((o) => (
             <button
               key={o.id}
@@ -225,14 +209,14 @@ function OrgSwitcher({ org, orgs, variant }: { org: ShellProps["org"]; orgs: She
               }}
               className={menuItemClass}
             >
-              <Avatar name={o.name} seed={o.id} size={22} square />
+              <Avatar name={o.name} seed={o.id} size={20} square />
               <span className="truncate text-ink">{o.name}</span>
-              {o.id === org.id ? <IconCheck size={16} className="ml-auto text-ink" /> : null}
+              {o.id === org.id ? <IconCheck size={15} className="ml-auto text-brand" /> : null}
             </button>
           ))}
           <div className="my-1 h-px bg-line" />
           <Link href="/onboarding/new" role="menuitem" tabIndex={-1} onClick={close} className={menuItemClass}>
-            <IconPlus size={16} /> Create organization
+            <IconPlus size={15} /> Create organization
           </Link>
         </>
       )}
@@ -240,41 +224,23 @@ function OrgSwitcher({ org, orgs, variant }: { org: ShellProps["org"]; orgs: She
   );
 }
 
-/** Site switcher for the site you're working on; switching keeps you on the same section. */
-function SiteSwitcher({
-  org,
-  properties,
-  focus,
-  onAll,
-  variant,
-}: {
-  org: ShellProps["org"];
-  properties: ShellProps["properties"];
-  focus: ShellProps["properties"][number];
-  /** on the "All sites" page the crumb names that page instead of a site */
-  onAll: boolean;
-  variant: Variant;
-}) {
+/** Site switcher: the site whose sections the sidebar lists. Switching opens the site's overview. */
+function SiteSwitcher({ org, properties, focus, onAll }: { org: ShellProps["org"]; properties: ShellProps["properties"]; focus: ShellProps["properties"][number]; onAll: boolean }) {
   const router = useRouter();
   return (
     <Dropdown
       label={onAll ? "All sites. Switch site" : `Site: ${focus.name}. Switch site`}
-      triggerClassName={variant === "bar" ? barTrigger : panelTrigger}
+      triggerClassName="flex w-full min-w-0 items-center gap-2.5 rounded-[8px] border border-line bg-surface px-2 py-1.5 text-left shadow-[var(--shadow-edge)] transition-colors hover:border-line-strong aria-expanded:border-line-strong"
       trigger={
         <>
-          {variant === "panel" ? (
-            <span aria-hidden className="grid size-7 shrink-0 place-items-center rounded-[7px] bg-brand-wash text-brand">
-              <IconSites size={16} />
-            </span>
-          ) : null}
-          {variant === "bar" ? (
-            <span className="truncate">{onAll ? "All sites" : focus.name}</span>
-          ) : (
-            <span className="min-w-0 flex-1">
-              <span className="block truncate font-medium text-ink">{onAll ? "All sites" : focus.name}</span>
-              <span className="block truncate text-xs text-ink-3">{onAll ? `${properties.length} in ${org.name}` : focus.domain}</span>
-            </span>
-          )}
+          <span aria-hidden className="grid size-7 shrink-0 place-items-center rounded-[6px] bg-brand-wash font-mono text-[0.6875rem] font-semibold text-brand-ink">
+            {onAll ? <IconSites size={14} /> : focus.name.slice(0, 2).toUpperCase()}
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-[0.8125rem] font-medium leading-tight text-ink">{onAll ? "All sites" : focus.name}</span>
+            <span className="block truncate font-mono text-[0.6875rem] leading-tight text-ink-3">{onAll ? `${properties.length} in ${org.name}` : focus.domain}</span>
+          </span>
+          {!onAll && focus.dirty ? <span aria-hidden title="Unpublished changes" className="size-1.5 shrink-0 rounded-full bg-amber-bright" /> : null}
           <UpDown />
         </>
       }
@@ -282,17 +248,17 @@ function SiteSwitcher({
       {(close) => (
         <>
           <Link href="/app" role="menuitemradio" aria-checked={onAll} tabIndex={-1} onClick={close} className={menuItemClass}>
-            <span aria-hidden className="grid size-7 shrink-0 place-items-center rounded-[7px] bg-paper text-ink-2 ring-1 ring-inset ring-line">
-              <IconSites size={16} />
+            <span aria-hidden className="grid size-7 shrink-0 place-items-center rounded-[6px] bg-paper text-ink-2 ring-1 ring-inset ring-line">
+              <IconSites size={14} />
             </span>
             <span className="min-w-0">
               <span className="block font-medium text-ink">All sites</span>
-              <span className="block text-xs text-ink-3">Status and numbers for every site</span>
+              <span className="block text-xs text-ink-3">Every site at a glance</span>
             </span>
-            {onAll ? <IconCheck size={16} className="ml-auto shrink-0 text-brand" /> : null}
+            {onAll ? <IconCheck size={15} className="ml-auto shrink-0 text-brand" /> : null}
           </Link>
           <div className="my-1 h-px bg-line" />
-          <p className="px-2.5 pb-1 pt-1.5 text-xs text-ink-3">Sites in {org.name}</p>
+          <p className="eyebrow px-2.5 pb-1 pt-1.5">Sites</p>
           {properties.map((p) => {
             const current = !onAll && p.id === focus.id;
             return (
@@ -304,26 +270,89 @@ function SiteSwitcher({
                 tabIndex={-1}
                 onClick={() => {
                   close();
-                  // a newly chosen site opens on its overview
                   router.push(`/app/sites/${p.id}`);
                 }}
                 className={menuItemClass}
               >
-                <span aria-hidden className={`grid size-7 shrink-0 place-items-center rounded-[7px] text-2xs font-semibold ${current ? "bg-brand text-white" : "bg-brand-wash text-brand-ink"}`}>
-                  {p.name.slice(0, 1).toUpperCase()}
+                <span aria-hidden className={`grid size-7 shrink-0 place-items-center rounded-[6px] font-mono text-[0.6875rem] font-semibold ${current ? "bg-brand-solid text-white" : "bg-brand-wash text-brand-ink"}`}>
+                  {p.name.slice(0, 2).toUpperCase()}
                 </span>
                 <span className="min-w-0">
                   <span className="block truncate text-ink">{p.name}</span>
-                  <span className="block truncate text-xs text-ink-3">{p.domain}</span>
+                  <span className="block truncate font-mono text-[0.6875rem] text-ink-3">{p.domain}</span>
                 </span>
-                {current ? <IconCheck size={16} className="ml-auto shrink-0 text-brand" /> : null}
+                {current ? <IconCheck size={15} className="ml-auto shrink-0 text-brand" /> : null}
               </button>
             );
           })}
           <div className="my-1 h-px bg-line" />
           <Link href="/app" role="menuitem" tabIndex={-1} onClick={close} className={menuItemClass}>
-            <IconPlus size={16} /> Add a site
+            <IconPlus size={15} /> Add a site
           </Link>
+        </>
+      )}
+    </Dropdown>
+  );
+}
+
+function UserMenu({ user, org, role, collapsed }: { user: ShellProps["user"]; org: ShellProps["org"]; role: Role; collapsed: boolean }) {
+  return (
+    <Dropdown
+      label="Account menu"
+      side="top"
+      width="w-72"
+      triggerClassName={collapsed ? "grid size-9 place-items-center rounded-full hover:bg-paper aria-expanded:bg-paper" : switcherTrigger}
+      trigger={
+        collapsed ? (
+          <Avatar name={user.name} seed={user.email} size={26} />
+        ) : (
+          <>
+            <Avatar name={user.name} seed={user.email} size={26} />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[0.8125rem] font-medium leading-tight text-ink">{user.name}</span>
+              <span className="block truncate text-[0.6875rem] capitalize leading-tight text-ink-3">{role}</span>
+            </span>
+            <UpDown />
+          </>
+        )
+      }
+    >
+      {(close) => (
+        <>
+          <div className="flex items-center gap-3 px-2.5 pb-3 pt-2">
+            <Avatar name={user.name} seed={user.email} size={36} />
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-ink">{user.name}</p>
+              <p className="truncate text-xs text-ink-3">{user.email}</p>
+              <p className="mt-1 truncate text-[0.6875rem] text-ink-3">
+                <span className="capitalize text-ink-2">{role}</span> at {org.name}
+              </p>
+            </div>
+          </div>
+          <div className="px-2.5 pb-2">
+            <ThemeToggle className="w-full" />
+          </div>
+          <div className="my-1 h-px bg-line" />
+          <Link href="/app/account" role="menuitem" tabIndex={-1} onClick={close} className={menuItemClass}>
+            <IconLock size={15} className="shrink-0 text-ink-3" /> Account and security
+          </Link>
+          {can(role, "billing:manage") ? (
+            <Link href="/app/billing" role="menuitem" tabIndex={-1} onClick={close} className={menuItemClass}>
+              <IconBilling size={15} className="shrink-0 text-ink-3" /> Billing and plan
+            </Link>
+          ) : null}
+          <Link href="/docs" role="menuitem" tabIndex={-1} onClick={close} className={menuItemClass}>
+            <IconBook size={15} className="shrink-0 text-ink-3" /> Documentation
+          </Link>
+          <Link href="/contact?topic=support" role="menuitem" tabIndex={-1} onClick={close} className={menuItemClass}>
+            <IconInfo size={15} className="shrink-0 text-ink-3" /> Get support
+          </Link>
+          <div className="my-1 h-px bg-line" />
+          <form action={signOut}>
+            <button type="submit" role="menuitem" tabIndex={-1} className={`${menuItemClass} hover:!bg-rose-wash hover:!text-rose`}>
+              <IconSignOut size={15} className="shrink-0" /> Sign out
+            </button>
+          </form>
         </>
       )}
     </Dropdown>
@@ -332,73 +361,73 @@ function SiteSwitcher({
 
 interface NavProps {
   org: ShellProps["org"];
-  orgs: ShellProps["orgs"];
   role: Role;
   properties: ShellProps["properties"];
   /** the site whose sections the sidebar shows: the one open now, else the last one visited */
   focusId?: string;
   pathname: string;
   collapsed: boolean;
-  /** the mobile menu repeats the switchers, which live in the top bar on wider screens */
-  switchers?: boolean;
 }
 
-/**
- * The dashboard's sections, identical on every page: the site you're working on, then the
- * organization's own pages. The organization and site switchers live in the top bar.
- */
-function SidebarNav({ org, orgs, role, properties, focusId, pathname, collapsed, switchers = false }: NavProps) {
+/** The dashboard's sections: the site you're working on, then the organization's own pages. */
+function SidebarNav({ org, role, properties, focusId, pathname, collapsed }: NavProps) {
   const focus = properties.find((p) => p.id === focusId);
-  const divider = <div aria-hidden className={`my-3 h-px bg-line ${collapsed ? "mx-auto w-6" : "mx-3"}`} />;
-
   return (
     <>
-      {switchers ? (
-        <div className="mb-6 space-y-2">
-          <OrgSwitcher org={org} orgs={orgs} variant="panel" />
-          {focus ? <SiteSwitcher org={org} properties={properties} focus={focus} onAll={pathname === "/app"} variant="panel" /> : null}
-        </div>
-      ) : null}
-
-      {/* The site you're working on */}
       {focus ? (
-        <nav aria-label={`${focus.name} sections`}>
-          {/* Groups are separated by space alone (proximity), with no headings to read past. */}
-          <div className="space-y-4">
+        <>
+          {collapsed ? null : (
+            <div className="mb-4">
+              <SiteSwitcher org={org} properties={properties} focus={focus} onAll={pathname === "/app"} />
+            </div>
+          )}
+          <nav aria-label={`${focus.name} sections`} className="space-y-4">
             {siteGroups(focus.id).map((g, i) => (
-              <ul key={i} aria-label={g.label} className="space-y-0.5">
-                {g.tabs.map((t) => (
-                  <li key={t.href}>
-                    <SideLink tab={t} active={isActive(t, pathname)} collapsed={collapsed} />
-                  </li>
-                ))}
-              </ul>
+              <div key={i}>
+                {g.label && !collapsed ? <p className="eyebrow mb-1 px-2">{g.label}</p> : null}
+                {g.label && collapsed ? <div aria-hidden className="mx-auto mb-2 h-px w-5 bg-line" /> : null}
+                <ul aria-label={g.label} className="space-y-px">
+                  {g.tabs.map((t) => (
+                    <li key={t.href}>
+                      <SideLink tab={t} active={isActive(t, pathname)} collapsed={collapsed} />
+                    </li>
+                  ))}
+                </ul>
+              </div>
             ))}
-          </div>
-        </nav>
+          </nav>
+        </>
       ) : (
         <Link
           href="/app"
-          className={`flex h-10 items-center gap-2.5 rounded-[10px] text-sm font-medium text-brand ring-1 ring-inset ring-brand/30 hover:bg-brand-wash ${collapsed ? "justify-center" : "px-2.5"}`}
+          className={`flex h-9 items-center gap-2 rounded-[8px] border border-dashed border-brand/40 text-[0.8125rem] font-medium text-brand hover:bg-brand-wash ${collapsed ? "justify-center" : "px-2.5"}`}
         >
-          <IconPlus size={16} />
+          <IconPlus size={15} />
           {collapsed ? <span className="sr-only">Add your first site</span> : "Add your first site"}
         </Link>
       )}
 
-      {/* The organization's own pages */}
-      {divider}
-      <nav aria-label="Organization">
-        <ul className="space-y-0.5">
-          {orgTabs(role).map((t) => (
-            <li key={t.href}>
-              <SideLink tab={t} active={isActive(t, pathname)} collapsed={collapsed} />
-            </li>
-          ))}
-        </ul>
-      </nav>
+      <div className="mt-5">
+        {collapsed ? <div aria-hidden className="mx-auto mb-2 h-px w-5 bg-line" /> : <p className="eyebrow mb-1 px-2">Organization</p>}
+        <nav aria-label="Organization">
+          <ul className="space-y-px">
+            {orgTabs(role).map((t) => (
+              <li key={t.href}>
+                <SideLink tab={t} active={isActive(t, pathname)} collapsed={collapsed} />
+              </li>
+            ))}
+          </ul>
+        </nav>
+      </div>
     </>
   );
+}
+
+/** Label of the section that the current path is in, for the top bar's breadcrumb. */
+function sectionLabel(pathname: string, siteId: string | undefined, role: Role): string | null {
+  const tabs = [...(siteId ? siteGroups(siteId).flatMap((g) => g.tabs) : []), ...orgTabs(role), { href: "/app/account", label: "Account", icon: IconLock }];
+  const hit = tabs.filter((t) => isActive(t, pathname)).sort((a, b) => b.href.length - a.href.length)[0];
+  return hit?.label ?? null;
 }
 
 export function Shell({ user, org, role, orgs, properties, initialCollapsed = false, initialSiteId, children }: ShellProps) {
@@ -445,188 +474,172 @@ export function Shell({ user, org, role, orgs, properties, initialCollapsed = fa
   };
 
   const focus = properties.find((p) => p.id === focusId);
-  const nav = (isCollapsed: boolean, switchers = false) => (
-    <SidebarNav org={org} orgs={orgs} role={role} properties={properties} focusId={focusId} pathname={pathname} collapsed={isCollapsed} switchers={switchers} />
+  const section = sectionLabel(pathname, focusId, role);
+
+  const publishControls =
+    focus && currentId && can(role, "property:write") ? (
+      <div className="flex items-center gap-2.5">
+        {focus.dirty ? (
+          // same words as the page's publish badge, so the two never disagree
+          <span className="hidden items-center gap-1.5 text-xs text-ink-3 md:inline-flex">
+            <span aria-hidden className="size-1.5 rounded-full bg-amber-bright" />
+            {focus.published === false ? "Not published" : "Unpublished changes"}
+          </span>
+        ) : null}
+        {focus.dirty && focus.blocked ? (
+          // Publishing would be refused: say why and go straight to the fix, instead of a button that errors.
+          <Link
+            href={`/app/sites/${focus.id}/banner?tab=review`}
+            className="btn btn-ghost btn-sm max-sm:h-11"
+            title="A failing fairness check blocks publishing. Open the review step to fix it."
+          >
+            <span aria-hidden className="size-1.5 rounded-full bg-rose" />
+            Fix {focus.blocked} check{focus.blocked > 1 ? "s" : ""} to publish
+          </Link>
+        ) : (
+          <PublishButton propertyId={focus.id} dirty={focus.dirty} size="sm" />
+        )}
+      </div>
+    ) : null;
+
+  const sidebarBody = (isCollapsed: boolean) => (
+    <>
+      <div className={`flex shrink-0 items-center gap-1 ${isCollapsed ? "flex-col px-2 pt-3" : "px-3 pt-3"}`}>
+        <div className={isCollapsed ? "" : "min-w-0 flex-1"}>
+          <OrgSwitcher org={org} orgs={orgs} collapsed={isCollapsed} />
+        </div>
+      </div>
+      <div className={`scroll-thin min-h-0 flex-1 overflow-y-auto overflow-x-hidden py-4 ${isCollapsed ? "px-2.5" : "px-3"}`}>
+        <SidebarNav org={org} role={role} properties={properties} focusId={focusId} pathname={pathname} collapsed={isCollapsed} />
+      </div>
+      <div className={`shrink-0 border-t border-line ${isCollapsed ? "flex justify-center px-2 py-2.5" : "px-3 py-2.5"}`}>
+        <UserMenu user={user} org={org} role={role} collapsed={isCollapsed} />
+      </div>
+    </>
   );
 
   return (
     <ToastProvider>
-      <div className="min-h-dvh bg-paper">
+      <ThemeScope />
+      <div className="flex min-h-dvh bg-paper text-ink">
         <a
           href="#main"
-          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-full focus:bg-ink focus:px-4 focus:py-2 focus:text-sm focus:text-white"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-full focus:bg-inverse focus:px-4 focus:py-2 focus:text-sm focus:text-on-inverse"
         >
           Skip to content
         </a>
 
-        <header className="sticky top-0 z-40 border-b border-line bg-surface/90 backdrop-blur-md print:hidden">
-          <div className="flex h-14 items-center gap-2 px-3 sm:px-4">
-            <button
-              type="button"
-              onClick={() => setMenuOpen(true)}
-              aria-expanded={menuOpen}
-              aria-controls="app-menu"
-              className="grid size-11 place-items-center rounded-[10px] text-ink hover:bg-paper lg:hidden"
-            >
-              <svg aria-hidden width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
-                <path d="M4 7h16M4 12h16M4 17h16" />
-              </svg>
-              <span className="sr-only">Open menu</span>
-            </button>
-            <Link href="/app" aria-label="Dashboard home" className="grid size-9 shrink-0 place-items-center rounded-[8px] hover:bg-paper">
-              <BrandMark size={24} />
-            </Link>
-
-            {/* Where you are: organization / site. On phones these sit at the top of the menu instead. */}
-            <nav aria-label="Workspace" className="hidden min-w-0 flex-1 items-center gap-1 sm:flex">
-              <Slash />
-              <div className="min-w-0">
-                <OrgSwitcher org={org} orgs={orgs} variant="bar" />
-              </div>
-              {focus ? (
-                <>
-                  <Slash />
-                  <div className="min-w-0">
-                    <SiteSwitcher org={org} properties={properties} focus={focus} onAll={pathname === "/app"} variant="bar" />
-                  </div>
-                </>
-              ) : null}
-            </nav>
-
-            <div className="ml-auto flex shrink-0 items-center gap-1">
-              {/* Publishing is one action for the whole site, so it has one home: here, beside the site it publishes. */}
-              {focus && currentId && can(role, "property:write") ? (
-                <div className="mr-2 flex items-center gap-2.5 border-r border-line pr-3">
-                  {focus.dirty ? (
-                    // same words as the page's publish badge, so the two never disagree
-                    <span className="hidden items-center gap-1.5 text-xs text-ink-3 md:inline-flex">
-                      <span aria-hidden className="size-1.5 rounded-full bg-amber-bright" />
-                      {focus.published === false ? "Not published" : "Unpublished changes"}
-                    </span>
-                  ) : null}
-                  {focus.dirty && focus.blocked ? (
-                    // Publishing would be refused: say why and go straight to the fix, instead of a button that errors.
-                    <Link
-                      href={`/app/sites/${focus.id}/banner?tab=review`}
-                      className="btn btn-ghost btn-sm max-sm:h-11"
-                      title="A failing fairness check blocks publishing. Open the review step to fix it."
-                    >
-                      <span aria-hidden className="size-1.5 rounded-full bg-rose" />
-                      Fix {focus.blocked} check{focus.blocked > 1 ? "s" : ""} to publish
-                    </Link>
-                  ) : (
-                    <PublishButton propertyId={focus.id} dirty={focus.dirty} size="sm" />
-                  )}
-                </div>
-              ) : null}
-              <Link href="/docs" className="hidden h-9 items-center rounded-[8px] px-3 text-sm text-ink-2 transition-colors hover:bg-paper hover:text-ink sm:inline-flex">
-                Docs
-              </Link>
-              <Link href="/contact/support" className="hidden h-9 items-center rounded-[8px] px-3 text-sm text-ink-2 transition-colors hover:bg-paper hover:text-ink md:inline-flex">
-                Help
-              </Link>
-              <Dropdown
-                label="Account menu"
-                align="right"
-                width="w-72"
-                triggerClassName="grid size-9 place-items-center rounded-full transition-shadow hover:shadow-[0_0_0_3px_var(--color-line)] aria-expanded:shadow-[0_0_0_3px_var(--color-line)]"
-                trigger={<Avatar name={user.name} seed={user.email} size={30} />}
-              >
-                {(close) => (
-                  <>
-                    <div className="flex items-center gap-3 px-2.5 pb-3 pt-2">
-                      <Avatar name={user.name} seed={user.email} size={40} />
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-ink">{user.name}</p>
-                        <p className="truncate text-xs text-ink-3">{user.email}</p>
-                        <p className="mt-1.5 inline-flex max-w-full items-center gap-1 rounded-full bg-brand-wash px-2 py-0.5 text-2xs font-medium text-brand-ink">
-                          <span className="capitalize">{role}</span>
-                          <span className="truncate text-brand-ink/70">· {org.name}</span>
-                        </p>
-                      </div>
-                    </div>
-                    <div className="my-1 h-px bg-line" />
-                    <Link href="/app/account" role="menuitem" tabIndex={-1} onClick={close} className={menuItemClass}>
-                      <IconLock size={16} className="shrink-0 text-ink-3" /> Account and security
-                    </Link>
-                    <Link href="/app/team" role="menuitem" tabIndex={-1} onClick={close} className={menuItemClass}>
-                      <IconTeam size={16} className="shrink-0 text-ink-3" /> Team
-                    </Link>
-                    {can(role, "billing:manage") ? (
-                      <Link href="/app/billing" role="menuitem" tabIndex={-1} onClick={close} className={menuItemClass}>
-                        <IconBilling size={16} className="shrink-0 text-ink-3" /> Billing and plan
-                      </Link>
-                    ) : null}
-                    <Link href="/app/settings" role="menuitem" tabIndex={-1} onClick={close} className={menuItemClass}>
-                      <IconSettings size={16} className="shrink-0 text-ink-3" /> Organization settings
-                    </Link>
-                    <div className="my-1 h-px bg-line" />
-                    <Link href="/docs" role="menuitem" tabIndex={-1} onClick={close} className={menuItemClass}>
-                      <IconCode size={16} className="shrink-0 text-ink-3" /> Documentation
-                    </Link>
-                    <Link href="/contact/support" role="menuitem" tabIndex={-1} onClick={close} className={menuItemClass}>
-                      <IconInfo size={16} className="shrink-0 text-ink-3" /> Get support
-                    </Link>
-                    <div className="my-1 h-px bg-line" />
-                    <form action={signOut}>
-                      <button type="submit" role="menuitem" tabIndex={-1} className={`${menuItemClass} hover:!bg-rose-wash hover:!text-rose`}>
-                        <IconSignOut size={16} className="shrink-0" /> Sign out
-                      </button>
-                    </form>
-                  </>
-                )}
-              </Dropdown>
-            </div>
-          </div>
-        </header>
+        {/* Desktop: full-height, collapsible sidebar */}
+        <aside
+          id="app-sidebar"
+          aria-label="Dashboard navigation"
+          className={`sticky top-0 z-30 hidden h-dvh shrink-0 flex-col border-r border-line bg-surface transition-[width] duration-200 ease-out lg:flex print:hidden ${collapsed ? "w-[60px]" : "w-[252px]"}`}
+        >
+          {sidebarBody(collapsed)}
+          {/* Collapse handle on the sidebar's edge */}
+          <button
+            type="button"
+            onClick={toggleSidebar}
+            aria-expanded={!collapsed}
+            aria-controls="app-sidebar"
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            className="absolute -right-3 top-[4.25rem] z-10 grid size-6 place-items-center rounded-full border border-line bg-surface text-ink-3 shadow-[var(--shadow-lift)] transition-[color,transform] duration-200 hover:text-brand active:scale-95"
+          >
+            <svg aria-hidden width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={`transition-transform duration-200 ${collapsed ? "rotate-180" : ""}`}>
+              <path d="M10 3.5 5.5 8l4.5 4.5" />
+            </svg>
+          </button>
+        </aside>
 
         {/* Phones and tablets: the same navigation as a sheet */}
         <div id="app-menu" role="dialog" aria-modal="true" aria-label="Menu" hidden={!menuOpen} className="fixed inset-0 z-50 lg:hidden">
-          <button type="button" aria-label="Close menu" tabIndex={-1} onClick={() => setMenuOpen(false)} className="absolute inset-0 bg-ink/40" />
-          <div className="absolute inset-y-0 left-0 flex w-[min(320px,88vw)] flex-col bg-surface shadow-[var(--shadow-float)]">
-            <div className="flex h-14 shrink-0 items-center justify-between border-b border-line px-3">
-              <span className="flex items-center gap-2 px-1.5 text-sm font-semibold">
-                <BrandMark size={22} /> Plain Theory
+          <button type="button" aria-label="Close menu" tabIndex={-1} onClick={() => setMenuOpen(false)} className="absolute inset-0 bg-[#05070d]/50" />
+          <div className="absolute inset-y-0 left-0 flex w-[min(300px,88vw)] flex-col bg-surface shadow-[var(--shadow-float)]">
+            <div className="flex h-12 shrink-0 items-center justify-between border-b border-line px-3">
+              <span className="flex items-center gap-2 px-1 text-sm font-semibold">
+                <AppIcon size={22} /> Plain Theory
               </span>
-              <button ref={closeRef} type="button" onClick={() => setMenuOpen(false)} className="grid size-11 place-items-center rounded-[10px] text-ink hover:bg-paper">
+              <button ref={closeRef} type="button" onClick={() => setMenuOpen(false)} className="grid size-10 place-items-center rounded-[8px] text-ink hover:bg-paper">
                 <svg aria-hidden width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
                   <path d="M6 6l12 12M18 6 6 18" />
                 </svg>
                 <span className="sr-only">Close menu</span>
               </button>
             </div>
-            <div className="scroll-thin flex-1 overflow-y-auto px-3 py-4">{nav(false, true)}</div>
+            <div className="flex min-h-0 flex-1 flex-col">{sidebarBody(false)}</div>
           </div>
         </div>
 
-        <div className="flex">
-          {/* Desktop: collapsible sidebar */}
-          <aside
-            id="app-sidebar"
-            aria-label="Dashboard navigation"
-            className={`sticky top-14 z-30 hidden h-[calc(100dvh-3.5rem)] shrink-0 flex-col border-r border-line bg-surface transition-[width] duration-200 ease-out lg:flex print:hidden ${
-              collapsed ? "w-[64px]" : "w-[248px]"
-            }`}
-          >
-            {/* Collapse handle: a small circle on the sidebar's edge, centred vertically */}
-            <button
-              type="button"
-              onClick={toggleSidebar}
-              aria-expanded={!collapsed}
-              aria-controls="app-sidebar"
-              aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-              title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-              className="absolute -right-3.5 top-1/2 z-10 grid size-7 -translate-y-1/2 place-items-center rounded-full bg-surface text-ink-3 shadow-[0_1px_3px_rgb(11_16_32/0.12)] ring-1 ring-line transition-[color,box-shadow,transform] duration-200 hover:text-brand hover:shadow-[0_2px_8px_rgb(46_43_214/0.25)] hover:ring-brand/30 active:scale-95"
-            >
-              <svg aria-hidden width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={`transition-transform duration-200 ${collapsed ? "rotate-180" : ""}`}>
-                <path d="M10 3.5 5.5 8l4.5 4.5" />
-              </svg>
-            </button>
-            <div className="scroll-thin flex-1 overflow-y-auto overflow-x-hidden px-3 py-4">{nav(collapsed)}</div>
-          </aside>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <header className="sticky top-0 z-20 border-b border-line bg-surface/85 backdrop-blur-md print:hidden">
+            <div className="flex h-12 items-center gap-2 px-3 sm:px-5">
+              <button
+                type="button"
+                onClick={() => setMenuOpen(true)}
+                aria-expanded={menuOpen}
+                aria-controls="app-menu"
+                className="grid size-10 place-items-center rounded-[8px] text-ink hover:bg-paper lg:hidden"
+              >
+                <svg aria-hidden width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
+                  <path d="M4 7h16M4 12h16M4 17h16" />
+                </svg>
+                <span className="sr-only">Open menu</span>
+              </button>
+              <Link href="/app" aria-label="Dashboard home" className="grid size-8 shrink-0 place-items-center rounded-[7px] hover:bg-paper">
+                <AppIcon size={22} />
+              </Link>
+
+              {/* Where you are */}
+              <nav aria-label="Breadcrumb" className="hidden min-w-0 flex-1 sm:block">
+                <ol className="flex min-w-0 items-center gap-1.5 text-[0.8125rem]">
+                  <li className="truncate text-ink-3">{org.name}</li>
+                  {focus && currentId ? (
+                    <>
+                      <li aria-hidden className="text-line-strong">
+                        /
+                      </li>
+                      <li className="min-w-0 truncate">
+                        <Link href={`/app/sites/${focus.id}`} className="text-ink-3 transition-colors hover:text-ink">
+                          {focus.name}
+                        </Link>
+                      </li>
+                    </>
+                  ) : null}
+                  {section ? (
+                    <>
+                      <li aria-hidden className="text-line-strong">
+                        /
+                      </li>
+                      <li aria-current="page" className="truncate font-medium text-ink">
+                        {section}
+                      </li>
+                    </>
+                  ) : pathname === "/app" ? (
+                    <>
+                      <li aria-hidden className="text-line-strong">
+                        /
+                      </li>
+                      <li aria-current="page" className="truncate font-medium text-ink">
+                        All sites
+                      </li>
+                    </>
+                  ) : null}
+                </ol>
+              </nav>
+              <div className="flex-1 sm:hidden" />
+
+              <div className="ml-auto flex shrink-0 items-center gap-1.5">
+                {publishControls}
+                <Link href="/docs" className="hidden h-8 items-center rounded-[7px] px-2.5 text-[0.8125rem] text-ink-3 transition-colors hover:bg-paper hover:text-ink md:inline-flex">
+                  Docs
+                </Link>
+              </div>
+            </div>
+          </header>
 
           <main id="main" tabIndex={-1} className="min-w-0 flex-1 overflow-x-clip outline-none">
-            <div className="mx-auto w-full max-w-[1200px] px-4 pb-20 sm:px-6 lg:px-8 print:p-0">{children}</div>
+            <div className="mx-auto w-full max-w-[1240px] px-4 pb-20 sm:px-6 lg:px-8 print:p-0">{children}</div>
           </main>
         </div>
       </div>

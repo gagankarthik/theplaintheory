@@ -26,24 +26,24 @@ function contrast(a: string, b: string) {
 }
 const grade = (n: number) => (n >= 7 ? "AAA" : n >= 4.5 ? "AA" : n >= 3 ? "AA large" : "Fails");
 
+const SOOT = "#0F0F0F";
+
 const COLORS = [
-  { name: "Ultramarine", hex: BRAND.ultramarine, role: "The brand and primary actions. One per view." },
-  { name: "Ink", hex: BRAND.ink, role: "Text, dark surfaces and the main call to action on light pages." },
-  { name: "Paper", hex: BRAND.paper, role: "Alternate section background. White panels sit on it without shadows." },
+  { name: "Soot", hex: SOOT, role: "Opens and closes every web page; text on light grounds; the mark on light grounds." },
+  { name: "Lime", hex: "#DAFA9C", role: "The one action colour on the website, and the mark on dark grounds and in the app icon." },
+  { name: "Chalk", hex: "#F2F2EF", role: "One step off white for tiles, cards and alternate sections. No lines between surfaces." },
+  { name: "Ultramarine", hex: BRAND.ultramarine, role: "The dashboard accent only: focus, selection and the primary action. Never in the mark." },
   { name: "Jade", hex: "#08765A", role: "Released: a tracker allowed by consent. Success." },
   { name: "Amber", hex: "#9A5C06", role: "Held: a tracker waiting for a decision. Warnings." },
   { name: "Rose", hex: "#C2283B", role: "Declined, destructive actions and errors." },
 ];
 
 const TYPE = [
-  { token: "4xl", px: 72, lh: 1, use: "Hero headline" },
-  { token: "3xl", px: 52, lh: 1.04, use: "Page headline" },
-  { token: "2xl", px: 36, lh: 1.1, use: "Section headline" },
-  { token: "xl", px: 24, lh: 1.25, use: "Card title, KPI value" },
-  { token: "lg", px: 18, lh: 1.55, use: "Lead paragraph" },
-  { token: "base", px: 16, lh: 1.6, use: "Body" },
-  { token: "sm", px: 14, lh: 1.5, use: "Controls, table cells" },
-  { token: "xs", px: 12.5, lh: 1.4, use: "Captions, metadata" },
+  { token: "Display", px: 92, lh: 0.98, use: "Home headline, 6.4vw" },
+  { token: "Head", px: 60, lh: 1, use: "Section and page headlines" },
+  { token: "Lead", px: 29, lh: 1.05, use: "Tile titles, questions" },
+  { token: "Body", px: 18, lh: 1.55, use: "Running text" },
+  { token: "Small", px: 16, lh: 1.5, use: "Notes, captions, links" },
 ];
 
 const MISUSE: { label: string; style?: CSSProperties; fill?: string }[] = [
@@ -54,10 +54,10 @@ const MISUSE: { label: string; style?: CSSProperties; fill?: string }[] = [
 ];
 
 const DOWNLOADS = [
-  { href: "/brand/app-icon.svg", label: "App icon", detail: "Ultramarine tile" },
-  { href: "/brand/app-icon-ink.svg", label: "App icon, dark", detail: "Ink tile" },
-  { href: "/brand/mark-color.svg", label: "Mark", detail: "Ultramarine" },
-  { href: "/brand/mark-ink.svg", label: "Mark, ink", detail: "Single colour" },
+  { href: "/brand/app-icon.svg", label: "App icon", detail: "Lime mark on soot" },
+  { href: "/brand/app-icon-ink.svg", label: "App icon, inverse", detail: "Soot mark on lime" },
+  { href: "/brand/mark-color.svg", label: "Mark, lime", detail: "For dark backgrounds" },
+  { href: "/brand/mark-ink.svg", label: "Mark, soot", detail: "For light backgrounds" },
   { href: "/brand/mark-white.svg", label: "Mark, white", detail: "For dark backgrounds" },
 ];
 
@@ -85,7 +85,7 @@ export default function BrandPage() {
         title="I for on, O for off. Together, a P."
         lead="Our mark is built from the two halves of the power symbol. Consent is an on-or-off decision, so the letter says what we do before anyone reads the name."
         figure={
-          <figure className="overflow-hidden rounded-[var(--radius-lg)] bg-surface shadow-[var(--shadow-lift)] ring-1 ring-line">
+          <figure className="overflow-hidden rounded-[var(--radius-lg)] bg-surface ring-1 ring-line">
             <div className="flex items-end gap-1 bg-line px-3 pt-2.5">
               <div className="flex items-center gap-2 rounded-t-[8px] bg-surface px-3.5 py-2 text-xs font-medium">
                 <AppIcon size={16} /> Plain Theory
@@ -102,7 +102,7 @@ export default function BrandPage() {
               </div>
               <div className="flex flex-col items-center gap-2">
                 <AppIcon size={72} tone="ink" className="rounded-[16px] ring-1 ring-white/20" />
-                <span className="text-xs text-white/70">Dark</span>
+                <span className="text-xs text-white/70">Inverse</span>
               </div>
             </div>
             <figcaption className="sr-only">The icon in a browser tab and on a phone home screen</figcaption>
@@ -150,16 +150,16 @@ export default function BrandPage() {
           <Figure label="Horizontal lockup on white">
             <Lockup size={28} />
           </Figure>
-          <Figure tone="ink" label="Reversed lockup on ink">
+          <Figure tone="ink" label="Reversed lockup on soot">
             <Lockup size={28} variant="reverse" />
           </Figure>
-          <Figure tone="brand" label="Stacked lockup on ultramarine">
+          <Figure tone="brand" label="Stacked lockup on soot">
             <Lockup size={22} layout="stacked" variant="reverse" />
           </Figure>
           <Figure label="App icons and the single-colour mark">
             <div className="flex items-center gap-5 sm:gap-8">
               <AppIcon size={80} className="max-sm:size-16" title="App icon" />
-              <AppIcon size={80} className="max-sm:size-16" tone="ink" title="App icon, dark" />
+              <AppIcon size={80} className="max-sm:size-16" tone="ink" title="App icon, inverse" />
               <span className="text-ink">
                 <BrandMark size={80} className="max-sm:size-16" variant="mono" title="Single-colour mark" />
               </span>
@@ -218,25 +218,25 @@ export default function BrandPage() {
         <SectionIntro
           id="colour-h"
           title="Colour"
-          lead="Each colour has one job. Ultramarine asks you to act. Jade, amber and rose mean consent states and are never decoration. Ratios below are calculated live."
+          lead="Each colour has one job. On the website, lime asks you to act; in the dashboard, ultramarine does. Jade, amber and rose mean consent states and are never decoration. Ratios below are calculated live."
         />
 
         {/* Proportion: 60-30-10 across any page or screen */}
         <div className="mt-14 rounded-[var(--radius-lg)] border border-line bg-surface p-5 sm:p-8">
-          <h3 className="text-base font-semibold">Proportion: 60, 30, 10</h3>
+          <h3 className="text-base font-semibold">Proportion on the website: 40, 50, 10</h3>
           <p className="mt-1.5 max-w-[70ch] text-sm text-ink-2">
-            Every page and screen keeps roughly this balance. If ultramarine starts to cover large areas, it stops pointing at anything.
+            Soot opens and closes every page, white and chalk carry the middle, and lime marks the action. Lime may fill one whole section; anywhere else it is one button.
           </p>
           <div aria-hidden className="mt-6 flex h-16 overflow-hidden rounded-[12px] ring-1 ring-inset ring-line">
-            <span className="flex basis-[60%] items-end bg-[linear-gradient(90deg,var(--color-surface),var(--color-paper))] p-3 text-xs font-semibold text-ink-2">60%</span>
-            <span className="flex basis-[30%] items-end bg-ink p-3 text-xs font-semibold text-white">30%</span>
-            <span className="flex basis-[10%] items-end bg-brand p-3 text-xs font-semibold text-white">10%</span>
+            <span className="flex basis-[40%] items-end bg-soot p-3 text-xs font-semibold text-white">40%</span>
+            <span className="flex basis-[50%] items-end bg-chalk p-3 text-xs font-semibold text-soot">50%</span>
+            <span className="flex basis-[10%] items-end bg-lime p-3 text-xs font-semibold text-soot">10%</span>
           </div>
           <ul className="mt-6 grid gap-5 text-sm md:grid-cols-3">
             {[
-              { share: "60%", name: "White and Paper", body: "Page and card backgrounds, alternating section bands, quiet panels." },
-              { share: "30%", name: "Ink", body: "Text, primary marketing buttons, dark sections and code panels. At most two dark sections per page." },
-              { share: "10%", name: "Ultramarine", body: "Links, selected and focused states, the one key highlight in a section, and in-app primary actions." },
+              { share: "40%", name: "Soot", body: "The opening and closing of every page: the bar, the first screen, the close and the footer." },
+              { share: "50%", name: "White and chalk", body: "The middle of the page, with chalk one step off white for tiles and cards." },
+              { share: "10%", name: "Lime", body: "Buttons, the ring of the mark at large scale, and at most one full section." },
             ].map((r) => (
               <li key={r.name}>
                 <p className="font-semibold">
@@ -253,19 +253,19 @@ export default function BrandPage() {
 
         <div className="mt-6 overflow-hidden rounded-[var(--radius-lg)] border border-line bg-surface">
           <table className="w-full border-collapse text-left">
-            <caption className="sr-only">Brand colours with their role and WCAG contrast against white and ink</caption>
+            <caption className="sr-only">Brand colours with their role and WCAG contrast against white and soot</caption>
             <thead className="hidden bg-paper text-xs text-ink-3 md:table-header-group">
               <tr>
                 <th scope="col" className="px-6 py-3 font-medium">Colour</th>
                 <th scope="col" className="px-6 py-3 font-medium">Role</th>
                 <th scope="col" className="px-6 py-3 text-right font-medium">On white</th>
-                <th scope="col" className="px-6 py-3 text-right font-medium">On ink</th>
+                <th scope="col" className="px-6 py-3 text-right font-medium">On soot</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
               {COLORS.map((c) => {
                 const w = contrast(c.hex, BRAND.white);
-                const k = contrast(c.hex, BRAND.ink);
+                const k = contrast(c.hex, SOOT);
                 return (
                   <tr key={c.name} className="flex flex-wrap items-center gap-x-6 gap-y-2 px-5 py-4 md:table-row md:p-0">
                     <th scope="row" className="w-full font-normal md:w-[30%] md:px-6 md:py-4">
@@ -283,7 +283,7 @@ export default function BrandPage() {
                       {w.toFixed(2)} : 1 <span className="text-ink-3">{grade(w)}</span>
                     </td>
                     <td className="text-sm tabular-nums md:px-6 md:py-4 md:text-right">
-                      <span className="text-ink-3 md:hidden">On ink </span>
+                      <span className="text-ink-3 md:hidden">On soot </span>
                       {k.toFixed(2)} : 1 <span className="text-ink-3">{grade(k)}</span>
                     </td>
                   </tr>
@@ -296,21 +296,21 @@ export default function BrandPage() {
 
       <Section id="type" labelledBy="type-h">
         <div className="grid gap-12 lg:grid-cols-12">
-          <div className="lg:col-span-4 lg:sticky lg:top-28 lg:self-start">
+          <div className="lg:col-span-4">
             <SectionIntro
               id="type-h"
               align="left"
               title="Typography"
-              lead="Geist for everything we say, Geist Mono for code, keys and receipt hashes. Headlines are semibold with tight tracking; body text stays at 16 pixels."
+              lead="Switzer for the website and sign-in, five sizes and no more. The dashboard uses Instrument Sans, with JetBrains Mono for code, keys and receipt hashes. Headlines are semibold and tightly tracked."
             />
             <div className="mt-10 space-y-8">
               <div>
                 <Wordmark size={34} />
-                <p className="mt-3 text-sm text-ink-2">Wordmark: Geist Semibold, tracked −3.5%.</p>
+                <p className="mt-3 text-sm text-ink-2">Wordmark: Switzer Semibold, tracked −3.5%.</p>
               </div>
               <div>
                 <p className="break-all font-mono text-base">9f2c41e0…e41a</p>
-                <p className="mt-2 text-sm text-ink-2">Geist Mono, never for labels or headings.</p>
+                <p className="mt-2 text-sm text-ink-2">JetBrains Mono, in the dashboard only, never for labels or headings.</p>
               </div>
             </div>
           </div>
@@ -367,7 +367,7 @@ export default function BrandPage() {
             <li key={m.label}>
               <div className="relative grid h-44 place-items-center rounded-[var(--radius-lg)] bg-paper">
                 <svg width="76" height="76" viewBox="0 0 24 24" style={m.style} aria-hidden>
-                  <path d={MARK_PATH} fill={m.fill ?? BRAND.ultramarine} fillRule="evenodd" />
+                  <path d={MARK_PATH} fill={m.fill ?? BRAND.soot} fillRule="evenodd" />
                 </svg>
                 <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-rose-wash px-2 py-0.5 text-xs font-medium text-rose">
                   <Icons.IconClose size={12} /> Don&apos;t

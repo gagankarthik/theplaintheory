@@ -23,7 +23,7 @@ export function Switch({
   return (
     <div className="flex items-start justify-between gap-4">
       <div className="min-w-0">
-        <label htmlFor={id} className="cursor-pointer text-sm font-semibold text-ink">
+        <label htmlFor={id} className="cursor-pointer text-sm font-medium text-ink">
           {label}
         </label>
         {description ? (
@@ -41,11 +41,11 @@ export function Switch({
         aria-describedby={description ? `${id}-d` : undefined}
         disabled={disabled}
         onClick={() => onChange(!checked)}
-        className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-          checked ? "bg-jade" : "bg-ink-3"
+        className={`relative inline-flex h-[22px] w-10 shrink-0 items-center rounded-full shadow-[inset_0_1px_2px_rgb(0_0_0/0.15)] transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+          checked ? "bg-jade-bright" : "bg-line-strong"
         }`}
       >
-        <span className={`inline-block size-[18px] rounded-full bg-white shadow transition-transform ${checked ? "translate-x-[23px]" : "translate-x-[3px]"}`} />
+        <span className={`inline-block size-4 rounded-full bg-white shadow-[0_1px_3px_rgb(0_0_0/0.3)] transition-transform duration-200 ease-[var(--ease-spring)] ${checked ? "translate-x-[21px]" : "translate-x-[3px]"}`} />
         <span className="sr-only">{checked ? "On" : "Off"}</span>
       </button>
     </div>

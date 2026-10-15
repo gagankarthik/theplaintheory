@@ -67,11 +67,10 @@ export function LiveRefresh({ interval = 15_000 }: { interval?: number }) {
       }}
       aria-pressed={paused}
       title={`${paused ? "Paused" : `Updated ${ago(seconds)}`}. Refreshes every ${interval / 1000} seconds while this tab is open. Click to ${paused ? "resume" : "pause"}.`}
-      className="inline-flex h-8 items-center gap-2 rounded-full bg-surface px-3 text-xs font-medium text-ink-2 ring-1 ring-inset ring-line transition-colors hover:bg-paper hover:text-ink max-sm:h-11"
+      className="inline-flex h-7 items-center gap-2 rounded-full bg-surface px-2.5 font-mono text-[0.6875rem] font-medium uppercase tracking-[0.06em] text-ink-2 ring-1 ring-inset ring-line transition-colors hover:bg-paper hover:text-ink max-sm:h-11"
     >
       <span aria-hidden className="relative flex size-2">
-        {!paused ? <span className="absolute inline-flex size-full animate-ping rounded-full bg-brand/50 motion-reduce:hidden" /> : null}
-        <span className={`relative inline-flex size-2 rounded-full ${paused ? "bg-ink-3" : "bg-brand"}`} />
+        <span className={`relative inline-flex size-2 rounded-full ${paused ? "bg-ink-3" : "bg-jade-bright"}`} />
       </span>
       {paused ? "Paused" : pending ? "Updating" : "Live"}
       <span className="sr-only">

@@ -11,6 +11,7 @@ export function Dropdown({
   label,
   children,
   align = "left",
+  side = "bottom",
   width = "w-72",
   triggerClassName = "",
 }: {
@@ -18,6 +19,8 @@ export function Dropdown({
   label: string;
   children: (close: () => void) => ReactNode;
   align?: "left" | "right";
+  /** open below the trigger (default) or above it, e.g. for a menu pinned to the bottom of the sidebar */
+  side?: "bottom" | "top";
   width?: string;
   triggerClassName?: string;
 }) {
@@ -95,7 +98,7 @@ export function Dropdown({
           role="menu"
           aria-label={label}
           onKeyDown={onMenuKey}
-          className={`absolute top-full z-50 mt-2 max-h-[min(420px,70dvh)] overflow-auto rounded-[12px] bg-surface p-1.5 shadow-[0_0_0_1px_rgb(11_16_32/0.08),0_12px_32px_-8px_rgb(11_16_32/0.24)] ${width} ${
+          className={`pt-menu absolute z-50 max-h-[min(440px,70dvh)] overflow-auto rounded-[10px] border border-line bg-surface p-1 shadow-[var(--shadow-float)] ${side === "top" ? "bottom-full mb-2" : "top-full mt-2"} ${width} ${
             align === "right" ? "right-0" : "left-0"
           }`}
         >
@@ -108,4 +111,4 @@ export function Dropdown({
 
 /** Shared item styling for menu rows. */
 export const menuItemClass =
-  "flex min-h-10 w-full items-center gap-2.5 rounded-[8px] px-2.5 py-2 text-left text-sm text-ink-2 outline-none transition-colors hover:bg-paper hover:text-ink focus-visible:bg-paper focus-visible:text-ink";
+  "flex min-h-9 w-full items-center gap-2.5 rounded-[7px] px-2.5 py-1.5 text-left text-[0.8125rem] text-ink-2 outline-none transition-colors hover:bg-paper hover:text-ink focus-visible:bg-paper focus-visible:text-ink";

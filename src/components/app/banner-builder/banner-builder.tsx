@@ -248,7 +248,7 @@ export function BannerBuilder({
                   >
                     <span
                       aria-hidden
-                      className={`relative grid size-7 place-items-center rounded-full text-xs font-semibold ${current ? "bg-brand text-white" : "bg-paper text-ink-2 ring-1 ring-inset ring-line"}`}
+                      className={`relative grid size-7 place-items-center rounded-full text-xs font-semibold ${current ? "bg-brand-solid text-white" : "bg-paper text-ink-2 ring-1 ring-inset ring-line"}`}
                     >
                       {i + 1}
                       {issues.fail ? (
@@ -612,7 +612,7 @@ export function BannerBuilder({
                     <li key={row.label} className="flex items-start gap-3 px-4 py-3">
                       <span
                         aria-hidden
-                        className={`mt-0.5 grid size-5 shrink-0 place-items-center rounded-full ${row.value ? "bg-brand text-white" : row.required ? "bg-rose-wash text-rose" : "bg-amber-wash text-amber"}`}
+                        className={`mt-0.5 grid size-5 shrink-0 place-items-center rounded-full ${row.value ? "bg-brand-solid text-white" : row.required ? "bg-rose-wash text-rose" : "bg-amber-wash text-amber"}`}
                       >
                         {row.value ? <IconCheck size={12} /> : <IconAlert size={12} />}
                       </span>

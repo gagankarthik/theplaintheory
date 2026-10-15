@@ -27,6 +27,10 @@ export const MARK_PATH =
 export const TILE_RADIUS = 0.225;
 
 export const BRAND = {
+  /** the brand pair: soot ground, lime mark */
+  soot: "#0F0F0F",
+  lime: "#DAFA9C",
+  /** the dashboard accent (focus, selection, primary action), not part of the mark */
   ultramarine: "#2E2BD6",
   ultramarineOnInk: "#8E8CFF",
   ink: "#0B1020",
@@ -34,10 +38,12 @@ export const BRAND = {
   white: "#FFFFFF",
 } as const;
 
-export type MarkVariant = "color" | "mono" | "reverse";
+/** color: soot, for light grounds. lime: for dark grounds. mono: the text colour. reverse: white. */
+export type MarkVariant = "color" | "lime" | "mono" | "reverse";
 
 const MARK_FILL: Record<MarkVariant, string> = {
-  color: BRAND.ultramarine,
+  color: BRAND.soot,
+  lime: BRAND.lime,
   mono: "currentColor",
   reverse: BRAND.white,
 };
@@ -61,9 +67,13 @@ export function BrandMark({ size = 24, variant = "color", title, ...rest }: SvgP
   );
 }
 
-/** App icon / favicon tile. `brand`: white mark on ultramarine. `ink`: dark-mode tile. */
+/**
+ * App icon / favicon tile. `brand`: lime mark on soot, readable on light and dark grounds alike.
+ * `ink`: the inverse, soot mark on lime, for places that are already soot.
+ */
 export function AppIcon({ size = 32, tone = "brand", title, ...rest }: SvgProps & { tone?: "brand" | "ink" }) {
-  const bg = tone === "ink" ? BRAND.ink : BRAND.ultramarine;
+  const bg = tone === "ink" ? BRAND.lime : BRAND.soot;
+  const fg = tone === "ink" ? BRAND.soot : BRAND.lime;
   return (
     <svg
       width={size}
@@ -75,12 +85,12 @@ export function AppIcon({ size = 32, tone = "brand", title, ...rest }: SvgProps 
     >
       {title ? <title>{title}</title> : null}
       <rect width="32" height="32" rx={32 * TILE_RADIUS} fill={bg} />
-      <path d={MARK_PATH} transform="translate(4 4)" fill={BRAND.white} fillRule="evenodd" />
+      <path d={MARK_PATH} transform="translate(4 4)" fill={fg} fillRule="evenodd" />
     </svg>
   );
 }
 
-/** Wordmark: Geist Semibold, tracked −3.5%. Inherits text colour. */
+/** Wordmark: semibold, tracked −3.5%, in the surrounding typeface. Inherits text colour. */
 export function Wordmark({ size = 18, className }: { size?: number; className?: string }) {
   return (
     <span

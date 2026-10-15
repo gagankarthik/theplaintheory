@@ -20,7 +20,7 @@ export function Alert({ tone = "info", title, children, actions, className = "" 
   const t = TONE[tone];
   const Icon = ICON[tone];
   return (
-    <div role={tone === "danger" ? "alert" : "status"} className={`flex items-start gap-3 rounded-md border px-4 py-3 text-sm ${t.box} ${className}`}>
+    <div role={tone === "danger" ? "alert" : "status"} className={`flex items-start gap-3 rounded-[10px] border px-4 py-3 text-sm ${t.box} ${className}`}>
       <Icon size={18} aria-hidden className={`mt-0.5 shrink-0 ${t.icon}`} />
       <div className="min-w-0 flex-1">
         {title ? <p className={`font-semibold ${t.title}`}>{title}</p> : null}

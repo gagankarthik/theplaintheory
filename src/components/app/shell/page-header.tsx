@@ -13,6 +13,7 @@ export function PageHeader({
   crumbs,
   actions,
   live,
+  eyebrow,
 }: {
   title: string;
   description?: React.ReactNode;
@@ -20,11 +21,13 @@ export function PageHeader({
   actions?: React.ReactNode;
   /** Keep the page's data current while it's open: true for every 15 s, or an interval in ms */
   live?: boolean | number;
+  /** small label above the title, e.g. the section group ("Configure") or a status */
+  eyebrow?: React.ReactNode;
 }) {
   const deep = (crumbs?.length ?? 0) > 3;
   return (
-    <header className="relative mb-6 pt-7 sm:mb-8 sm:pt-9 print:mb-4 print:pt-0">
-      <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+    <header className="relative mb-6 pt-6 sm:mb-7 sm:pt-8 print:mb-4 print:pt-0">
+      <div className="relative flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
           {deep && crumbs ? (
             <nav aria-label="Breadcrumb" className="mb-2">
@@ -44,11 +47,12 @@ export function PageHeader({
               </ol>
             </nav>
           ) : null}
-          <h1 className="text-[1.5rem] font-semibold leading-tight tracking-[-0.025em] sm:text-[1.75rem]">{title}</h1>
-          {description ? <div className="mt-1 max-w-[60ch] text-sm leading-relaxed text-ink-3">{description}</div> : null}
+          {eyebrow ? <div className="eyebrow mb-2">{eyebrow}</div> : null}
+          <h1 className="text-[1.375rem] font-semibold leading-tight tracking-[-0.025em] sm:text-[1.625rem]">{title}</h1>
+          {description ? <div className="mt-1.5 max-w-[64ch] text-sm leading-relaxed text-ink-3">{description}</div> : null}
         </div>
         {actions || live ? (
-          <div className="flex shrink-0 flex-wrap items-center gap-3">
+          <div className="flex shrink-0 flex-wrap items-center gap-2.5">
             {live ? <LiveRefresh interval={typeof live === "number" ? live : undefined} /> : null}
             {actions}
           </div>

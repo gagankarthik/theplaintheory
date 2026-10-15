@@ -54,7 +54,7 @@ export function BillingControls({ tone = "light" }: { tone?: "light" | "dark" })
 export function PricingCards({ plans }: { plans: Plan[] }) {
   const { currency, period } = useBilling();
   return (
-    <div className="rounded-[var(--radius-lg)] shadow-[var(--shadow-float)]">
+    <div className="rounded-[var(--radius-lg)]">
       <PricingPlans headingLevel="h2" currency={currency} period={period} plans={plans} />
     </div>
   );

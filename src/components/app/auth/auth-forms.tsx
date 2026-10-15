@@ -44,6 +44,7 @@ export function PasswordField({
   maxLength: number;
 }) {
   const [show, setShow] = useState(false);
+  const [caps, setCaps] = useState(false);
   const err = error?.[0];
   const describedBy = [hint ? `${id}-hint` : null, err ? `${id}-error` : null].filter(Boolean).join(" ") || undefined;
   return (
@@ -64,6 +65,9 @@ export function PasswordField({
           spellCheck={false}
           aria-invalid={err ? true : undefined}
           aria-describedby={describedBy}
+          onKeyDown={(e) => setCaps(e.getModifierState("CapsLock"))}
+          onKeyUp={(e) => setCaps(e.getModifierState("CapsLock"))}
+          onBlur={() => setCaps(false)}
           className={`field pr-12 ${err ? "!border-rose focus:!shadow-[0_0_0_4px_var(--color-rose-wash)]" : ""}`}
         />
         <button
@@ -76,6 +80,9 @@ export function PasswordField({
           <IconEye size={18} />
         </button>
       </div>
+      <p aria-live="polite" className="text-xs font-semibold text-amber">
+        {caps ? <span className="mt-1.5 block">Caps Lock is on.</span> : null}
+      </p>
       {hint ? (
         <p id={`${id}-hint`} className="mt-1.5 text-xs text-ink-3">
           {hint}
@@ -106,7 +113,7 @@ export function LoginForm({ next, notice }: { next?: string; notice?: string }) 
       <input type="hidden" name="next" value={next ?? ""} />
       {/* A confirmation from the step before (password reset, e-mail confirmed), until they submit */}
       {!state && notice ? <FormMessage state={{ ok: notice }} /> : null}
-      <TextField id="email" label="Work email" autoComplete="username" {...EMAIL_INPUT} defaultValue={state?.email} error={state?.fieldErrors?.email} />
+      <TextField id="email" label="Work email" autoComplete="username" autoFocus {...EMAIL_INPUT} defaultValue={state?.email} error={state?.fieldErrors?.email} />
       <div>
         <PasswordField autoComplete="current-password" maxLength={256} error={state?.fieldErrors?.password} />
         <div className="-mb-2 flex justify-end">
@@ -142,6 +149,7 @@ export function SignupForm({ formToken, plan, passwordHint, email }: { formToken
         <TextField
           id="name"
           label="Your name"
+          autoFocus
           required
           minLength={2}
           maxLength={100}

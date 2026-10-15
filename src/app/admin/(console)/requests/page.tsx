@@ -75,7 +75,7 @@ export default async function AdminRequestsPage({ searchParams }: { searchParams
         <RequestsList leads={leads} />
       ) : (
         <EmptyState title={filtered ? "No requests match" : "No requests yet"}>
-          {filtered ? "Try another status or topic, or clear the search." : "Requests from /contact, /contact-sales and the request forms appear here as soon as they're sent."}
+          {filtered ? "Try another status or topic, or clear the search." : "Requests from the contact form appear here as soon as they're sent."}
         </EmptyState>
       )}
     </>

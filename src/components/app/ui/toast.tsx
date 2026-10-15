@@ -52,9 +52,9 @@ function ToastCard({ item, onDone }: { item: ToastItem; onDone: () => void }) {
     <div
       ref={ref}
       role={error ? "alert" : "status"}
-      className="pointer-events-auto flex w-full items-start gap-3 rounded-lg border border-line bg-surface px-4 py-3 text-sm shadow-float"
+      className="pointer-events-auto flex w-full items-start gap-3 rounded-lg border border-line bg-surface px-3.5 py-3 text-sm shadow-[var(--shadow-float)]"
     >
-      <span className={`mt-0.5 grid size-5 shrink-0 place-items-center rounded-full ${error ? "bg-rose text-white" : "bg-jade text-white"}`}>
+      <span className={`mt-0.5 grid size-5 shrink-0 place-items-center rounded-full ${error ? "bg-rose text-on-inverse" : "bg-jade text-on-inverse"}`}>
         {error ? <IconAlert size={14} /> : <IconCheck size={14} />}
       </span>
       <p className="min-w-0 flex-1 text-ink">{item.message}</p>

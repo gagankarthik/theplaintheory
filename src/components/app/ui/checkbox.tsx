@@ -25,7 +25,7 @@ export function Checkbox({
           type="checkbox"
           aria-describedby={description ? `${id}-d` : undefined}
           {...input}
-          className="peer size-5 cursor-pointer appearance-none rounded-sm border border-line-input bg-surface transition-colors checked:border-brand checked:bg-brand hover:border-ink-3 checked:hover:border-brand-ink checked:hover:bg-brand-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:cursor-not-allowed disabled:opacity-50"
+          className="peer size-5 cursor-pointer appearance-none rounded-sm border border-line-input bg-surface transition-colors checked:border-brand-solid checked:bg-brand-solid hover:border-ink-3 checked:hover:border-brand-solid checked:hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:cursor-not-allowed disabled:opacity-50"
         />
         <svg aria-hidden width="14" height="14" viewBox="0 0 16 16" className="pointer-events-none absolute text-white opacity-0 peer-checked:opacity-100">
           <path d="m3.5 8.5 3 3 6-7" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />

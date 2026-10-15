@@ -1,4 +1,5 @@
 import { AdminShell, type AdminNavId } from "@/components/admin/admin-shell";
+import { ThemeScript } from "@/components/theme/theme-script";
 import { PLATFORM_ROLE_INFO, canPlatform } from "@/lib/auth/platform";
 import { fmtDate } from "@/components/admin/format";
 import { getTrustedDevice, requireStaff } from "@/lib/auth/staff";
@@ -29,8 +30,11 @@ export default async function ConsoleLayout({ children }: { children: React.Reac
   }
 
   return (
+    <>
+    <ThemeScript />
     <AdminShell user={{ name: staff.name, email: staff.email }} roleLabel={PLATFORM_ROLE_INFO[role].label} nav={nav} trustedBrowsers={trustedBrowsers}>
       {children}
     </AdminShell>
+    </>
   );
 }

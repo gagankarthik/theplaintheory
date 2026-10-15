@@ -92,7 +92,7 @@ export function DataTable<T>({
       <div className="hidden overflow-x-auto sm:block" tabIndex={0} role="region" aria-label={caption}>
         <table className="w-full text-left text-sm" style={{ minWidth }}>
           <caption className={captionHidden ? "sr-only" : "px-5 pt-4 text-left text-base font-semibold"}>{caption}</caption>
-          <thead className="border-b border-line bg-paper/60 text-xs text-ink-3">
+          <thead className="border-b border-line bg-raised text-xs text-ink-3">
             <tr>
               {columns.map((c) => {
                 const active = sort?.id === c.id;
@@ -102,7 +102,7 @@ export function DataTable<T>({
                     key={c.id}
                     scope="col"
                     aria-sort={c.sortValue ? (active ? sort!.dir : "none") : undefined}
-                    className={`px-4 py-3 font-medium first:pl-5 last:pr-5 ${right ? "text-right" : ""}`}
+                    className={`h-9 px-4 font-medium first:pl-5 last:pr-5 ${right ? "text-right" : ""}`}
                   >
                     {c.sortValue ? (
                       <button
@@ -133,7 +133,7 @@ export function DataTable<T>({
               </tr>
             ) : (
               sorted.map((row) => (
-                <tr key={rowKey(row)} className={`group transition-colors hover:bg-paper ${rowClassName?.(row) ?? ""}`}>
+                <tr key={rowKey(row)} className={`group transition-colors hover:bg-raised ${rowClassName?.(row) ?? ""}`}>
                   {columns.map((c) => (
                     <td
                       key={c.id}

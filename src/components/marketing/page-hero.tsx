@@ -2,7 +2,6 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { absoluteUrl } from "@/lib/site";
 import { JsonLd } from "./json-ld";
-import { Lattice } from "./lattice";
 
 export interface Crumb {
   name: string;
@@ -11,27 +10,25 @@ export interface Crumb {
 
 /** Visible breadcrumb trail plus BreadcrumbList structured data. The last crumb is the current page. */
 export function Breadcrumbs({ items, tone = "light" }: { items: Crumb[]; tone?: "light" | "dark" }) {
-  const muted = tone === "dark" ? "text-white/60 hover:text-white" : "text-ink-3 hover:text-ink";
+  const muted = tone === "dark" ? "text-mute" : "text-mute-ink";
   return (
     <>
       <nav aria-label="Breadcrumb">
-        <ol className="flex flex-wrap items-center gap-1.5 text-sm">
+        <ol className={`flex flex-wrap items-center gap-1.5 text-[0.9375rem] ${muted}`}>
           {items.map((c, i) => {
             const last = i === items.length - 1;
             return (
               <li key={`${i}-${c.name}`} className="flex items-center gap-1.5">
                 {last ? (
-                  <span aria-current="page" className={tone === "dark" ? "text-white" : "text-ink"}>
+                  <span aria-current="page" className={tone === "dark" ? "text-white" : "text-soot"}>
                     {c.name}
                   </span>
                 ) : (
                   <>
-                    <Link href={c.href} className={`transition-colors ${muted}`}>
+                    <Link href={c.href} className="mk-link">
                       {c.name}
                     </Link>
-                    <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden className={tone === "dark" ? "text-white/40" : "text-ink-3"}>
-                      <path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
+                    <span aria-hidden>/</span>
                   </>
                 )}
               </li>
@@ -51,10 +48,8 @@ export function Breadcrumbs({ items, tone = "light" }: { items: Crumb[]; tone?: 
 }
 
 /**
- * Page header for secondary pages.
- *   brand: ultramarine band with the lattice, centred (pricing).
- *   paper: quiet left-aligned header with breadcrumb (compliance, docs, legal).
- *   ink:   dark band, left-aligned, with an optional figure on the right (security).
+ * Page header for secondary pages, on the marketing site's soot (ink, brand) or chalk (paper) ground.
+ * Left-aligned title, lead and actions; an optional figure sits on the right from large screens.
  */
 export function PageHero({
   tone,
@@ -73,33 +68,18 @@ export function PageHero({
   figure?: ReactNode;
   children?: ReactNode;
 }) {
-  if (tone === "brand") {
-    return (
-      <section aria-labelledby="page-title" className="relative overflow-hidden bg-[linear-gradient(180deg,#2e2bd6_0%,#211eb0_70%,#1a178f_100%)] text-white">
-        <Lattice className="absolute inset-0 h-full w-full" />
-        <div className="container-page relative py-20 text-center md:py-28">
-          <h1 id="page-title" className="display mx-auto max-w-[880px] text-[2.5rem] sm:text-6xl md:text-[4rem]">
-            {title}
-          </h1>
-          {lead ? <p className="mx-auto mt-6 max-w-[600px] text-lg text-white/80 md:text-xl">{lead}</p> : null}
-          {children ? <div className="mt-9 flex flex-wrap justify-center gap-3">{children}</div> : null}
-        </div>
-      </section>
-    );
-  }
-
-  const dark = tone === "ink";
+  const dark = tone !== "paper";
   return (
-    <section aria-labelledby="page-title" className={dark ? "bg-ink text-white" : "border-b border-line bg-paper"}>
-      <div className={`container-page grid gap-12 py-14 md:py-20 ${figure ? "lg:grid-cols-12 lg:items-center" : ""}`}>
-        <div className={figure ? "lg:col-span-7" : ""}>
+    <section aria-labelledby="page-title" className={dark ? "bg-soot text-white" : "on-light bg-chalk text-soot"}>
+      <div className={`mx-auto grid max-w-[1440px] gap-10 px-5 pb-14 pt-10 sm:px-8 md:pb-16 ${figure ? "lg:grid-cols-12 lg:items-end" : ""}`}>
+        <div className={`mk-fade ${figure ? "lg:col-span-7" : ""}`}>
           {crumbs ? <Breadcrumbs items={crumbs} tone={dark ? "dark" : "light"} /> : null}
-          <h1 id="page-title" className={`display max-w-[860px] text-[2.5rem] sm:text-5xl md:text-[3.5rem] ${crumbs ? "mt-6" : ""}`}>
+          <h1 id="page-title" className={`max-w-[18ch] text-[clamp(2.25rem,4.2vw,3.75rem)] ${crumbs ? "mt-6" : ""}`}>
             {title}
           </h1>
-          {lead ? <p className={`mt-6 max-w-[640px] text-lg md:text-xl ${dark ? "text-white/75" : "text-ink-2"}`}>{lead}</p> : null}
-          {meta ? <div className={`mt-6 text-sm ${dark ? "text-white/60" : "text-ink-3"}`}>{meta}</div> : null}
-          {children ? <div className="mt-9 flex flex-wrap gap-3">{children}</div> : null}
+          {lead ? <div className="mt-5 max-w-[60ch] text-[1.125rem] leading-[1.55]">{lead}</div> : null}
+          {meta ? <div className={`mt-4 text-[0.9375rem] ${dark ? "text-mute" : "text-mute-ink"}`}>{meta}</div> : null}
+          {children ? <div className="mt-8 flex flex-wrap gap-3">{children}</div> : null}
         </div>
         {figure ? <div className="lg:col-span-5">{figure}</div> : null}
       </div>

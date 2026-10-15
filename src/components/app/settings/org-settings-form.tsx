@@ -33,7 +33,7 @@ export function OrgSettingsForm({ org, canEdit }: { org: Pick<Organization, "nam
           >
             <p className="text-sm font-semibold text-ink">{regionLabel(org.dataRegion)}</p>
             <p className="mt-1 text-xs text-ink-3">
-              To move existing records to another region, <Link className="font-semibold text-brand underline-offset-2 hover:underline" href="/contact/support">contact support</Link>.
+              To move existing records to another region, <Link className="font-semibold text-brand underline-offset-2 hover:underline" href="/contact?topic=support">contact support</Link>.
             </p>
           </SettingsRow>
         </SettingsSection>

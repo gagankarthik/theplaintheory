@@ -18,7 +18,7 @@ export function SetupSteps({ current = 0 }: { current?: number }) {
               <div className="flex flex-col items-center gap-2 text-center">
                 <span
                   className={`grid size-7 place-items-center rounded-full text-xs font-semibold transition-colors ${
-                    done ? "bg-brand-wash text-brand ring-1 ring-inset ring-brand/25" : active ? "bg-brand text-white shadow-[0_6px_16px_-6px_rgba(46,43,214,0.7)]" : "bg-surface text-ink-3 ring-1 ring-inset ring-line-strong"
+                    done ? "bg-brand-wash text-brand ring-1 ring-inset ring-brand/25" : active ? "bg-brand-solid text-white shadow-[0_6px_16px_-6px_rgba(46,43,214,0.7)]" : "bg-surface text-ink-3 ring-1 ring-inset ring-line-strong"
                   }`}
                 >
                   {done ? <IconCheck size={14} /> : i + 1}

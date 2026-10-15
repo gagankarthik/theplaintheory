@@ -66,8 +66,8 @@ export function Segmented<T extends string>({
             className={`inline-flex items-center gap-2 rounded-full font-medium transition-colors ${size === "sm" ? "h-8 px-2.5 text-[13px]" : "h-9 px-4 text-sm"} ${
               checked
                 ? dark
-                  ? "bg-white text-ink shadow-sm"
-                  : "bg-white text-ink shadow-[0_1px_2px_rgb(11_16_32/0.08),0_0_0_1px_rgb(11_16_32/0.06)]"
+                  ? "bg-white text-ink ring-1 ring-soot/15"
+                  : "bg-white text-ink ring-1 ring-soot/15"
                 : dark
                   ? "text-white/80 hover:text-white"
                   : "text-ink-2 hover:text-ink"

@@ -488,3 +488,103 @@ export const CATEGORY_ICONS = {
   analytics: IconAnalytics,
   marketing: IconMarketing,
 } as const;
+
+/* ---------- Redesign additions ---------- */
+
+/** Scanner: a radar sweep. */
+export function IconRadar(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <circle cx="12" cy="12" r="9" />
+      <circle cx="12" cy="12" r="5" />
+      <path d="M12 12 18.4 5.6" />
+      <circle cx="12" cy="12" r="1" fill="currentColor" />
+    </Svg>
+  );
+}
+
+export function IconSearch(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <circle cx="11" cy="11" r="6.5" />
+      <path d="m20 20-4.4-4.4" />
+    </Svg>
+  );
+}
+
+/** Live activity: a heartbeat line. */
+export function IconPulse(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M3 12h4l2.5-6 4 12 2.5-6H21" />
+    </Svg>
+  );
+}
+
+/** A cookie: the catalogue of cookies and storage keys. */
+export function IconCookie(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M20.8 12.6a8.8 8.8 0 1 1-9.4-9.4 3 3 0 0 0 3.4 3.4 3 3 0 0 0 3.6 3.6 3 3 0 0 0 2.4 2.4Z" />
+      <circle cx="9" cy="10" r="0.9" fill="currentColor" />
+      <circle cx="13.5" cy="15" r="0.9" fill="currentColor" />
+      <circle cx="8.5" cy="15.5" r="0.9" fill="currentColor" />
+    </Svg>
+  );
+}
+
+/** Stop / cancel a running job. */
+export function IconStop(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <rect x="6" y="6" width="12" height="12" rx="2" />
+    </Svg>
+  );
+}
+
+/** Play / start. */
+export function IconPlay(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M7 5.5v13l11-6.5z" />
+    </Svg>
+  );
+}
+
+/** Globe: regions and geographic compliance. */
+export function IconGlobe(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M3 12h18M12 3c2.5 2.7 3.6 5.7 3.6 9s-1.1 6.3-3.6 9c-2.5-2.7-3.6-5.7-3.6-9S9.5 5.7 12 3Z" />
+    </Svg>
+  );
+}
+
+export function IconCart(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M3 4h2l2.2 10.2a1.5 1.5 0 0 0 1.5 1.2h8.6a1.5 1.5 0 0 0 1.5-1.1L20.5 8H6.1" />
+      <circle cx="9.5" cy="19.5" r="1.25" />
+      <circle cx="17" cy="19.5" r="1.25" />
+    </Svg>
+  );
+}
+
+export function IconHealth(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <rect x="3.5" y="3.5" width="17" height="17" rx="4" />
+      <path d="M12 8v8M8 12h8" />
+    </Svg>
+  );
+}
+
+export function IconEducation(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="m2.5 9 9.5-4.5L21.5 9 12 13.5z" />
+      <path d="M6.5 11v4.5c1.5 1.3 3.4 2 5.5 2s4-.7 5.5-2V11M21.5 9v5" />
+    </Svg>
+  );
+}

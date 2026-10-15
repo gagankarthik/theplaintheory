@@ -1,0 +1,176 @@
+/*
+ * Marketing site: "One motif". The I/O mark's two shapes run the whole system: the ring (O, off) masks
+ * every picture and marks every list item; the stem (I, on) is every button. Soot opens and closes the
+ * page, white carries the middle, lime is the one action colour.
+ */
+
+.mk {
+  /* the face variable is set on this element by next/font, so it must be read here, not at :root */
+  font-family: var(--font-switzer-face), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-switzer-face), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-switzer-face), ui-sans-serif, system-ui, sans-serif;
+  /*
+   * Marketing pages written against the app tokens (ink, paper, brand, line…) take the marketing palette
+   * here: ink is soot, paper is chalk, the brand accent becomes soot on light grounds with lime as its wash.
+   */
+  --color-ink: #0f0f0f;
+  --color-ink-2: #2b2b2b;
+  --color-ink-3: #5c5c5c;
+  --color-ink-raised: #1a1a1a;
+  --color-paper: #f2f2ef;
+  --color-surface: #ffffff;
+  --color-raised: #f7f7f5;
+  --color-line: #e4e4df;
+  --color-line-strong: #cfcfc9;
+  --color-brand: #0f0f0f;
+  --color-brand-ink: #0f0f0f;
+  --color-brand-deep: #0f0f0f;
+  --color-brand-bright: #2b2b2b;
+  --color-brand-wash: #dafa9c;
+  --color-brand-on-ink: #dafa9c;
+  --color-brand-solid: #0f0f0f;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 22px;
+  color: var(--color-soot);
+  background: #ffffff;
+  letter-spacing: -0.005em;
+}
+.mk h1,
+.mk h2,
+.mk h3 {
+  letter-spacing: -0.035em;
+  line-height: 0.98;
+  font-weight: 600;
+}
+.mk ::selection {
+  background: var(--color-lime);
+  color: var(--color-soot);
+}
+.mk :focus-visible {
+  outline: 2px solid var(--color-lime);
+  outline-offset: 3px;
+  border-radius: 999px;
+}
+.mk .on-light :focus-visible,
+.mk.on-light :focus-visible {
+  outline-color: var(--color-soot);
+}
+
+/* The stem: every button is a pill with full-round ends, flat, one fill. */
+.mk-stem {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5em;
+  min-height: 3rem;
+  padding: 0 1.5rem;
+  border: 1.5px solid transparent;
+  border-radius: 999px;
+  font-weight: 500;
+  font-size: 1rem;
+  white-space: nowrap;
+  transition:
+    background-color 0.18s var(--ease-out),
+    color 0.18s var(--ease-out),
+    transform 0.14s var(--ease-out);
+}
+.mk-stem:active {
+  transform: scale(0.97);
+}
+.mk-stem-lime {
+  background: var(--color-lime);
+  color: var(--color-soot);
+}
+.mk-stem-lime:hover {
+  background: var(--color-lime-deep);
+}
+.mk-stem-soot {
+  background: var(--color-soot);
+  color: #ffffff;
+}
+.mk-stem-soot:hover {
+  background: var(--color-soot-3);
+}
+.mk-stem-white {
+  background: #ffffff;
+  color: var(--color-soot);
+}
+.mk-stem-white:hover {
+  background: var(--color-chalk);
+}
+/* Secondary action on light grounds: an outline in soot. */
+.mk-stem-line {
+  background: transparent;
+  color: var(--color-soot);
+  border-color: var(--color-soot);
+}
+.mk-stem-line:hover {
+  background: var(--color-chalk);
+}
+/* Secondary action on soot: an outline in white. */
+.mk-stem-outline {
+  background: transparent;
+  color: #ffffff;
+  border-color: rgb(255 255 255 / 0.55);
+}
+.mk-stem-outline:hover {
+  background: rgb(255 255 255 / 0.1);
+}
+/* Compact size for the site bar. */
+.mk-stem-sm {
+  min-height: 2.5rem;
+  padding: 0 1.125rem;
+  font-size: 0.9375rem;
+}
+
+/* The ring as a list bullet. */
+.mk-rings > li {
+  position: relative;
+  padding-left: 1.75em;
+}
+.mk-rings > li::before {
+  content: "";
+  position: absolute;
+  left: 0.15em;
+  top: 0.42em;
+  width: 0.72em;
+  height: 0.72em;
+  border-radius: 999px;
+  border: 0.2em solid currentColor;
+}
+
+/* The ring as a picture mask. */
+.mk-ring-mask {
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+/* Text link that underlines on hover. */
+.mk-link {
+  text-decoration: underline;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 0.2em;
+  text-decoration-color: transparent;
+  transition: text-decoration-color 0.18s var(--ease-out);
+}
+.mk-link:hover,
+.mk-link:focus-visible {
+  text-decoration-color: currentColor;
+}
+
+/* ---------- Motion: one light fade on first paint, nothing on scroll, nothing looping. ---------- */
+/* First-paint settle: movement only, never opacity, so headlines paint at once and LCP is not delayed. */
+@keyframes mk-fade {
+  from {
+    transform: translateY(6px);
+  }
+}
+.mk-fade {
+  animation: mk-fade 0.5s var(--ease-out) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .mk-fade {
+    animation: none;
+  }
+}

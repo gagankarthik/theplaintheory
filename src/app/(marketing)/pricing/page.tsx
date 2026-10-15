@@ -136,7 +136,7 @@ export default async function PricingPage() {
             </h2>
             <p className="mt-4 max-w-[36ch] text-ink-2">
               Need a quote, a DPA or a security review first?{" "}
-              <a href="/contact-sales" className="font-medium text-ink underline underline-offset-4">
+              <a href="/contact?topic=sales" className="font-medium text-ink underline underline-offset-4">
                 Talk to sales
               </a>
               .

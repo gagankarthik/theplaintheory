@@ -333,7 +333,7 @@ function InviteForm({ seatsLeft }: { seatsLeft: number | null }) {
     return (
       <div className="space-y-4">
         <p className="text-sm text-ink-2">Every seat on your plan is in use. Upgrade to invite more people, or remove someone first.</p>
-        <a href="/app/billing" className="inline-flex h-10 w-full items-center justify-center rounded-[var(--radius-md)] bg-brand px-4 text-sm font-semibold text-white hover:bg-brand-ink">
+        <a href="/app/billing" className="inline-flex h-10 w-full items-center justify-center rounded-[var(--radius-md)] bg-brand-solid px-4 text-sm font-semibold text-white hover:brightness-110">
           See plans
         </a>
       </div>

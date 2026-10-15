@@ -3,6 +3,7 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { site } from "@/lib/site";
 import { Shell } from "@/components/app/shell/shell";
+import { ThemeScript } from "@/components/theme/theme-script";
 import { mfaRequirementState } from "@/lib/auth/second-factor";
 import { requireUser } from "@/lib/auth/session";
 import { getStore } from "@/lib/store";
@@ -29,6 +30,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   ]);
 
   return (
+    <>
+    <ThemeScript />
     <Shell
       user={{ name: user.name, email: user.email }}
       org={{ id: org.id, name: org.name, plan: org.plan }}
@@ -50,5 +53,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     >
       {children}
     </Shell>
+    </>
   );
 }

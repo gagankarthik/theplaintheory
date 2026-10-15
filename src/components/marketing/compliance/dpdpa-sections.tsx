@@ -74,7 +74,7 @@ export function LanguagesSection() {
 function ItemisedExample() {
   const items = ["Pages you visit and how long you stay", "Device and browser type", "Approximate location (city)"];
   return (
-    <figure className="overflow-hidden rounded-[var(--radius-lg)] bg-surface shadow-[var(--shadow-lift)] ring-1 ring-line">
+    <figure className="overflow-hidden rounded-[var(--radius-lg)] bg-surface ring-1 ring-line">
       <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-3.5">
         <p className="text-sm font-semibold">Analytics</p>
         <span className="rounded-full bg-paper px-2 py-0.5 text-[11px] font-medium text-ink-2 ring-1 ring-inset ring-line">Optional</span>
