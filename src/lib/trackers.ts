@@ -1,4 +1,4 @@
-import type { CategoryId, Tracker, TrackerKind, TrackerStatus } from "./types";
+import type { CategoryId, Property, Tracker, TrackerKind, TrackerStatus } from "./types";
 
 /**
  * Tracker inventory: scan findings, scan reports, and the triage rules that turn findings into
@@ -26,6 +26,12 @@ export interface Finding {
   dbId?: string;
   /** one example address or cookie, at most 200 characters */
   sample?: string;
+  /** headless scans only: cookie flags read from the browser and raw Set-Cookie headers */
+  httpOnly?: boolean;
+  secure?: boolean;
+  sameSite?: string;
+  /** headless scans only: where a kind "cookie" finding was stored */
+  storage?: "cookie" | "localStorage" | "sessionStorage";
 }
 
 export interface ScanPage {
@@ -35,12 +41,44 @@ export interface ScanPage {
   note?: string;
 }
 
+/**
+ * queued/running: a headless crawl in progress (lib/crawler). ok/failed: finished.
+ * cancelled: stopped by a user before it finished.
+ */
+export type ScanStatus = "queued" | "running" | "ok" | "failed" | "cancelled";
+
+export interface ScanLogLine {
+  at: string;
+  level: "info" | "warn" | "error";
+  message: string;
+  url?: string;
+  /** stack trace or extra context, at most 2000 characters */
+  detail?: string;
+}
+
+/** log lines kept per scan report */
+export const SCAN_LOG_KEEP = 200;
+
+export const isScanActive = (r: Pick<ScanReport, "status">) => r.status === "queued" || r.status === "running";
+
 export interface ScanReport {
   id: string;
   propertyId: string;
   startedAt: string;
+  /** empty string while the scan is queued or running */
   finishedAt: string;
-  status: "ok" | "failed";
+  status: ScanStatus;
+  /** "headless": real Chromium crawl (services/crawler). "fetch": server-HTML scan (lib/scan.ts). Absent = fetch. */
+  engine?: "headless" | "fetch";
+  /** live counters while a headless crawl runs */
+  progress?: { pagesScanned: number; pagesQueued: number; findings: number };
+  /** newest last, at most SCAN_LOG_KEEP lines */
+  log?: ScanLogLine[];
+  limits?: { maxPages: number; maxDepth: number };
+  /** names of non-essential trackers set before any consent decision (a compliance problem) */
+  preConsent?: string[];
+  /** id of the crawler task that ran it */
+  workerId?: string;
   error?: string;
   /** the homepage after redirects, when reached */
   homeUrl?: string;
@@ -183,6 +221,17 @@ export function mergeScan(existing: Tracker[], candidates: Candidate[], opts: { 
     added.push(t);
   }
   return { trackers, added, seen };
+}
+
+/**
+ * The property patch a tracker-list change produces: the draft version moves on only when the
+ * approved inventory changes, so triaging suggestions doesn't mark the banner as unpublished.
+ * Shared by writeTrackers (dashboard) and the crawler worker (no request context).
+ */
+const liveShape = (list: Tracker[]) => JSON.stringify(heldTrackers(list).map((t) => [t.name, t.pattern, t.category, t.kind ?? "script"]));
+export function trackerPatch(property: Pick<Property, "trackers" | "config">, next: Tracker[]): Pick<Property, "trackers"> & Partial<Pick<Property, "config">> {
+  const live = liveShape(next) !== liveShape(property.trackers);
+  return { trackers: next, ...(live ? { config: { ...property.config, version: property.config.version + 1 } } : {}) };
 }
 
 /** Review items the database classified: what "Approve all suggested" approves. */

@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <script src="/sdk/plain-consent.js" data-site="__PLAIN_SITE_KEY__" data-api="__PLAIN_API__"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Privacy · Halden &amp; Rye demo store</title>
+    <link rel="stylesheet" href="/site.css" />
+  </head>
+  <body>
+    <header>
+      <strong><a href="/">Halden &amp; Rye</a></strong>
+      <a href="/product.html">Fell jacket</a>
+      <a href="/journal.html">Journal</a>
+      <a href="/cart.html">Basket</a>
+    </header>
+    <main>
+      <h1>Privacy and cookies</h1>
+      <table class="panel">
+        <caption class="muted">What this test store sets</caption>
+        <thead><tr><th scope="col">Name</th><th scope="col">Category</th><th scope="col">Set by</th></tr></thead>
+        <tbody>
+          <tr><td><code>hr_session</code></td><td>Essential (HttpOnly)</td><td>server</td></tr>
+          <tr><td><code>localization</code>, <code>cart</code></td><td>Essential</td><td>server</td></tr>
+          <tr><td><code>_ga</code>, <code>_hjSessionUser_*</code>, <code>_clck</code></td><td>Analytics</td><td>mock scripts, after consent</td></tr>
+          <tr><td><code>_fbp</code>, <code>_ttp</code></td><td>Marketing</td><td>mock scripts, after consent</td></tr>
+          <tr><td><code>intercom.*</code> (localStorage)</td><td>Functional</td><td>mock chat, after consent</td></tr>
+        </tbody>
+      </table>
+      <button type="button" data-open-settings>Change cookie settings</button>
+    </main>
+    <footer>Test fixture.</footer>
+    <script src="/site.js"></script>
+  </body>
+</html>

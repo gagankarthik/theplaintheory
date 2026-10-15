@@ -6,27 +6,44 @@ import { failure, type ActionResult } from "@/lib/action-result";
 import { requireProperty } from "@/lib/auth/access";
 import { id } from "@/lib/crypto";
 import { rateLimiter, retryAfterText, RATE_LIMITS } from "@/lib/rate-limit";
-import { runTrackerScan } from "@/lib/scan";
+import { activeScan, cancelCrawl, getScan, requestCrawl } from "@/lib/crawler";
 import { auditSite } from "@/lib/site-config";
 import { writeTrackers } from "@/lib/tracker-writes";
 import { candidatesFrom, mergeScan, statusOf, type ScanReport } from "@/lib/trackers";
 import type { CategoryId, Tracker } from "@/lib/types";
 
-export type ScanActionResult = { ok: true; report: ScanReport; added: number } | { ok: false; error: string; report?: ScanReport };
+/**
+ * `queued: true` means a headless crawl was queued (lib/crawler): poll getScanStatus until the
+ * report is no longer queued/running. Otherwise the scan already ran (fetch engine).
+ */
+export type ScanActionResult =
+  | { ok: true; report: ScanReport; added: number; queued?: boolean }
+  | { ok: false; error: string; report?: ScanReport };
+
+const SCAN_OPTS = z
+  .object({ maxPages: z.number().int().min(1).max(100).optional(), maxDepth: z.number().int().min(1).max(4).optional() })
+  .optional();
 
 /**
  * Scan the site's own saved domain (never an address from the client), keep the report, and put
  * new trackers in "To review". Approved and ignored ones are left as they are.
  */
-export async function scanTrackers(propertyId: string): Promise<ScanActionResult> {
+export async function scanTrackers(propertyId: string, opts?: { maxPages?: number; maxDepth?: number }): Promise<ScanActionResult> {
   try {
     const ctx = await requireProperty(propertyId, "property:write");
+    const limits = SCAN_OPTS.parse(opts);
+    const running = await activeScan(ctx.property.id);
+    if (running) return { ok: false, error: "A scan is already running for this site.", report: running };
     const limit = await rateLimiter("trackerScan").consume(ctx.property.id);
     if (!limit.ok) {
       return { ok: false, error: `This site has been scanned ${RATE_LIMITS.trackerScan.limit} times in the last hour. Try again in ${retryAfterText(limit.retryAfterMs)}.` };
     }
-    const report = await runTrackerScan({ propertyId: ctx.property.id, domain: ctx.property.domain, runBy: ctx.user.id });
-    await ctx.store.saveScan(report);
+    const report = await requestCrawl({ propertyId: ctx.property.id, domain: ctx.property.domain, runBy: ctx.user.id, ...limits });
+    if (report.status === "queued") {
+      await auditSite(ctx, "tracker.scan_run", { ok: true, queued: true, engine: "headless" });
+      revalidatePath(`/app/sites/${propertyId}/trackers`);
+      return { ok: true, report, added: 0, queued: true };
+    }
     let added = 0;
     if (report.status === "ok") {
       await writeTrackers(
@@ -50,6 +67,31 @@ export async function scanTrackers(propertyId: string): Promise<ScanActionResult
     return report.status === "ok" ? { ok: true, report, added } : { ok: false, error: report.error ?? "The scan failed.", report };
   } catch (e) {
     return { ok: false, error: failure(e)?.error ?? "The scan failed. Try again." };
+  }
+}
+
+const SCAN_ID = z.string().min(1).max(40);
+
+/** Stop a queued or running crawl. The worker notices at its next page. */
+export async function cancelScan(propertyId: string, scanId: string): Promise<ActionResult> {
+  try {
+    const ctx = await requireProperty(propertyId, "property:write");
+    const stopped = await cancelCrawl(ctx.property.id, SCAN_ID.parse(scanId));
+    if (!stopped) return { error: "That scan has already finished." };
+    revalidatePath(`/app/sites/${propertyId}/trackers`);
+    return { ok: "Scan cancelled." };
+  } catch (e) {
+    return failure(e);
+  }
+}
+
+/** The current state of one scan, for polling a running crawl. Null when it isn't this site's. */
+export async function getScanStatus(propertyId: string, scanId: string): Promise<ScanReport | null> {
+  try {
+    const ctx = await requireProperty(propertyId, "property:read");
+    return await getScan(ctx.property.id, SCAN_ID.parse(scanId));
+  } catch {
+    return null;
   }
 }
 

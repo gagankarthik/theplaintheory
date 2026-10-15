@@ -24,6 +24,8 @@ const credentials =
     : undefined;
 
 const config = { region: awsRegion, credentials, maxAttempts: 3 };
+/** Region, credentials and retries for clients built elsewhere (e.g. SQS in lib/crawler). */
+export const awsClientConfig = config;
 
 let ddb: DynamoDBDocumentClient | undefined;
 /** DynamoDB document client: plain JS values in and out, undefined attributes dropped. */

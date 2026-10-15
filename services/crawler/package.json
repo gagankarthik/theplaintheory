@@ -1,0 +1,37 @@
+{
+  "name": "@plaintheory/crawler",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Headless Chromium tracker crawler for Plain Theory: SQS-driven on ECS Fargate, local polling in development",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "tsx watch --tsconfig tsconfig.json src/index.ts",
+    "start": "node dist/index.js",
+    "build": "tsup",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "scan:once": "tsx --tsconfig tsconfig.json src/cli.ts",
+    "request": "tsx --tsconfig tsconfig.json scripts/request-crawl.ts",
+    "demo:fixture": "tsx --tsconfig tsconfig.json scripts/demo-fixture.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-cloudfront": "^3.1152.0",
+    "@aws-sdk/client-cognito-identity-provider": "^3.1152.0",
+    "@aws-sdk/client-dynamodb": "^3.1152.0",
+    "@aws-sdk/client-s3": "^3.1152.0",
+    "@aws-sdk/client-sesv2": "^3.1152.0",
+    "@aws-sdk/client-sqs": "^3.1152.0",
+    "@aws-sdk/lib-dynamodb": "^3.1152.0",
+    "puppeteer": "^25.14.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "tsup": "^9.0.0",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.4"
+  }
+}

@@ -156,4 +156,23 @@ export interface Store {
   saveScan(report: ScanReport): Promise<void>;
   /** newest first */
   listScans(propertyId: string, limit: number): Promise<ScanReport[]>;
+  /** one scan report by id, or null (also null for another site's scan) */
+  getScan(propertyId: string, scanId: string): Promise<ScanReport | null>;
+  /**
+   * Patch a scan report in place (its storage key never changes). With `ifStatus`, the patch only
+   * applies while the report's status is one of those; otherwise nothing changes and null is
+   * returned. That makes "queued → running" a claim only one worker wins, and lets a cancel stop
+   * a worker's next progress write. Returns the updated report, or null when missing or skipped.
+   */
+  updateScan(
+    propertyId: string,
+    scanId: string,
+    patch: Partial<Omit<ScanReport, "id" | "propertyId" | "startedAt">>,
+    opts?: { ifStatus?: ScanReport["status"][] },
+  ): Promise<ScanReport | null>;
+  /**
+   * Oldest queued scans across all sites. Only the local file store implements this (the local
+   * crawler worker polls it); in AWS the queue is SQS and the DynamoDB store returns [].
+   */
+  listQueuedScans(limit: number): Promise<ScanReport[]>;
 }

@@ -1,0 +1,9 @@
+# BuildKit uses this file for `docker build -f services/crawler/Dockerfile .` (context = repo root).
+# Everything is excluded except what the crawler image needs.
+*
+!src/lib/**
+!services/crawler/**
+services/crawler/node_modules
+services/crawler/dist
+services/crawler/.probe
+**/*.test.ts

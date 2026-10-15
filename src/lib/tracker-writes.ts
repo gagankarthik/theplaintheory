@@ -2,11 +2,8 @@ import "server-only";
 import { revalidatePath } from "next/cache";
 import { requireProperty } from "./auth/access";
 import { auditSite } from "./site-config";
-import { heldTrackers } from "./trackers";
+import { trackerPatch } from "./trackers";
 import type { AuditAction, Tracker } from "./types";
-
-/** What publishing would change: the approved inventory, not suggestions or ignored items. */
-const liveShape = (list: Tracker[]) => JSON.stringify(heldTrackers(list).map((t) => [t.name, t.pattern, t.category, t.kind ?? "script"]));
 
 /**
  * Change a site's tracker list (needs property:write). The draft version moves on only when the
@@ -21,11 +18,7 @@ export async function writeTrackers(
   const ctx = await requireProperty(propertyId, "property:write");
   const { property, store } = ctx;
   const next = fn(property.trackers);
-  const live = liveShape(next) !== liveShape(property.trackers);
-  await store.updateProperty(propertyId, {
-    trackers: next,
-    ...(live ? { config: { ...property.config, version: property.config.version + 1 } } : {}),
-  });
+  await store.updateProperty(propertyId, trackerPatch(property, next));
   if (audit) await auditSite(ctx, audit.action, audit.metadata?.());
   revalidatePath(`/app/sites/${propertyId}`, "layout");
   return next;

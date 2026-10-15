@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <!-- Plain Theory SDK: first script in <head>, synchronous. server.mjs fills in the site key and API. -->
+    <script src="/sdk/plain-consent.js" data-site="__PLAIN_SITE_KEY__" data-api="__PLAIN_API__"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Halden &amp; Rye demo store</title>
+    <link rel="stylesheet" href="/site.css" />
+    <!-- Held until the visitor consents: type="text/plain" keeps the browser from running them. -->
+    <script type="text/plain" data-consent="analytics" src="/trackers/mock-gtag.js"></script>
+    <script type="text/plain" data-consent="analytics" src="/trackers/mock-hotjar.js"></script>
+    <script type="text/plain" data-consent="analytics" src="/trackers/mock-clarity.js"></script>
+    <script type="text/plain" data-consent="marketing" src="/trackers/mock-meta-pixel.js"></script>
+    <script type="text/plain" data-consent="marketing" src="/trackers/mock-tiktok.js"></script>
+    <script type="text/plain" data-consent="functional" src="/trackers/mock-chat.js"></script>
+  </head>
+  <body>
+    <header>
+      <strong>Halden &amp; Rye</strong>
+      <a href="/product.html">Fell jacket</a>
+      <a href="/journal.html">Journal</a>
+      <a href="/cart.html">Basket</a>
+      <a href="/privacy.html">Privacy</a>
+      <a href="/checkout">Checkout</a>
+    </header>
+    <main>
+      <h1>Waxed cotton and Aran knitwear, made in the Dales</h1>
+      <p class="muted">A small test storefront for Plain Theory's SDK and headless crawler. Every tracker here is a local mock that only sets the cookie and storage names the real vendor uses; nothing contacts a vendor.</p>
+
+      <section class="panel" aria-labelledby="ran-title">
+        <h2 id="ran-title">Trackers that ran</h2>
+        <ul class="ran" id="ran"></ul>
+      </section>
+      <section class="panel" aria-labelledby="state-title">
+        <h2 id="state-title">Consent</h2>
+        <p><code id="state"></code></p>
+        <button type="button" data-open-settings>Cookie settings</button>
+        <button type="button" class="secondary" data-reset-consent>Reset consent</button>
+      </section>
+    </main>
+    <footer>Test fixture. robots.txt disallows /checkout, which the crawler must skip.</footer>
+    <script src="/site.js"></script>
+    <script>
+      // A tag injected at runtime, the way tag managers do it: src first, attributes after, then appended.
+      // Plain Theory holds runtime scripts by tracker pattern, so this runs unless the site's tracker list
+      // has a pattern matching it (e.g. "mock-dynamic-marketing" in category marketing).
+      setTimeout(function () {
+        var s = document.createElement("script");
+        s.src = "/trackers/mock-dynamic-marketing.js";
+        s.setAttribute("data-consent", "marketing");
+        document.head.appendChild(s);
+      }, 1500);
+    </script>
+  </body>
+</html>
