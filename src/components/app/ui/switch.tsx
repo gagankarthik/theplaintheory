@@ -2,7 +2,11 @@
 
 import { useId } from "react";
 
-/** On/off switch (role="switch"). The visible label names it; the description is linked with aria-describedby. */
+/**
+ * On/off switch (role="switch"). The visible label names it; the description is linked with
+ * aria-describedby. "On" is the lime track with the knob on the right; the track edge is the 3:1
+ * boundary (soot when on), and the hit area is 40px tall.
+ */
 export function Switch({
   checked,
   onChange,
@@ -41,11 +45,14 @@ export function Switch({
         aria-describedby={description ? `${id}-d` : undefined}
         disabled={disabled}
         onClick={() => onChange(!checked)}
-        className={`relative inline-flex h-[22px] w-10 shrink-0 items-center rounded-full shadow-[inset_0_1px_2px_rgb(0_0_0/0.15)] transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-          checked ? "bg-jade-bright" : "bg-line-strong"
+        className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors duration-150 ease-out before:absolute before:-inset-x-1 before:-inset-y-2 before:content-[''] disabled:cursor-not-allowed disabled:opacity-50 ${
+          checked ? "border-ink bg-selected dark:border-brand-solid dark:bg-brand-solid" : "border-boundary bg-surface"
         }`}
       >
-        <span className={`inline-block size-4 rounded-full bg-white shadow-[0_1px_3px_rgb(0_0_0/0.3)] transition-transform duration-200 ease-[var(--ease-spring)] ${checked ? "translate-x-[21px]" : "translate-x-[3px]"}`} />
+        {/* on: lime track, the knob moves right and fills; off: a hollow track with a muted knob */}
+        <span
+          className={`inline-block size-4 rounded-full transition-transform duration-200 ease-out ${checked ? "translate-x-[22px] bg-ink dark:bg-soot" : "translate-x-[3px] bg-ink-3"}`}
+        />
         <span className="sr-only">{checked ? "On" : "Off"}</span>
       </button>
     </div>

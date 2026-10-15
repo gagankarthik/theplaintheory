@@ -18,7 +18,8 @@ export function PreviewBridge() {
     };
 
     const onMessage = (e: MessageEvent) => {
-      if (e.origin !== window.location.origin) return;
+      // Only the dashboard that embeds this frame (same origin, our parent window) may drive it.
+      if (e.origin !== window.location.origin || e.source !== window.parent || window.parent === window) return;
       const d = e.data as PreviewMessage | undefined;
       if (d?.type !== "plain:preview") return;
       latest = d;

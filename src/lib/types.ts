@@ -4,7 +4,8 @@ export type Role = "owner" | "admin" | "editor" | "auditor" | "viewer";
 export type PlanId = "free" | "starter" | "growth" | "business" | "enterprise";
 export type Framework = "gdpr" | "ccpa" | "dpdpa" | "generic";
 export type CategoryId = "essential" | "functional" | "analytics" | "marketing";
-export type Layout = "bar" | "modal" | "toast";
+/** "pill": a compact pill at the bottom that expands to the choices (Reject and Accept always equal weight) */
+export type Layout = "bar" | "modal" | "toast" | "pill";
 export type Position = "bottom" | "top" | "bottom-left" | "bottom-right" | "center";
 
 export interface User {
@@ -145,6 +146,7 @@ export type AuditAction =
   | "tracker.updated"
   | "tracker.removed"
   | "tracker.scan_run"
+  | "tracker.scan_schedule_changed"
   | "tracker.approved"
   | "tracker.ignored"
   | "tracker.restored"
@@ -308,6 +310,8 @@ export interface BannerTheme {
   equalButtons: boolean;
   /** corner for the "Privacy choices" button shown after a decision (default left) */
   fabSide?: "left" | "right";
+  /** extra CSS for the banner's shadow root, applied after the built-in styles; sanitised (lib/custom-css) on save and in the SDK */
+  customCss?: string;
 }
 
 export interface RegionRule {
@@ -433,8 +437,23 @@ export interface Property {
   retentionCheckpoint?: RetentionCheckpoint;
   /** outcome of the most recent "Verify chain" run on the consent log */
   lastChainCheck?: { at: string; ok: boolean; checked: number; brokenAt?: number };
+  /** automatic tracker scans (lib/scan-schedule.ts); absent means off */
+  scanSchedule?: ScanSchedule;
   createdAt: string;
   updatedAt: string;
+}
+
+export type ScanFrequency = "weekly" | "monthly";
+
+/** A site's automatic scan schedule. The daily cron starts a scan once `nextDueAt` has passed. */
+export interface ScanSchedule {
+  frequency: ScanFrequency;
+  /** ISO time the next scheduled scan is due */
+  nextDueAt: string;
+  /** when the owner last changed the schedule */
+  updatedAt?: string;
+  /** when the cron last started (or skipped) a scheduled scan */
+  lastRunAt?: string;
 }
 
 /**

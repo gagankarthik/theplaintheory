@@ -45,7 +45,7 @@ export function ResourceList({
       {rows.length ? (
         <ul aria-label={label} className="divide-y divide-line">
           {rows.map((r) => (
-            <li key={r.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3 sm:flex-nowrap sm:px-6">
+            <li key={r.id} className="flex min-h-14 flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3 sm:flex-nowrap sm:px-6">
               {r.leading ? <div className="shrink-0 text-sm text-ink-2">{r.leading}</div> : null}
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-medium text-ink">{r.title}</div>

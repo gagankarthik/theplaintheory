@@ -37,11 +37,7 @@ export default async function LanguagesPage(props: PageProps<"/app/sites/[proper
 
   return (
     <>
-      <PageHeader
-        crumbs={[{ href: "/app", label: "Sites" }, { href: `/app/sites/${property.id}`, label: property.name }, { label: "Languages" }]}
-        title="Languages"
-        description="Show each notice in the languages your visitors read. DPDPA allows English or any of the 22 Eighth Schedule languages."
-      />
+      <PageHeader title="Languages" description="Show each notice in the languages your visitors read. DPDPA allows English or any of the 22 Eighth Schedule languages." />
       <StatStrip
         label="Languages at a glance"
         stats={[

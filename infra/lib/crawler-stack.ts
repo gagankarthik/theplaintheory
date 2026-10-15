@@ -34,6 +34,12 @@ const BUILD_CONTEXT_EXCLUDES = ["*", "!src", "!src/lib/**", "!services", "!servi
  *   npx cdk deploy PlainTheory-Staging-CrawlerImages -c stage=staging
  *   aws codebuild start-build --project-name pt-staging-aps1-crawler-image   (tag defaults to the source hash)
  *   npx cdk deploy PlainTheory-Staging-Crawler -c stage=staging -c crawlerImage=<RepositoryUri>:<ImageTag>
+ *
+ * Tags are immutable and there is no `latest`: every deploy names the exact image it runs, so a task
+ * definition revision always maps to one build, and rolling back is redeploying the previous tag. To tag
+ * by commit instead of source hash, override it when starting the build:
+ *   aws codebuild start-build --project-name ... --environment-variables-override name=IMAGE_TAG,value=$(git rev-parse --short=12 HEAD)
+ * A build whose tag already exists in the repository is skipped (the tag can't be overwritten).
  * ---------------------------------------------------------------------------------------------- */
 
 export interface CrawlerImagesStackProps extends StackProps {
@@ -54,7 +60,7 @@ export class CrawlerImagesStack extends Stack {
     this.repository = new ecr.Repository(this, "Repository", {
       repositoryName: naming.name("crawler"),
       imageScanOnPush: true,
-      imageTagMutability: ecr.TagMutability.MUTABLE,
+      imageTagMutability: ecr.TagMutability.IMMUTABLE,
       encryption: ecr.RepositoryEncryption.AES_256,
       removalPolicy: naming.stage === "prod" ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY,
       emptyOnDelete: naming.stage !== "prod",
@@ -79,6 +85,7 @@ export class CrawlerImagesStack extends Stack {
       },
       environmentVariables: {
         REPOSITORY_URI: { value: this.repository.repositoryUri },
+        REPOSITORY_NAME: { value: this.repository.repositoryName },
         IMAGE_TAG: { value: this.imageTag },
         AWS_ACCOUNT_ID: { value: this.account },
       },
@@ -100,19 +107,29 @@ export class CrawlerImagesStack extends Stack {
             commands: ['aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com"'],
           },
           build: {
-            commands: [`docker build --platform linux/amd64 -f ${DOCKERFILE} -t "$REPOSITORY_URI:$IMAGE_TAG" -t "$REPOSITORY_URI:latest" .`],
+            commands: [
+              // Immutable tags: an existing tag is already the image for this source, so skip instead of failing the push.
+              'if aws ecr describe-images --repository-name "$REPOSITORY_NAME" --image-ids imageTag="$IMAGE_TAG" >/dev/null 2>&1; then echo "$REPOSITORY_URI:$IMAGE_TAG exists; skipping build"; export SKIP_PUSH=1; fi',
+              `if [ -z "$SKIP_PUSH" ]; then docker build --platform linux/amd64 -f ${DOCKERFILE} -t "$REPOSITORY_URI:$IMAGE_TAG" .; fi`,
+            ],
           },
           post_build: {
-            commands: ['docker push "$REPOSITORY_URI:$IMAGE_TAG"', 'docker push "$REPOSITORY_URI:latest"', 'echo "Pushed $REPOSITORY_URI:$IMAGE_TAG"'],
+            commands: [
+              // post_build runs even when build failed; only push an image that was built.
+              'if [ "$CODEBUILD_BUILD_SUCCEEDING" = "1" ] && [ -z "$SKIP_PUSH" ]; then docker push "$REPOSITORY_URI:$IMAGE_TAG"; fi',
+              'echo "Image: $REPOSITORY_URI:$IMAGE_TAG"',
+            ],
           },
         },
       }),
     });
     source.grantRead(this.project);
     this.repository.grantPullPush(this.project);
+    this.repository.grant(this.project, "ecr:DescribeImages");
 
     new CfnOutput(this, "RepositoryUri", { value: this.repository.repositoryUri });
     new CfnOutput(this, "ImageTag", { value: this.imageTag });
+    new CfnOutput(this, "ImageUri", { value: `${this.repository.repositoryUri}:${this.imageTag}`, description: "-c crawlerImage=<this> after the build succeeds" });
     new CfnOutput(this, "BuildProjectName", { value: this.project.projectName });
   }
 }
@@ -126,8 +143,9 @@ export interface CrawlerStackProps extends StackProps {
   tables: Record<TableId, dynamodb.ITable>;
   key: kms.IKey;
   /**
-   * `-c crawlerImage=<repositoryUri>:<tag>` from the CrawlerImages stack (no Docker needed), or any
-   * public registry reference. Omitted: built from services/crawler/Dockerfile by `cdk deploy` (needs Docker).
+   * `-c crawlerImage=<repositoryUri>:<tag>` (the CrawlerImages stack's ImageUri output; no Docker needed),
+   * or any registry reference pinned by tag or digest. Omitted: built from services/crawler/Dockerfile by
+   * `cdk deploy` (needs Docker).
    */
   imageRef?: string;
   /** Most tasks running at once. */
@@ -200,22 +218,37 @@ export class CrawlerStack extends Stack {
     });
 
     // X86_64: Debian's chromium package is built for amd64 and arm64, but crawl fidelity is tested on amd64.
+    // Sized for CRAWLER_CONCURRENCY=1 (one Chromium, one page at a time): a heavy page's renderer peaks
+    // around 1-1.5 GB next to ~300 MB for the browser process and Node, so 3 GB leaves headroom, and one
+    // vCPU keeps a single page responsive. More throughput comes from more tasks (backlog scaling below),
+    // not bigger ones; raise both together if concurrency goes up. The default 20 GiB of ephemeral
+    // storage holds /tmp (profile and shared memory, a few hundred MB at most).
     const taskDefinition = new ecs.FargateTaskDefinition(this, "CrawlerTask", {
       family: naming.name("crawler"),
-      cpu: 2048,
-      memoryLimitMiB: 4096,
-      ephemeralStorageGiB: 30,
+      cpu: 1024,
+      memoryLimitMiB: 3072,
       runtimePlatform: { cpuArchitecture: ecs.CpuArchitecture.X86_64, operatingSystemFamily: ecs.OperatingSystemFamily.LINUX },
     });
-    taskDefinition.addContainer("crawler", {
+    // Read-only root filesystem: the only writable path is /tmp, a task-scoped volume on ephemeral
+    // storage (Fargate has no tmpfs). The image's /tmp (mode 1777) seeds it, so the non-root user can write.
+    taskDefinition.addVolume({ name: "tmp" });
+    // No Linux capabilities at all: Node and Chromium (--no-sandbox, see services/crawler/src/scanner/browser.ts)
+    // need none, and the image runs as the non-root `node` user.
+    const linuxParameters = new ecs.LinuxParameters(this, "CrawlerLinuxParameters");
+    linuxParameters.dropCapabilities(ecs.Capability.ALL);
+    const container = taskDefinition.addContainer("crawler", {
       image,
       essential: true,
+      readonlyRootFilesystem: true,
+      linuxParameters,
       logging: ecs.LogDrivers.awsLogs({ streamPrefix: "crawler", logGroup }),
       environment: {
         NODE_ENV: "production",
         STORE_DRIVER: "dynamodb",
         CRAWLER_QUEUE_URL: this.queue.queueUrl,
         CRAWLER_CONCURRENCY: "1",
+        // Under the queue's 15-minute visibility timeout; a crawl that hits it stops and keeps partial results.
+        CRAWLER_SCAN_DEADLINE_MS: String(10 * 60_000),
         PT_AWS_REGION: this.region,
         AWS_REGION: this.region,
         DYNAMO_TABLE_CORE: tables.core.tableName,
@@ -228,6 +261,7 @@ export class CrawlerStack extends Stack {
       // SIGTERM → stop the crawl, hand the scan back to the queue, exit.
       stopTimeout: Duration.seconds(120),
     });
+    container.addMountPoints({ sourceVolume: "tmp", containerPath: "/tmp", readOnly: false });
 
     // Least privilege: sites and scan reports (core), append-only audit events, the data key, the queue.
     const role = taskDefinition.taskRole;
@@ -321,14 +355,22 @@ export class CrawlerStack extends Stack {
   }
 }
 
-/** An ECR image from the CrawlerImages stack (pull permission granted), or any other registry reference. */
+/**
+ * An ECR image from the CrawlerImages stack (pull permission granted), or any other registry reference.
+ * The reference must pin an immutable tag or a digest (`repo:<tag>` or `repo@sha256:<digest>`): a bare
+ * repository or `:latest` is refused, so every task definition revision names exactly one build.
+ */
 function imageFromRef(scope: Construct, ref: string): ecs.ContainerImage {
-  const m = ref.match(/^(\d{12})\.dkr\.ecr\.([a-z0-9-]+)\.amazonaws\.com\/([^:@]+)(?::([^@]+))?$/);
+  const pinned = /@sha256:[0-9a-f]{64}$/.test(ref) || /:[\w][\w.-]{0,127}$/.test(ref.slice(ref.lastIndexOf("/") + 1));
+  if (!pinned || /:latest$/.test(ref)) {
+    throw new Error(`-c crawlerImage must pin an image tag or digest (got "${ref}"). Use the CrawlerImages stack's ImageUri output.`);
+  }
+  const m = ref.match(/^(\d{12})\.dkr\.ecr\.([a-z0-9-]+)\.amazonaws\.com\/([^:@]+)(?::([^@]+)|@(sha256:[0-9a-f]{64}))$/);
   if (!m) return ecs.ContainerImage.fromRegistry(ref);
-  const [, account, region, name, tag] = m;
+  const [, account, region, name, tag, digest] = m;
   const repository = ecr.Repository.fromRepositoryAttributes(scope, "CrawlerRepository", {
     repositoryName: name,
     repositoryArn: `arn:aws:ecr:${region}:${account}:repository/${name}`,
   });
-  return ecs.ContainerImage.fromEcrRepository(repository, tag ?? "latest");
+  return ecs.ContainerImage.fromEcrRepository(repository, digest ?? tag);
 }

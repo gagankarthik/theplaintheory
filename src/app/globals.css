@@ -7,53 +7,84 @@
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 /*
- * Plain Theory design system, "Instrument".
+ * Plain Theory design system: the website's brand, carried into the product.
  *
- * The product measures and proves consent, so the interface reads like a precise instrument:
- * graphite neutrals, hairline structure, tabular figures, and one ultramarine signal (the brand,
- * from the I/O mark) used for focus, selection and the single primary action per view.
- * Jade, amber and rose are reserved for consent and health states: released, held, declined.
+ * Soot, chalk and white carry the interface; lime (from the I/O mark) means "on": the current page,
+ * the selected row, a switch that is on, the active tab. In light mode the primary action is soot
+ * with white text (lime on white has no visible edge); in dark mode it is lime with soot text, and
+ * lime is also the focus ring. Jade, amber and rose are reserved for consent states and errors.
  *
- * Every colour is a variable so the dashboard can switch to the dark theme on [data-theme="dark"]
- * without a single component knowing about it. Utilities read the variables (bg-ink, text-ink-3…).
+ * Every colour is a variable, so the dashboard switches to dark on [data-theme="dark"] without a
+ * component knowing. Components use the semantic names (canvas, surface, boundary, interactive,
+ * selected, marker, success, warning, destructive) or the older aliases below (ink, paper, line,
+ * brand…), never raw hues. Contrast is checked for every text and boundary pair in both modes
+ * (text 4.5:1, boundaries and large text 3:1); see src/components/app/ui/README.md.
  */
 @theme {
-  /* Neutrals (light) */
-  --color-ink: #10131f;
-  --color-ink-2: #414860;
-  --color-ink-3: #686f86;
+  /* Neutrals (light): soot text on a chalk canvas and white surfaces */
+  --color-ink: #0f0f0f;
+  --color-ink-2: #2b2b2b;
+  /* secondary text: 6.6:1 on chalk, 7.5:1 on white */
+  --color-ink-3: #555555;
   /* Raised surface on ink: dark panels, cards and hover fills that sit on an ink background. */
-  --color-ink-raised: #181d33;
-  --color-paper: #f4f5f7;
+  --color-ink-raised: #1a1a1a;
+  --color-paper: #f2f2ef;
   --color-surface: #ffffff;
-  --color-raised: #fafbfc;
-  --color-line: #e5e7ed;
-  --color-line-strong: #d1d5df;
-  /* edges of inputs and selects: 3.2:1 on white (WCAG 1.4.11 non-text contrast) */
-  --color-line-input: #8a90a3;
-  /* Inverse surfaces (tooltips, kbd chips, the "on" side of toggles) flip with the theme. */
-  --color-inverse: #10131f;
+  --color-raised: #f7f7f5;
+  --color-line: #e4e4df;
+  --color-line-strong: #cfcfc9;
+  /* edges of inputs, selects, checkboxes and outline buttons: 3.3:1 on chalk (WCAG 1.4.11) */
+  --color-line-input: #83837e;
+  /* Inverse surfaces (tooltips, kbd chips, the skip link) flip with the theme. */
+  --color-inverse: #0f0f0f;
   --color-on-inverse: #ffffff;
 
-  /* Brand: ultramarine, from the mark */
-  --color-brand: #2e2bd6;
-  --color-brand-ink: #2421b4;
-  --color-brand-deep: #16137c;
-  --color-brand-bright: #4b48f2;
-  --color-brand-wash: #efeeff;
-  --color-brand-on-ink: #9a98ff;
-  /* Solid fill for primary buttons: keeps white text at AA in both themes. */
-  --color-brand-solid: #2e2bd6;
+  /*
+   * Brand aliases, kept so existing components keep working. In light mode "brand" is soot (accent
+   * text, icons, focus) and its wash is lime; in dark mode both are lime-based.
+   */
+  --color-brand: #0f0f0f;
+  --color-brand-ink: #0f0f0f;
+  --color-brand-deep: #0f0f0f;
+  --color-brand-bright: #2b2b2b;
+  --color-brand-wash: #dafa9c;
+  --color-brand-on-ink: #dafa9c;
+  /* Solid fill for primary buttons and "current" chips; pair it with text-on-brand-solid. */
+  --color-brand-solid: #0f0f0f;
+  --color-on-brand-solid: #ffffff;
 
-  /* Consent and health states */
-  --color-jade: #077556;
-  --color-jade-bright: #16b585;
-  --color-jade-wash: #e2f5ee;
-  --color-amber: #935806;
-  --color-amber-bright: #eda43a;
-  --color-amber-wash: #fdf2dc;
-  --color-rose: #c1283b;
-  --color-rose-wash: #fde9ec;
+  /* Semantic roles. New code uses these. */
+  --color-canvas: var(--color-paper);
+  --color-boundary: var(--color-line-input);
+  --color-interactive: var(--color-brand-solid);
+  --color-interactive-hover: #2b2b2b;
+  --color-on-interactive: var(--color-on-brand-solid);
+  /* "on" state fill: the current nav item, a selected row, a switch track that is on */
+  --color-selected: #dafa9c;
+  --color-on-selected: #0f0f0f;
+  /* the bar that marks the current item or active tab (soot in light mode: lime on white is 1.1:1) */
+  --color-marker: #0f0f0f;
+  --color-focus: #0f0f0f;
+  --color-success: var(--color-jade);
+  --color-success-wash: var(--color-jade-wash);
+  --color-warning: var(--color-amber);
+  --color-warning-wash: var(--color-amber-wash);
+  --color-destructive: var(--color-rose);
+  --color-destructive-wash: var(--color-rose-wash);
+  --color-destructive-solid: #b8233a;
+  --color-on-destructive-solid: #ffffff;
+  /* modal scrim */
+  --color-scrim: rgb(15 15 15 / 0.5);
+
+  /* Consent and health states: text tones pass 4.5:1 on white, chalk and their own wash */
+  --color-jade: #066b4c;
+  --color-jade-bright: #12a174;
+  --color-jade-wash: #e3f4ec;
+  --color-amber: #8a5205;
+  --color-amber-bright: #c98510;
+  --color-amber-wash: #fcf0d8;
+  --color-rose: #b8233a;
+  --color-rose-wash: #fce8eb;
   /* Marketing site ("One motif": soot, white and lime, from the I/O mark). Never themed. */
   --color-soot: #0f0f0f;
   --color-soot-2: #1a1a1a;
@@ -63,29 +94,53 @@
   --color-mute-ink: #555555;
   --color-lime: #dafa9c;
   --color-lime-deep: #c6ee72;
+  /*
+   * Marketing intent aliases (60-30-10). Components use these, not the hues above.
+   * 60 canvas and container; 30 text, borders and the inverse band; 10 the action and the "on" state.
+   * Action is soot on light grounds (lime on white has no visible edge); lime means "on": consent given,
+   * selected, active. Contrast on canvas: text 19:1, text-2 7.5:1, border-strong 3.4:1.
+   */
+  --color-mk-canvas: #ffffff;
+  --color-mk-container: #f2f2ef;
+  --color-mk-inverse: #0f0f0f;
+  --color-mk-inverse-raised: #1a1a1a;
+  --color-mk-inverse-item: #262626;
+  --color-mk-border: #e4e4df;
+  --color-mk-border-strong: #8a8a85;
+  --color-mk-text: #0f0f0f;
+  --color-mk-text-2: #555555;
+  --color-mk-text-inverse-2: #a3a3a3;
+  --color-mk-action: #0f0f0f;
+  --color-mk-action-hover: #2b2b2b;
+  --color-mk-on: #dafa9c;
+  --color-mk-on-hover: #c6ee72;
 
   /* Risk scale for the cookie catalogue: low → critical */
-  --color-risk-low: #16b585;
-  --color-risk-medium: #eda43a;
-  --color-risk-high: #e2622f;
-  --color-risk-critical: #c1283b;
+  --color-risk-low: #12a174;
+  --color-risk-medium: #c98510;
+  --color-risk-high: #d4561f;
+  --color-risk-critical: #b8233a;
 
-  --font-sans: var(--font-ui), ui-sans-serif, system-ui, sans-serif;
+  /* Switzer (the website's face, self-hosted, set on <html> by the root layout) for the interface. */
+  --font-sans: var(--font-switzer-face), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-data), ui-monospace, SFMono-Regular, Menlo, monospace;
-  /* Marketing display face (set by the marketing layout; falls back to the UI face). */
-  --font-display: var(--font-display-face, var(--font-ui)), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-display-face, var(--font-switzer-face)), ui-sans-serif, system-ui, sans-serif;
 
-  /* type scale: 2xs 11 · xs 12.5 · sm 14 · base 16 · lg 18 · xl 24 */
+  /*
+   * Type scale: 2xs 11 · xs 12 · sm 14 · base 16 · lg 18, then the display sizes the public pages
+   * use (xl 24 · 2xl 36 · 3xl 52 · 4xl 72). The dashboard and console re-scale xl and up to a ratio
+   * of about 1.2 inside .pt-app (below). Leading tightens as size grows. Weights: 400, 500, 600.
+   */
   --text-2xs: 0.6875rem;
   --text-2xs--line-height: 1.35;
-  --text-xs: 0.78125rem;
-  --text-xs--line-height: 1.4;
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1.45;
   --text-sm: 0.875rem;
   --text-sm--line-height: 1.5;
   --text-base: 1rem;
-  --text-base--line-height: 1.6;
+  --text-base--line-height: 1.55;
   --text-lg: 1.125rem;
-  --text-lg--line-height: 1.55;
+  --text-lg--line-height: 1.45;
   --text-xl: 1.5rem;
   --text-xl--line-height: 1.25;
   --text-2xl: 2.25rem;
@@ -98,17 +153,17 @@
   --tracking-display: -0.035em;
   --tracking-heading: -0.02em;
 
-  /* Precise, small radii: the instrument is machined, not pillowy. */
-  --radius-sm: 5px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 18px;
+  /* Radii: chips and checkboxes 6, inputs and controls 12, panels 18, dialogs 22; buttons are pills. */
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 22px;
 
-  --shadow-lift: 0 1px 2px rgb(16 19 31 / 0.05), 0 6px 18px -10px rgb(16 19 31 / 0.18);
-  --shadow-float: 0 1px 2px rgb(16 19 31 / 0.06), 0 28px 64px -28px rgb(16 19 31 / 0.38);
-  --shadow-window: 0 0 0 1px rgb(16 19 31 / 0.06), 0 2px 4px rgb(16 19 31 / 0.04), 0 48px 96px -40px rgb(16 19 31 / 0.45);
-  /* 1px top highlight that makes a surface read as a physical, lit edge */
-  --shadow-edge: inset 0 1px 0 rgb(255 255 255 / 0.7);
+  /* Flat brand: shadows only for things that float (menus, dialogs, toasts). */
+  --shadow-lift: 0 1px 2px rgb(15 15 15 / 0.05), 0 6px 18px -10px rgb(15 15 15 / 0.16);
+  --shadow-float: 0 1px 2px rgb(15 15 15 / 0.06), 0 24px 56px -24px rgb(15 15 15 / 0.32);
+  --shadow-window: 0 0 0 1px rgb(15 15 15 / 0.06), 0 2px 4px rgb(15 15 15 / 0.04), 0 48px 96px -40px rgb(15 15 15 / 0.4);
+  --shadow-edge: 0 0 #0000;
 
   --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
   /* weighty, spring-like settle for interactive surfaces */
@@ -150,49 +205,73 @@
 }
 
 /*
- * Dark theme for the dashboard, staff console and onboarding. Same names, re-tuned values: graphite
- * surfaces (never pure black), lifted text contrast, and brighter state colours so they read on dark.
+ * Dark theme for the dashboard, staff console and onboarding. Same names: soot canvas, soot-2 and
+ * soot-3 surfaces, chalk text, lime for the primary action, the marker and the focus ring.
  */
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --color-ink: #e8eaf2;
-  --color-ink-2: #aab0c3;
-  --color-ink-3: #7d849a;
-  --color-ink-raised: #1d2232;
-  --color-paper: #0b0d14;
-  --color-surface: #12151f;
-  --color-raised: #171b27;
-  --color-line: #232838;
-  --color-line-strong: #30364a;
-  --color-line-input: #555c72;
-  --color-inverse: #e8eaf2;
-  --color-on-inverse: #0b0d14;
+  --color-ink: #f2f2ef;
+  --color-ink-2: #cfcfca;
+  --color-ink-3: #a3a39e;
+  --color-ink-raised: #262626;
+  --color-paper: #0f0f0f;
+  --color-surface: #1a1a1a;
+  --color-raised: #222222;
+  --color-line: #2b2b2b;
+  --color-line-strong: #3a3a3a;
+  --color-line-input: #76766f;
+  --color-inverse: #f2f2ef;
+  --color-on-inverse: #0f0f0f;
 
-  --color-brand: #8b89ff;
-  --color-brand-ink: #a9a7ff;
-  --color-brand-deep: #d2d1ff;
-  --color-brand-bright: #9d9bff;
-  --color-brand-wash: #1c1b45;
-  --color-brand-on-ink: #a9a7ff;
-  --color-brand-solid: #4e4bf0;
+  --color-brand: #dafa9c;
+  --color-brand-ink: #dafa9c;
+  --color-brand-deep: #ecfcc9;
+  --color-brand-bright: #c6ee72;
+  --color-brand-wash: #29321a;
+  --color-brand-on-ink: #dafa9c;
+  --color-brand-solid: #dafa9c;
+  --color-on-brand-solid: #0f0f0f;
 
-  --color-jade: #45d6a6;
-  --color-jade-bright: #22c08f;
-  --color-jade-wash: #0f2a22;
-  --color-amber: #f3b65e;
+  --color-interactive-hover: #c6ee72;
+  --color-selected: #29321a;
+  --color-on-selected: #f2f2ef;
+  --color-marker: #dafa9c;
+  --color-focus: #dafa9c;
+  --color-destructive-solid: #ff7d8e;
+  --color-on-destructive-solid: #0f0f0f;
+  --color-scrim: rgb(0 0 0 / 0.66);
+
+  --color-jade: #4fd6a7;
+  --color-jade-bright: #2fc08f;
+  --color-jade-wash: #10291f;
+  --color-amber: #f2b45c;
   --color-amber-bright: #f0a53a;
-  --color-amber-wash: #2d2211;
-  --color-rose: #ff7184;
-  --color-rose-wash: #35151c;
-  --color-risk-low: #22c08f;
+  --color-amber-wash: #2c2210;
+  --color-rose: #ff7d8e;
+  --color-rose-wash: #36161c;
+  --color-risk-low: #2fc08f;
   --color-risk-medium: #f0a53a;
   --color-risk-high: #f27a45;
-  --color-risk-critical: #ff5d72;
+  --color-risk-critical: #ff7d8e;
 
   --shadow-lift: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 24px -12px rgb(0 0 0 / 0.6);
-  --shadow-float: 0 1px 2px rgb(0 0 0 / 0.35), 0 32px 72px -28px rgb(0 0 0 / 0.75);
+  --shadow-float: 0 0 0 1px rgb(255 255 255 / 0.06), 0 32px 72px -28px rgb(0 0 0 / 0.8);
   --shadow-window: 0 0 0 1px rgb(255 255 255 / 0.06), 0 48px 96px -40px rgb(0 0 0 / 0.8);
-  --shadow-edge: inset 0 1px 0 rgb(255 255 255 / 0.04);
+}
+
+/*
+ * Dashboard and staff console type scale (set by their shells): 12 · 14 · 16 · 18 · 22 · 28 · 34 · 40,
+ * a ratio of about 1.2. Page titles are xl (22), KPI figures 2xl (28).
+ */
+.pt-app {
+  --text-xl: 1.375rem;
+  --text-xl--line-height: 1.25;
+  --text-2xl: 1.75rem;
+  --text-2xl--line-height: 1.15;
+  --text-3xl: 2.125rem;
+  --text-3xl--line-height: 1.1;
+  --text-4xl: 2.5rem;
+  --text-4xl--line-height: 1.05;
 }
 
 @layer base {
@@ -229,13 +308,13 @@
     font-variant-numeric: tabular-nums;
   }
   ::selection {
-    background: var(--color-brand-solid);
-    color: white;
+    background: var(--color-lime);
+    color: var(--color-soot);
   }
   :focus-visible {
-    outline: 2px solid var(--color-brand);
+    outline: 2px solid var(--color-focus);
     outline-offset: 2px;
-    border-radius: 5px;
+    border-radius: 6px;
   }
 }
 
@@ -252,17 +331,20 @@
     color: var(--color-jade);
   }
 
-  /* Buttons: 36px default, 8px radius, a lit top edge on filled variants, 1px press. */
+  /*
+   * Buttons are pills ("stems", like the website): 40px default, 32px small (44px on phones via
+   * buttonClass), 48px large. Flat fills, a 1px press, 150ms ease-out.
+   */
   .btn {
     position: relative;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
-    height: 2.25rem;
-    padding: 0 0.875rem;
-    border-radius: var(--radius-md);
-    font-weight: 550;
+    height: 2.5rem;
+    padding: 0 1.125rem;
+    border-radius: 999px;
+    font-weight: 500;
     font-size: var(--text-sm);
     letter-spacing: -0.005em;
     white-space: nowrap;
@@ -272,12 +354,16 @@
       color 0.15s var(--ease-out),
       border-color 0.15s var(--ease-out),
       box-shadow 0.15s var(--ease-out),
-      transform 0.12s var(--ease-out);
+      transform 0.15s var(--ease-out);
+  }
+  .btn:focus-visible {
+    border-radius: 999px;
   }
   .btn:active {
-    transform: translateY(1px) scale(0.985);
+    transform: translateY(1px);
   }
-  .btn:disabled {
+  .btn:disabled,
+  .btn[aria-disabled="true"] {
     opacity: 0.5;
     pointer-events: none;
   }
@@ -285,48 +371,51 @@
     border-radius: 999px;
   }
   .btn-lg {
-    height: 2.875rem;
-    padding: 0 1.25rem;
+    height: 3rem;
+    padding: 0 1.5rem;
     font-size: var(--text-base);
   }
   .btn-sm {
-    height: 1.875rem;
-    padding: 0 0.625rem;
+    height: 2rem;
+    padding: 0 0.875rem;
     font-size: var(--text-xs);
-    border-radius: var(--radius-sm);
+    gap: 0.375rem;
   }
+  /* The view's one main action: soot with white text (light), lime with soot text (dark). */
   .btn-primary {
-    background: var(--color-brand-solid);
-    color: white;
-    box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 0.18),
-      0 1px 2px rgb(16 19 31 / 0.18),
-      0 0 0 1px color-mix(in srgb, var(--color-brand-solid) 80%, black);
+    background: var(--color-interactive);
+    color: var(--color-on-interactive);
   }
   .btn-primary:hover {
-    background: color-mix(in srgb, var(--color-brand-solid) 88%, black);
+    background: var(--color-interactive-hover);
   }
   .btn-white {
     background: white;
-    color: #10131f;
+    color: #0f0f0f;
   }
   .btn-white:hover {
-    background: #ececff;
+    background: var(--color-lime);
   }
-  .btn-ghost {
+  /* Secondary: an outline on the 3:1 boundary token ("ghost" in the kit's older API). */
+  .btn-ghost,
+  .btn-secondary {
     background: var(--color-surface);
     color: var(--color-ink);
-    box-shadow:
-      var(--shadow-edge),
-      0 1px 1px rgb(16 19 31 / 0.04),
-      inset 0 0 0 1px var(--color-line-strong);
+    box-shadow: inset 0 0 0 1px var(--color-boundary);
   }
-  .btn-ghost:hover {
+  .btn-ghost:hover,
+  .btn-secondary:hover {
     background: var(--color-raised);
-    box-shadow:
-      var(--shadow-edge),
-      0 1px 1px rgb(16 19 31 / 0.04),
-      inset 0 0 0 1px var(--color-ink-3);
+    box-shadow: inset 0 0 0 1px var(--color-ink);
+  }
+  /* Borderless: toolbars, row actions, icon buttons. */
+  .btn-quiet {
+    background: transparent;
+    color: var(--color-ink-2);
+  }
+  .btn-quiet:hover {
+    background: var(--color-raised);
+    color: var(--color-ink);
   }
   .btn-outline-light {
     background: transparent;
@@ -338,14 +427,11 @@
     background: rgb(255 255 255 / 0.06);
   }
   .btn-danger {
-    background: #c1283b;
-    color: white;
-    box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 0.16),
-      0 0 0 1px #9e1f30;
+    background: var(--color-destructive-solid);
+    color: var(--color-on-destructive-solid);
   }
   .btn-danger:hover {
-    background: #a8212f;
+    background: color-mix(in srgb, var(--color-destructive-solid) 88%, var(--color-ink));
   }
   /* Row-level remove: as quiet as a text button until hovered or focused, then rose. */
   .btn-danger-quiet {
@@ -354,22 +440,26 @@
   }
   .btn-danger-quiet:hover,
   .btn-danger-quiet:focus-visible {
-    background: var(--color-rose-wash);
-    color: var(--color-rose);
+    background: var(--color-destructive-wash);
+    color: var(--color-destructive);
   }
   /* Text button: no box, underlined, for secondary actions in running text and filter bars. */
   .btn-link {
     height: auto;
     min-height: 1.5rem;
     padding: 0;
-    color: var(--color-ink-2);
+    border-radius: 4px;
+    color: var(--color-ink);
     text-decoration: underline;
-    text-decoration-color: var(--color-line-strong);
+    text-decoration-color: var(--color-line-input);
     text-underline-offset: 4px;
   }
   .btn-link:hover {
     color: var(--color-ink);
     text-decoration-color: currentColor;
+  }
+  .btn-link:focus-visible {
+    border-radius: 4px;
   }
   .btn-link:active {
     transform: none;
@@ -384,18 +474,19 @@
     background-size: 100% 1px;
   }
 
+  /* Inputs: 40px, 12px radius, a 3:1 boundary, the 2px focus ring offset from the edge. */
   .field {
     width: 100%;
-    height: 2.25rem;
-    padding: 0 0.75rem;
+    height: 2.5rem;
+    padding: 0 0.875rem;
     border-radius: var(--radius-md);
-    border: 1px solid var(--color-line-input);
+    border: 1px solid var(--color-boundary);
     background: var(--color-surface);
     color: var(--color-ink);
     font-size: var(--text-sm);
     transition:
-      border-color 0.15s,
-      box-shadow 0.15s;
+      border-color 0.15s var(--ease-out),
+      outline-color 0.15s var(--ease-out);
   }
   .field::placeholder {
     color: var(--color-ink-3);
@@ -404,32 +495,38 @@
     border-color: var(--color-ink-3);
   }
   .field:focus {
-    outline: none;
-    border-color: var(--color-brand);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-brand) 22%, transparent);
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
+    border-color: var(--color-ink);
+  }
+  .field:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
   }
   .field[aria-invalid="true"] {
-    border-color: var(--color-rose);
+    border-color: var(--color-destructive);
+  }
+  .field[aria-invalid="true"]:focus {
+    outline-color: var(--color-destructive);
   }
   textarea.field {
     height: auto;
-    padding: 0.625rem 0.75rem;
+    padding: 0.625rem 0.875rem;
     line-height: 1.5;
   }
   .label {
     display: block;
     font-size: var(--text-sm);
-    font-weight: 550;
+    font-weight: 500;
     color: var(--color-ink);
     margin-bottom: 0.375rem;
   }
 
-  /* The one surface: hairline border, lit top edge, no drop shadow. */
+  /* The one surface: white (soot-2 in dark) on the canvas, a hairline edge, 18px radius, no shadow. */
   .panel {
     background: var(--color-surface);
     border: 1px solid var(--color-line);
     border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-edge);
   }
 
   /* Small uppercase section label used across the dashboard ("CONFIGURE", "LAST 30 DAYS") */
@@ -437,6 +534,7 @@
     font-family: var(--font-mono);
     font-size: 0.6875rem;
     font-weight: 500;
+    line-height: 1.4;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--color-ink-3);
@@ -509,15 +607,15 @@
 /* First-paint entrances in CSS so server-rendered content is visible without JavaScript. */
 @layer components {
   .pt-enter {
-    animation: pt-enter 0.32s var(--ease-out) both;
+    animation: pt-enter 0.24s var(--ease-out) both;
   }
   .pt-enter-up {
-    animation: pt-enter-up 0.36s var(--ease-out) both;
+    animation: pt-enter-up 0.28s var(--ease-out) both;
   }
   /* Staggered list reveal: set --i on each child */
   .pt-stagger > * {
-    animation: pt-enter-up 0.42s var(--ease-spring) both;
-    animation-delay: calc(var(--i, 0) * 45ms);
+    animation: pt-enter-up 0.3s var(--ease-out) both;
+    animation-delay: calc(var(--i, 0) * 40ms);
   }
   @keyframes pt-enter {
     from {
@@ -554,12 +652,48 @@
 @layer components {
   /* Menu panels settle in from slightly above */
   .pt-menu {
-    animation: pt-menu 0.32s var(--ease-spring) both;
+    animation: pt-menu 0.18s var(--ease-out) both;
   }
   @keyframes pt-menu {
     from {
       opacity: 0;
-      transform: translateY(-4px) scale(0.985);
+      transform: translateY(-4px);
+    }
+  }
+  /* Side sheets and the phone nav drawer slide in from their edge; bottom sheets rise. */
+  .pt-sheet-right {
+    animation: pt-sheet-right 0.24s var(--ease-out) both;
+  }
+  .pt-sheet-left {
+    animation: pt-sheet-left 0.24s var(--ease-out) both;
+  }
+  .pt-sheet-up {
+    animation: pt-sheet-up 0.24s var(--ease-out) both;
+  }
+  .pt-fade {
+    animation: pt-fade 0.2s var(--ease-out) both;
+  }
+  @keyframes pt-sheet-right {
+    from {
+      transform: translateX(24px);
+      opacity: 0;
+    }
+  }
+  @keyframes pt-sheet-left {
+    from {
+      transform: translateX(-24px);
+      opacity: 0;
+    }
+  }
+  @keyframes pt-sheet-up {
+    from {
+      transform: translateY(24px);
+      opacity: 0;
+    }
+  }
+  @keyframes pt-fade {
+    from {
+      opacity: 0;
     }
   }
 
@@ -567,7 +701,7 @@
 
 /* A completed step's check pops in */
 .pt-pop {
-  animation: pt-pop 0.45s var(--ease-spring) both;
+  animation: pt-pop 0.3s var(--ease-out) both;
 }
 @keyframes pt-pop {
   from {
@@ -578,6 +712,10 @@
 
 @media (prefers-reduced-motion: reduce) {
   .pt-menu,
+  .pt-sheet-right,
+  .pt-sheet-left,
+  .pt-sheet-up,
+  .pt-fade,
   .pt-pop,
   .pt-stagger > *,
   .skeleton {

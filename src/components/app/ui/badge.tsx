@@ -3,13 +3,13 @@ import type { ReactNode } from "react";
 /**
  * Semantic tones: success (jade), warning (amber), danger (rose), neutral and info (ink on paper).
  * Consent tones are aliases kept for existing callers: released = success, held = warning,
- * declined = danger. "brand" (ultramarine) marks the current item only, e.g. the current plan.
+ * declined = danger. "brand" (the lime "on" wash) marks the current item only, e.g. the current plan.
  */
 export type BadgeTone = "success" | "warning" | "danger" | "neutral" | "info" | "brand" | "released" | "held" | "declined";
 
-const SUCCESS = "bg-jade-wash text-jade";
-const WARNING = "bg-amber-wash text-amber";
-const DANGER = "bg-rose-wash text-rose";
+const SUCCESS = "bg-success-wash text-success";
+const WARNING = "bg-warning-wash text-warning";
+const DANGER = "bg-destructive-wash text-destructive";
 const TONE: Record<BadgeTone, string> = {
   success: SUCCESS,
   warning: WARNING,
@@ -19,24 +19,38 @@ const TONE: Record<BadgeTone, string> = {
   declined: DANGER,
   neutral: "bg-paper text-ink-2 ring-1 ring-inset ring-line",
   info: "bg-surface text-ink ring-1 ring-inset ring-line-strong",
-  brand: "bg-brand-wash text-brand-ink",
-};
-const DOT: Partial<Record<BadgeTone, string>> = {
-  success: "bg-jade-bright",
-  released: "bg-jade-bright",
-  warning: "bg-amber-bright",
-  held: "bg-amber-bright",
-  danger: "bg-rose",
-  declined: "bg-rose",
-  info: "bg-ink-3",
-  brand: "bg-brand",
+  brand: "bg-selected text-on-selected",
 };
 
-/** Status pill. Meaning is always carried by the text; the colour and dot reinforce it. */
+/**
+ * A second, shape-based channel next to the colour: a filled dot for good, a hollow ring for
+ * waiting, a diamond for bad. So the state survives greyscale and colour-blindness, with the text.
+ */
+function Glyph({ tone }: { tone: BadgeTone }) {
+  switch (tone) {
+    case "success":
+    case "released":
+      return <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-current" />;
+    case "warning":
+    case "held":
+      return <span aria-hidden className="size-2 shrink-0 rounded-full border-[1.5px] border-current" />;
+    case "danger":
+    case "declined":
+      return <span aria-hidden className="size-1.5 shrink-0 rotate-45 bg-current" />;
+    case "brand":
+      return <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-current" />;
+    case "info":
+      return <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-ink-3" />;
+    default:
+      return null;
+  }
+}
+
+/** Status pill. Meaning is always carried by the text; the colour and the glyph reinforce it. */
 export function Badge({ tone = "neutral", children, icon, className = "" }: { tone?: BadgeTone; children: ReactNode; icon?: ReactNode; className?: string }) {
   return (
-    <span className={`inline-flex h-[22px] items-center gap-1.5 whitespace-nowrap rounded-[6px] px-2 text-[0.75rem] font-medium leading-none ${TONE[tone]} ${className}`}>
-      {icon ?? (DOT[tone] ? <span className={`size-1.5 rounded-full ${DOT[tone]}`} aria-hidden /> : null)}
+    <span className={`inline-flex h-[22px] items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 text-xs font-medium leading-none ${TONE[tone]} ${className}`}>
+      {icon ?? <Glyph tone={tone} />}
       {children}
     </span>
   );

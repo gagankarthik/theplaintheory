@@ -118,7 +118,7 @@ export const INDUSTRIES: Industry[] = [
     lead: "Ad-funded sites load more third-party tags than anyone and have readers everywhere. Plain Theory shows each reader the notice for their region and passes their choice straight to Google's tags.",
     challenges: [
       { title: "Readers from everywhere", body: "A single article can be read under GDPR, CCPA and the DPDP Act on the same day." },
-      { title: "Speed is revenue", body: "A heavy consent script slows every page view. Ours is under 10 KB gzipped, and the build fails if it grows past that." },
+      { title: "Speed is revenue", body: "A heavy consent script slows every page view. Ours is light, loads once per visit and never moves your layout." },
       { title: "Embeds track too", body: "Video, social and comment embeds set their own cookies the moment they load." },
     ],
     capabilities: [CAP.regions, CAP.gcm, CAP.gpc, CAP.blocking, CAP.scanner, CAP.languages],

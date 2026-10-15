@@ -1,7 +1,7 @@
 import type { ComponentProps, ReactNode } from "react";
 
 /**
- * The one card: hairline border, 16px radius, white surface, no shadow. Compose it from CardHeader,
+ * The one card: hairline border, 18px radius, white (soot-2 in dark) surface, no shadow. Compose it from CardHeader,
  * CardBody and CardFooter. tone="danger" gives a rose edge and heading, for irreversible actions.
  *
  *   <Card aria-labelledby="usage-h">
@@ -18,7 +18,7 @@ export function Card({
   ...rest
 }: { as?: "section" | "div" | "article" | "li"; tone?: "default" | "danger"; className?: string; children: ReactNode } & Omit<ComponentProps<"section">, "className" | "children" | "ref">) {
   return (
-    <Tag data-tone={tone} className={`group/card rounded-lg border bg-surface shadow-[var(--shadow-edge)] ${tone === "danger" ? "border-rose/40" : "border-line"} ${className}`} {...rest}>
+    <Tag data-tone={tone} className={`group/card rounded-lg border bg-surface ${tone === "danger" ? "border-destructive/40" : "border-line"} ${className}`} {...rest}>
       {children}
     </Tag>
   );
@@ -50,16 +50,16 @@ export function CardHeader({
   const H = level === 2 ? "h2" : "h3";
   return (
     <div
-      className={`flex flex-col gap-3 rounded-t-lg px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between ${
-        divider ? "border-b border-line group-data-[tone=danger]/card:border-rose/25 group-data-[tone=danger]/card:bg-rose-wash/60" : ""
+      className={`flex flex-col gap-3 rounded-t-lg px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 ${
+        divider ? "border-b border-line group-data-[tone=danger]/card:border-destructive/25 group-data-[tone=danger]/card:bg-destructive-wash/60" : ""
       } ${className}`}
     >
       <div className="min-w-0">
-        <H id={titleId} className="flex items-center gap-2 text-[0.9375rem] font-semibold tracking-[-0.01em] text-ink group-data-[tone=danger]/card:text-rose">
+        <H id={titleId} className="flex items-center gap-2 text-base font-semibold leading-tight tracking-[-0.01em] text-ink group-data-[tone=danger]/card:text-destructive">
           {icon}
           {title}
         </H>
-        {description ? <div className="mt-0.5 max-w-prose text-[0.8125rem] leading-relaxed text-ink-3">{description}</div> : null}
+        {description ? <div className="mt-1 max-w-prose text-sm text-ink-3">{description}</div> : null}
       </div>
       {actions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
     </div>
@@ -68,11 +68,11 @@ export function CardHeader({
 
 /** Padded content area. `flush` drops the padding for lists and tables that run edge to edge. */
 export function CardBody({ children, flush, className = "" }: { children: ReactNode; flush?: boolean; className?: string }) {
-  return <div className={`${flush ? "" : "px-5 py-5"} ${className}`}>{children}</div>;
+  return <div className={`${flush ? "" : "px-5 py-5 sm:px-6"} ${className}`}>{children}</div>;
 }
 
-/** Actions or a footnote along the bottom, on a paper band. */
+/** Actions or a footnote along the bottom, on a quiet band. */
 export function CardFooter({ children, align = "end", className = "" }: { children: ReactNode; align?: "start" | "end" | "between"; className?: string }) {
   const justify = align === "start" ? "justify-start" : align === "between" ? "justify-between" : "justify-end";
-  return <div className={`flex flex-wrap items-center gap-3 rounded-b-lg border-t border-line bg-raised px-5 py-3 ${justify} ${className}`}>{children}</div>;
+  return <div className={`flex flex-wrap items-center gap-3 rounded-b-lg border-t border-line bg-raised px-5 py-3 sm:px-6 ${justify} ${className}`}>{children}</div>;
 }

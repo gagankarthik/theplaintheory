@@ -3,7 +3,8 @@
 import { useActionState, useId, useOptimistic, useState, useTransition } from "react";
 import { changeRole, inviteMember, removeMember, revokeInvite } from "@/app/app/team/actions";
 import { Badge } from "@/components/app/ui/badge";
-import { Button } from "@/components/app/ui/button";
+import { Button, ButtonLink } from "@/components/app/ui/button";
+import { ConfirmDialog } from "@/components/app/ui/confirm-dialog";
 import { CopyButton } from "@/components/app/ui/copy-button";
 import { DataTable, type Column } from "@/components/app/ui/data-table";
 import { Dialog } from "@/components/app/ui/dialog";
@@ -52,7 +53,7 @@ function ago(iso: string, now: number) {
 
 const roleOptions = (roles: readonly Role[]): SelectOption<Role>[] => roles.map((r) => ({ value: r, label: ROLE_LABEL[r], description: ROLE_INFO[r] }));
 
-/** Initials on the brand wash: 9.7:1 contrast, and the name always sits next to it in text. */
+/** Initials on a quiet chip (lime is kept for "on" states); the name always sits next to it in text. */
 function Initials({ name }: { name: string }) {
   const text =
     name
@@ -63,13 +64,13 @@ function Initials({ name }: { name: string }) {
       .slice(0, 2)
       .toUpperCase() || "?";
   return (
-    <span aria-hidden className="grid size-9 shrink-0 place-items-center rounded-full bg-brand-wash text-xs font-semibold text-brand-ink">
+    <span aria-hidden className="grid size-9 shrink-0 place-items-center rounded-full bg-raised text-xs font-semibold text-ink-2 ring-1 ring-inset ring-line">
       {text}
     </span>
   );
 }
 
-type Op = { type: "role"; userId: string; role: Role } | { type: "remove"; userId: string };
+type Op = { type: "role"; userId: string; role: Role };
 type Tab = "members" | "invites";
 
 export function TeamManager({
@@ -97,9 +98,14 @@ export function TeamManager({
   const idBase = useId();
   const [tab, setTab] = useState<Tab>("members");
   const [, start] = useTransition();
-  const [rows, apply] = useOptimistic(members, (list: MemberRow[], op: Op) =>
-    op.type === "remove" ? list.filter((m) => m.userId !== op.userId) : list.map((m) => (m.userId === op.userId ? { ...m, role: op.role } : m)),
-  );
+  const [rows, apply] = useOptimistic(members, (list: MemberRow[], op: Op) => list.map((m) => (m.userId === op.userId ? { ...m, role: op.role } : m)));
+  // destructive row actions go through a confirmation first
+  const [removing, setRemoving] = useState<MemberRow | null>(null);
+  const [revoking, setRevoking] = useState<InviteRow | null>(null);
+  const settle = (r: ActionResult) => {
+    if (r?.error) return { error: r.error };
+    if (r?.ok) toast(r.ok);
+  };
   const run = (op: Op, fn: () => Promise<ActionResult>) =>
     start(async () => {
       apply(op);
@@ -158,11 +164,11 @@ export function TeamManager({
       cell: (m) =>
         m.mfa ? (
           <span className="inline-flex items-center gap-1.5 text-ink-2">
-            <IconCheck size={14} className="text-jade" /> On
+            <IconCheck size={14} aria-hidden className="text-success" /> On
           </span>
         ) : (
-          <span className="inline-flex items-center gap-1.5 text-amber">
-            <IconAlert size={14} />
+          <span className="inline-flex items-center gap-1.5 text-warning">
+            <IconAlert size={14} aria-hidden />
             {m.mfaDue ? `Not set up · due ${date(m.mfaDue)}` : "Off"}
           </span>
         ),
@@ -200,7 +206,7 @@ export function TeamManager({
             align: "right" as const,
             cell: (m: MemberRow) =>
               editable(m) ? (
-                <Button variant="quiet" size="sm" className="hover:!bg-rose-wash hover:!text-rose" onClick={() => run({ type: "remove", userId: m.userId }, () => removeMember(m.userId))}>
+                <Button variant="danger-quiet" size="sm" onClick={() => setRemoving(m)}>
                   Remove<span className="sr-only"> {m.name}</span>
                 </Button>
               ) : null,
@@ -217,7 +223,7 @@ export function TeamManager({
       sortValue: (i) => i.email,
       cell: (i) => (
         <span className="flex items-center gap-3">
-          <span aria-hidden className="grid size-9 shrink-0 place-items-center rounded-full border border-dashed border-line-input text-ink-3">
+          <span aria-hidden className="grid size-9 shrink-0 place-items-center rounded-full border border-dashed border-boundary text-ink-3">
             <IconTeam size={16} />
           </span>
           <span className="min-w-0">
@@ -248,18 +254,7 @@ export function TeamManager({
             cell: (i: InviteRow) => (
               <span className="inline-flex items-center gap-1">
                 {site ? <CopyButton value={`${site}/signup?email=${encodeURIComponent(i.email)}`} label="Copy invite link" /> : null}
-                <Button
-                  variant="quiet"
-                  size="sm"
-                  className="hover:!bg-rose-wash hover:!text-rose"
-                  onClick={() =>
-                    start(async () => {
-                      const r = await revokeInvite(i.id);
-                      if (r?.error) toast(r.error, "error");
-                      else if (r?.ok) toast(r.ok);
-                    })
-                  }
-                >
+                <Button variant="danger-quiet" size="sm" onClick={() => setRevoking(i)}>
                   Revoke<span className="sr-only"> invite for {i.email}</span>
                 </Button>
               </span>
@@ -269,11 +264,11 @@ export function TeamManager({
       : []),
   ];
 
-  const count = (n: number) => <span className={`ml-1.5 rounded-full px-1.5 py-px text-2xs tabular-nums ${n ? "bg-paper text-ink-2 ring-1 ring-inset ring-line" : "text-ink-3"}`}>{n}</span>;
+  const count = (n: number) => <span className={`ml-1.5 rounded-full px-1.5 py-px text-xs font-medium tabular-nums ${n ? "bg-raised text-ink-2 ring-1 ring-inset ring-line" : "text-ink-3"}`}>{n}</span>;
 
   return (
     <div>
-      <div className="-mx-3 mb-5">
+      <div className="mb-4">
         <Tabs<Tab>
           idBase={idBase}
           label="Team"
@@ -289,6 +284,7 @@ export function TeamManager({
       {tab === "members" ? (
         <TabPanel idBase={idBase} value="members">
           <DataTable caption="Members" rows={rows} columns={memberColumns} rowKey={(m) => m.userId} initialSort={{ id: "role", dir: "ascending" }} minWidth={760} />
+          {canManage ? null : <p className="mt-3 text-xs text-ink-3">Only owners and admins can change roles or remove people.</p>}
         </TabPanel>
       ) : (
         <TabPanel idBase={idBase} value="invites">
@@ -301,6 +297,27 @@ export function TeamManager({
           )}
         </TabPanel>
       )}
+
+      <ConfirmDialog
+        open={Boolean(removing)}
+        onClose={() => setRemoving(null)}
+        title={removing ? `Remove ${removing.name}?` : "Remove member"}
+        description={removing ? `${removing.email || "They"} will lose access to every site in this organization straight away. You can invite them again later.` : undefined}
+        confirmLabel="Remove member"
+        pendingLabel="Removing"
+        destructive
+        onConfirm={async () => (removing ? settle(await removeMember(removing.userId)) : undefined)}
+      />
+      <ConfirmDialog
+        open={Boolean(revoking)}
+        onClose={() => setRevoking(null)}
+        title="Revoke this invitation?"
+        description={revoking ? `${revoking.email} won't be able to join with this invite. You can send a new one later.` : undefined}
+        confirmLabel="Revoke invitation"
+        pendingLabel="Revoking"
+        destructive
+        onConfirm={async () => (revoking ? settle(await revokeInvite(revoking.id)) : undefined)}
+      />
     </div>
   );
 }
@@ -310,8 +327,8 @@ export function InviteButton({ seatsLeft }: { seatsLeft: number | null }) {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <Button onClick={() => setOpen(true)}>
-        <IconPlus size={18} />
+      <Button onClick={() => setOpen(true)} aria-haspopup="dialog">
+        <IconPlus size={18} aria-hidden />
         Invite
       </Button>
       <Dialog
@@ -321,31 +338,44 @@ export function InviteButton({ seatsLeft }: { seatsLeft: number | null }) {
         description={seatsLeft === null ? "Your plan has unlimited seats." : seatsLeft > 0 ? `${seatsLeft} seat${seatsLeft === 1 ? "" : "s"} left on your plan.` : undefined}
         width={480}
       >
-        <InviteForm seatsLeft={seatsLeft} />
+        <InviteForm seatsLeft={seatsLeft} onDone={() => setOpen(false)} />
       </Dialog>
     </>
   );
 }
 
-function InviteForm({ seatsLeft }: { seatsLeft: number | null }) {
-  const [state, action] = useActionState<ActionResult, FormData>(inviteMember, null);
+function InviteForm({ seatsLeft, onDone }: { seatsLeft: number | null; onDone: () => void }) {
+  const toast = useToast();
+  // success is a toast and the dialog closes; errors stay inline next to the field
+  const [state, action] = useActionState<ActionResult, FormData>(async (prev, form) => {
+    const r = await inviteMember(prev, form);
+    if (r?.ok && !r.error) {
+      toast(r.ok);
+      onDone();
+      return null;
+    }
+    return r;
+  }, null);
   if (seatsLeft === 0)
     return (
       <div className="space-y-4">
         <p className="text-sm text-ink-2">Every seat on your plan is in use. Upgrade to invite more people, or remove someone first.</p>
-        <a href="/app/billing" className="inline-flex h-10 w-full items-center justify-center rounded-[var(--radius-md)] bg-brand-solid px-4 text-sm font-semibold text-white hover:brightness-110">
+        <ButtonLink href="/app/billing#plans" className="w-full">
           See plans
-        </a>
+        </ButtonLink>
       </div>
     );
   return (
     <form action={action} className="space-y-4" noValidate>
       <TextField id="invite-email" name="email" type="email" required maxLength={254} label="Email" placeholder="colleague@company.com" autoComplete="off" autoFocus error={state?.fieldErrors?.email} />
-      <SelectField<Role> id="invite-role" name="role" label="Role" defaultValue="viewer" options={roleOptions([...INVITE_ROLES].reverse())} error={state?.fieldErrors?.role} />
-      <FormMessage state={state && !state.fieldErrors ? state : null} />
-      <SubmitButton pending="Inviting" className="w-full">
-        Send invite
-      </SubmitButton>
+      <SelectField<Role> id="invite-role" name="role" label="Role" defaultValue="viewer" options={roleOptions([...INVITE_ROLES].reverse())} menuWidth={320} error={state?.fieldErrors?.role} />
+      {state?.error && !state.fieldErrors ? <FormMessage state={state} /> : null}
+      <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
+        <Button variant="secondary" onClick={onDone}>
+          Cancel
+        </Button>
+        <SubmitButton pending="Sending">Send invite</SubmitButton>
+      </div>
     </form>
   );
 }

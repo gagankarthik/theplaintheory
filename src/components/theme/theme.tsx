@@ -118,7 +118,7 @@ export function ThemeToggle({ className = "" }: { className?: string }) {
   // The stored choice is only known in the browser; render a neutral state until mounted.
   const mounted = useSyncExternalStore(noop, () => true, () => false);
   return (
-    <div role="radiogroup" aria-label="Theme" className={`inline-flex rounded-md bg-paper p-0.5 ring-1 ring-inset ring-line ${className}`}>
+    <div role="radiogroup" aria-label="Theme" className={`inline-flex rounded-full bg-paper p-[3px] ring-1 ring-inset ring-line-strong ${className}`}>
       {OPTIONS.map((o) => {
         const active = mounted && pref === o.value;
         return (
@@ -129,8 +129,8 @@ export function ThemeToggle({ className = "" }: { className?: string }) {
             aria-checked={active}
             title={o.label}
             onClick={() => setPref(o.value)}
-            className={`flex h-7 flex-1 items-center justify-center gap-1.5 rounded-[5px] px-2 text-xs transition-colors ${
-              active ? "bg-surface font-medium text-ink shadow-[0_1px_2px_rgb(16_19_31/0.12)] ring-1 ring-inset ring-line" : "text-ink-3 hover:text-ink"
+            className={`flex h-8 flex-1 items-center justify-center gap-1.5 rounded-full px-2.5 text-xs transition-colors duration-150 focus-visible:-outline-offset-2 ${
+              active ? "bg-selected font-semibold text-on-selected ring-1 ring-inset ring-ink dark:bg-brand-solid dark:text-soot dark:ring-0" : "text-ink-2 hover:text-ink"
             }`}
           >
             {o.icon}

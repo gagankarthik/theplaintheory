@@ -58,7 +58,7 @@ export function LockedAction({
       <Button variant={variant} size={size} onClick={() => setOpen(true)} aria-haspopup="dialog">
         {icon}
         {label}
-        <span className={`ml-0.5 grid size-5 place-items-center rounded-full ${variant === "primary" ? "bg-white/20" : "bg-paper text-ink-3 ring-1 ring-inset ring-line"}`} aria-hidden>
+        <span className={`ml-0.5 grid size-5 place-items-center rounded-full ${variant === "primary" ? "bg-on-interactive/20" : "bg-raised text-ink-3 ring-1 ring-inset ring-line"}`} aria-hidden>
           <IconLock size={12} />
         </span>
         <span className="sr-only"> (needs a plan upgrade)</span>
@@ -68,7 +68,7 @@ export function LockedAction({
         {!offer.plans.length ? (
           <p className="text-sm text-ink-2">
             Talk to us about Enterprise:{" "}
-            <a className="font-medium text-brand underline-offset-2 hover:underline" href="/contact?topic=sales">
+            <a className="font-medium text-ink underline underline-offset-4" href="/contact?topic=sales">
               contact sales
             </a>
             .
@@ -97,25 +97,25 @@ export function LockedAction({
                   return (
                     <label
                       key={p.id}
-                      className={`flex cursor-pointer gap-3 rounded-[14px] border p-4 transition-[border-color,box-shadow,background-color] duration-150 has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-brand ${
-                        on ? "border-brand bg-brand-wash/40 shadow-[0_0_0_1px_var(--color-brand)]" : "border-line-strong hover:border-line-input"
+                      className={`flex cursor-pointer gap-3 rounded-md border p-4 transition-[border-color,background-color] duration-150 ease-out has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-focus ${
+                        on ? "border-marker bg-selected text-on-selected ring-1 ring-inset ring-marker" : "border-line-strong hover:border-boundary hover:bg-raised"
                       }`}
                     >
                       <input type="radio" name="plan" value={p.id} checked={on} onChange={() => setChoice(p.id)} className="sr-only" />
-                      <span aria-hidden className={`mt-0.5 grid size-5 shrink-0 place-items-center rounded-full border-2 ${on ? "border-brand" : "border-line-input"}`}>
-                        {on ? <span className="size-2.5 rounded-full bg-brand" /> : null}
+                      <span aria-hidden className={`mt-0.5 grid size-5 shrink-0 place-items-center rounded-full border-2 ${on ? "border-marker" : "border-boundary"}`}>
+                        {on ? <span className="size-2.5 rounded-full bg-marker" /> : null}
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                          <span className="text-base font-semibold text-ink">{p.name}</span>
+                          <span className="text-base font-semibold">{p.name}</span>
                           <span className="[&_.text-\[2rem\]]:text-xl">
                             <Price plan={p} currency={currency} interval={interval} />
                           </span>
                         </span>
-                        <span className="mt-1 flex items-center gap-1.5 text-sm font-medium text-brand-ink">
-                          <IconCheck size={16} /> {unlocks(p)}
+                        <span className="mt-1 flex items-center gap-1.5 text-sm font-medium">
+                          <IconCheck size={16} aria-hidden /> {unlocks(p)}
                         </span>
-                        <span className="mt-1 block text-xs text-ink-3">{p.summary}</span>
+                        <span className={`mt-1 block text-xs ${on ? "opacity-80" : "text-ink-3"}`}>{p.summary}</span>
                       </span>
                     </label>
                   );

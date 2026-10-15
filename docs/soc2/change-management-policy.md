@@ -21,7 +21,7 @@ configuration, production configuration and secrets, and database or data migrat
    authentication, sessions, RBAC, the audit trail, cryptography, retention or `infra/` also need
    review from the Security lead or Engineering lead.
 4. **Automated checks must pass** (`.github/workflows/ci.yml`): lint, type check, unit tests, the SDK
-   build and its 10 KB budget, the production build, `npm audit --audit-level=high` and gitleaks secret
+   build and its 15 KB budget, the production build, `npm audit --audit-level=high` and gitleaks secret
    scanning. Required status checks are enforced by branch protection.
 5. **Deploy.** Production is deployed only from `main`, by the pipeline. Infrastructure changes go
    through `cdk diff` in the PR and `cdk deploy` from `main`.

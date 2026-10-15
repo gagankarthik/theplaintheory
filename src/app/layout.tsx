@@ -1,11 +1,13 @@
 import type { Metadata, Viewport } from "next";
-import { Instrument_Sans, JetBrains_Mono } from "next/font/google";
+import { JetBrains_Mono } from "next/font/google";
 import { site } from "@/lib/site";
+import { switzer } from "./fonts/switzer";
 import "./globals.css";
+import Script from "next/script";
 
-// Interface face: Instrument Sans (compact, precise, distinct from the default grotesques).
-// Data face: JetBrains Mono for figures, hashes, cookie names and code.
-const uiFont = Instrument_Sans({ subsets: ["latin"], variable: "--font-ui", display: "swap", axes: ["wdth"] });
+// Interface face: Switzer, the website's face (self-hosted), for the site, sign-in, dashboard and console.
+// Set on <html> so portalled menus and dialogs get it too. Data face: JetBrains Mono for figures,
+// hashes, cookie names and code.
 const dataFont = JetBrains_Mono({ subsets: ["latin"], variable: "--font-data", display: "swap" });
 
 export const metadata: Metadata = {
@@ -46,7 +48,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#0b0d14" },
+    { media: "(prefers-color-scheme: dark)", color: "#0f0f0f" },
   ],
   width: "device-width",
   initialScale: 1,
@@ -54,8 +56,16 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${uiFont.variable} ${dataFont.variable}`}>
+    <html lang="en" suppressHydrationWarning className={`${switzer.variable} ${dataFont.variable}`}>
       <body>
+      <Script
+          src="https://d34dtur9cre43o.cloudfront.net/sdk/v1/plain-consent.js"
+          data-site="pk_cCHNxnAZH9iKfdjV"
+          data-api="https://www.theplaintheory.in/api/v1"
+          data-config-url="https://d34dtur9cre43o.cloudfront.net/c/pk_cCHNxnAZH9iKfdjV.json"
+          data-gcm="true"
+          strategy="beforeInteractive"
+        />
         {children}
       </body>
     </html>

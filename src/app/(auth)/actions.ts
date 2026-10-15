@@ -116,14 +116,14 @@ export async function login(_: AuthState, form: FormData): Promise<AuthState> {
   const parsed = loginSchema.safeParse({ email, password: String(form.get("password") ?? "") });
   if (!parsed.success) return { ...invalid(parsed.error), email };
 
-  const { ipHash } = await requestContext();
-  const r = await signIn(parsed.data.email, parsed.data.password, ipHash);
+  const { ipKey } = await requestContext();
+  const r = await signIn(parsed.data.email, parsed.data.password, ipKey);
   const next = safeNext(form.get("next"));
   if (!r.ok) {
     if (r.reason === "unconfirmed") {
       // Right password, e-mail never confirmed: send a fresh code and pick up where sign-up left off.
       const { cognitoResendCode } = await import("@/lib/auth/cognito");
-      const limit = await allowCodeEmail(ipHash, parsed.data.email);
+      const limit = await allowCodeEmail(ipKey, parsed.data.email);
       if (limit.address) await cognitoResendCode(parsed.data.email);
       await setPendingSignup({ email: parsed.data.email, password: parsed.data.password, next, sentAt: Date.now() });
       redirect("/signup/verify");
@@ -187,8 +187,8 @@ export async function verifyLoginCode(_: AuthState, form: FormData): Promise<Aut
   const parsed = codeSchema.safeParse({ code: String(form.get("code") ?? "") });
   if (!parsed.success) return invalid(parsed.error);
 
-  const { ipHash } = await requestContext();
-  if (!(await allowIpAttempt(ipHash))) return { error: "Too many attempts from your network. Wait 15 minutes and try again." };
+  const { ipKey } = await requestContext();
+  if (!(await allowIpAttempt(ipKey))) return { error: "Too many attempts from your network. Wait 15 minutes and try again." };
 
   const result = await verifySecondFactor(pending.user, parsed.data.code.replace(/\s/g, ""));
   if (!result.ok) return secondStepFailed(pending.user, pending.jar, "code");
@@ -207,8 +207,8 @@ export async function loginPasskeyOptions(): Promise<{ ok: true; options: Public
 export async function verifyLoginPasskey(response: unknown): Promise<AuthState> {
   const pending = await pendingSecondStep();
   if (!pending) return { error: SIGN_IN_EXPIRED };
-  const { ipHash } = await requestContext();
-  if (!(await allowIpAttempt(ipHash))) return { error: "Too many attempts from your network. Wait 15 minutes and try again." };
+  const { ipKey } = await requestContext();
+  if (!(await allowIpAttempt(ipKey))) return { error: "Too many attempts from your network. Wait 15 minutes and try again." };
   const parsed = parseAuthenticationJson(response);
   if (!parsed) return secondStepFailed(pending.user, pending.jar, "passkey");
 
@@ -256,8 +256,8 @@ export async function signup(_: AuthState, form: FormData): Promise<AuthState> {
   const parsed = signupSchema.safeParse({ name, email, password: String(form.get("password") ?? "") });
   if (!parsed.success) return { ...invalid(parsed.error), ...keep };
 
-  const { ipHash } = await requestContext();
-  const limit = await rateLimiter("signup").consume(ipHash);
+  const { ipKey } = await requestContext();
+  const limit = await rateLimiter("signup").consume(ipKey);
   if (!limit.ok) {
     return { error: `Too many accounts were created from your network recently. Try again in ${retryAfterText(limit.retryAfterMs)}.`, ...keep };
   }
@@ -294,10 +294,10 @@ const signupCodeSchema = z.object({
 });
 
 /** Send a new confirmation code, respecting the cooldown and the per-network and per-address limits. */
-async function resendSignupCode(email: string, pending: PendingSignup | null, ipHash: string): Promise<AuthState> {
+async function resendSignupCode(email: string, pending: PendingSignup | null, ipKey: string): Promise<AuthState> {
   const availableAt = resendAvailableAt(pending?.email === email ? pending.sentAt : undefined);
   if (availableAt > Date.now()) return { error: `Wait ${secondsLeft(availableAt)} seconds before sending another code.`, resendAt: availableAt, email };
-  const limit = await allowCodeEmail(ipHash, email);
+  const limit = await allowCodeEmail(ipKey, email);
   if (!limit.network) return { error: `Too many codes were requested from your network. Try again in ${retryAfterText(limit.retryAfterMs)}.`, email };
   const { cognitoResendCode } = await import("@/lib/auth/cognito");
   if (limit.address) await cognitoResendCode(email);
@@ -324,13 +324,13 @@ export async function verifySignup(_: AuthState, form: FormData): Promise<AuthSt
     if (!parsed.success) return { error: parsed.error.issues[0].message, fieldErrors: { email: [parsed.error.issues[0].message] }, email: typed };
     email = parsed.data;
   }
-  const { ipHash } = await requestContext();
+  const { ipKey } = await requestContext();
 
-  if (form.get("intent") === "resend") return resendSignupCode(email, pending, ipHash);
+  if (form.get("intent") === "resend") return resendSignupCode(email, pending, ipKey);
 
   const parsed = signupCodeSchema.safeParse({ code: String(form.get("code") ?? "") });
   if (!parsed.success) return { ...invalid(parsed.error), email: typed };
-  if (!(await allowIpAttempt(ipHash))) return { error: "Too many attempts from your network. Wait 15 minutes and try again.", email: typed };
+  if (!(await allowIpAttempt(ipKey))) return { error: "Too many attempts from your network. Wait 15 minutes and try again.", email: typed };
 
   const { cognitoConfirmSignUp, cognitoSignIn } = await import("@/lib/auth/cognito");
   const confirmed = await cognitoConfirmSignUp(email, parsed.data.code);
@@ -379,11 +379,11 @@ export async function requestPasswordReset(_: AuthState, form: FormData): Promis
   const jar = await cookies();
 
   if (!honeypotFilled(form)) {
-    const { ipHash } = await requestContext();
+    const { ipKey } = await requestContext();
     const prior = await readPendingReset(jar.get(RESET_COOKIE)?.value);
     const coolingDown = prior?.email === email && resendAvailableAt(prior.sentAt) > Date.now();
     if (!coolingDown) {
-      const limit = await allowCodeEmail(ipHash, email);
+      const limit = await allowCodeEmail(ipKey, email);
       if (!limit.network) return { error: `Too many reset requests came from your network. Try again in ${retryAfterText(limit.retryAfterMs)}.`, email: typed };
       const { cognitoForgotPassword } = await import("@/lib/auth/cognito");
       if (limit.address) await cognitoForgotPassword(email);
@@ -417,13 +417,13 @@ export async function resetPassword(_: AuthState, form: FormData): Promise<AuthS
     if (!parsed.success) return { error: parsed.error.issues[0].message, fieldErrors: { email: [parsed.error.issues[0].message] }, email: typed };
     email = parsed.data;
   }
-  const { ipHash } = await requestContext();
+  const { ipKey } = await requestContext();
   const { cognitoConfirmForgotPassword, cognitoForgotPassword, cognitoGlobalSignOut } = await import("@/lib/auth/cognito");
 
   if (form.get("intent") === "resend") {
     const availableAt = resendAvailableAt(pending?.email === email ? pending.sentAt : undefined);
     if (availableAt > Date.now()) return { error: `Wait ${secondsLeft(availableAt)} seconds before sending another code.`, resendAt: availableAt, email: typed };
-    const limit = await allowCodeEmail(ipHash, email);
+    const limit = await allowCodeEmail(ipKey, email);
     if (!limit.network) return { error: `Too many reset requests came from your network. Try again in ${retryAfterText(limit.retryAfterMs)}.`, email: typed };
     if (limit.address) await cognitoForgotPassword(email);
     const sentAt = Date.now();
@@ -435,7 +435,7 @@ export async function resetPassword(_: AuthState, form: FormData): Promise<AuthS
   if (!parsed.success) return { ...invalid(parsed.error), email: typed };
   const weak = passwordProblem(parsed.data.password, email);
   if (weak) return { error: weak, fieldErrors: { password: [weak] }, email: typed };
-  if (!(await allowIpAttempt(ipHash))) return { error: "Too many attempts from your network. Wait 15 minutes and try again.", email: typed };
+  if (!(await allowIpAttempt(ipKey))) return { error: "Too many attempts from your network. Wait 15 minutes and try again.", email: typed };
 
   const r = await cognitoConfirmForgotPassword(email, parsed.data.code, parsed.data.password);
   if (!r.ok) {

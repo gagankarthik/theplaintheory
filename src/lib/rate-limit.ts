@@ -5,7 +5,7 @@
  * STORE_DRIVER=dynamodb the limits are shared atomic counters in the ephemeral table
  * (rate-limit-dynamo.ts), because in-memory windows don't hold across serverless instances; otherwise
  * (local driver, tests) they're held in memory. `setRateLimiterFactory` overrides both.
- * Keys are always salted IP hashes (see anonymizeIp), never raw addresses.
+ * Keys are keyed IP hashes (ipRateKey in lib/crypto.ts), stable across days, never raw addresses.
  *
  * Memory store: a per-key log of hit timestamps. Only hits inside the window count, so the limit
  * slides rather than resetting on the hour. Memory is bounded by `maxKeys`.

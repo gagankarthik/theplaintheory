@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { PrintButton } from "@/components/app/logs/print-button";
 import { CheckList } from "@/components/app/compliance/check-list";
 import { PageHeader } from "@/components/app/shell/page-header";
 import { ButtonLink } from "@/components/app/ui/button";
+import { CopyButton } from "@/components/app/ui/copy-button";
 import { EmptyState } from "@/components/app/ui/empty-state";
 import { StatStrip } from "@/components/app/ui/stat-strip";
-import { IconLock, Logo } from "@/components/icons";
+import { IconAlert, IconLock, IconShieldCheck, Logo } from "@/components/icons";
 import { DownloadJson } from "@/components/app/evidence/download-json";
 import { formatInt } from "@/lib/analytics";
 import { requireProperty } from "@/lib/auth/access";
@@ -20,14 +22,25 @@ export const metadata: Metadata = { title: "Evidence Pack" };
 const fmt = (iso: string | null | undefined) =>
   iso ? new Date(iso).toLocaleString("en-GB", { dateStyle: "long", timeStyle: "short", timeZone: "UTC" }) + " UTC" : "Not recorded";
 
+/** A section of the pack. Headings are h3: the page's h1 is the header, the pack's title an h2. */
 function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
   return (
-    <section aria-labelledby={id} className="break-inside-avoid-page border-t border-line py-7 first:border-t-0">
-      <h2 id={id} className="mb-4 text-lg font-semibold tracking-tight">
+    <section aria-labelledby={id} className="break-inside-avoid-page border-t border-line py-7 first-of-type:border-t-0">
+      <h3 id={id} className="mb-4 text-base font-semibold tracking-[-0.01em]">
         {title}
-      </h2>
+      </h3>
       {children}
     </section>
+  );
+}
+
+/** Pass/fail in words and an icon, so it survives greyscale printing. */
+function Verdict({ ok, children }: { ok: boolean; children: React.ReactNode }) {
+  return (
+    <span className={`inline-flex items-start gap-1.5 ${ok ? "text-success" : "text-destructive"}`}>
+      {ok ? <IconShieldCheck size={16} aria-hidden className="mt-0.5 shrink-0" /> : <IconAlert size={16} aria-hidden className="mt-0.5 shrink-0" />}
+      <span>{children}</span>
+    </span>
   );
 }
 
@@ -61,7 +74,7 @@ export default async function EvidencePage(props: PageProps<"/app/sites/[propert
   if (!plan.limits.evidencePack) {
     return (
       <>
-        <PageHeader title="Evidence Pack" description="One document an auditor can rely on: verified chain, the exact notice shown, signals honoured and leaks found." />
+        <PageHeader title="Evidence Pack" description="One signed document for an auditor: verified chain, the notice shown, signals honoured and leaks found." />
         <EmptyState
           icon={<IconLock size={24} />}
           title="Available on Growth and above"
@@ -86,14 +99,21 @@ export default async function EvidencePage(props: PageProps<"/app/sites/[propert
       <div className="print:hidden">
         <PageHeader
           title="Evidence Pack"
-          description="Built just now from your live records, for an auditor. Save it as PDF or download the signed JSON."
+          description={
+            <>
+              One signed document for an auditor, built just now from your live records.{" "}
+              <Link href="/security" className="font-medium text-ink underline underline-offset-2 hover:no-underline">
+                What it proves
+              </Link>
+            </>
+          }
           actions={
             <>
               <DownloadJson
                 json={JSON.stringify({ digest, algorithm: "sha256(canonical-json(pack))", pack }, null, 2)}
                 filename={`evidence-${property.domain}-${pack.generatedAt.slice(0, 10)}.json`}
               />
-              <PrintButton />
+              <PrintButton variant="primary" />
             </>
           }
         />
@@ -134,27 +154,38 @@ export default async function EvidencePage(props: PageProps<"/app/sites/[propert
         />
       </div>
 
-      <article className="mx-auto min-w-0 max-w-[900px] rounded-lg border border-line bg-surface px-4 py-6 text-ink sm:px-10 sm:py-8 print:max-w-none print:rounded-none print:border-0 print:p-0">
-        <header className="flex flex-col-reverse items-start gap-4 border-b-2 border-ink pb-6 sm:flex-row sm:justify-between sm:gap-6">
+      <article
+        aria-labelledby="e-title"
+        className="mx-auto min-w-0 max-w-[900px] rounded-lg border border-line bg-surface px-5 py-8 text-ink sm:px-12 sm:py-12 print:max-w-none print:rounded-none print:border-0 print:p-0"
+      >
+        <header className="flex flex-col-reverse items-start gap-4 border-b border-ink pb-6 sm:flex-row sm:justify-between sm:gap-6">
           <div className="min-w-0">
-            <p className="text-sm text-ink-3">Compliance Evidence Pack</p>
-            <h1 className="mt-1 text-xl font-semibold tracking-tight [overflow-wrap:anywhere] sm:text-2xl">{property.domain}</h1>
-            <p className="mt-1 text-sm text-ink-2">Generated {fmt(pack.generatedAt)} by {pack.generatedBy.name}</p>
+            <p className="text-xs font-medium text-ink-3">Compliance Evidence Pack</p>
+            <h2 id="e-title" className="mt-1 text-xl font-semibold tracking-[-0.02em] [overflow-wrap:anywhere] sm:text-2xl">
+              {property.domain}
+            </h2>
+            <p className="mt-1 text-sm text-ink-2">
+              Generated {fmt(pack.generatedAt)} by {pack.generatedBy.name}
+            </p>
           </div>
           <Logo className="shrink-0" />
         </header>
 
         <Section id="e-summary" title="Summary">
-          <ul className="grid gap-px overflow-hidden rounded-md border border-line bg-line text-sm sm:grid-cols-4">
-            {[
-              ["Consent chain", pack.chain.ok ? "Intact" : `Broken at #${pack.chain.brokenAt}`, pack.chain.ok],
-              ["Receipts", formatInt(pack.chain.checked), true],
-              ["Fairness", failing ? `${failing} failing` : `${pack.fairness.score}% passing`, !failing],
-              ["DPDP readiness", `${pack.readiness.percent}%`, pack.readiness.percent >= 90],
-            ].map(([k, v, good]) => (
-              <li key={k as string} className="bg-surface px-4 py-3">
-                <p className="text-xs text-ink-3">{k as string}</p>
-                <p className={`mt-0.5 font-semibold ${good ? "text-ink" : "text-rose"}`}>{v as string}</p>
+          <ul className="grid grid-cols-2 gap-px overflow-hidden rounded-md border border-line bg-line text-sm sm:grid-cols-4 print:grid-cols-4">
+            {(
+              [
+                ["Consent chain", pack.chain.ok ? "Intact" : `Broken at #${pack.chain.brokenAt}`, pack.chain.ok, true],
+                ["Receipts", formatInt(pack.chain.checked), true, false],
+                ["Fairness", failing ? `${failing} failing` : `${pack.fairness.score}% passing`, !failing, true],
+                ["DPDP readiness", `${pack.readiness.percent}%`, pack.readiness.percent >= 90, false],
+              ] as const
+            ).map(([k, v, good, verdict]) => (
+              <li key={k} className="bg-surface px-4 py-3">
+                <p className="text-xs text-ink-3">{k}</p>
+                <p className={`mt-0.5 font-semibold tabular-nums ${good ? "text-ink" : "text-destructive"}`}>
+                  {verdict || !good ? <Verdict ok={good}>{v}</Verdict> : v}
+                </p>
               </li>
             ))}
           </ul>
@@ -165,7 +196,7 @@ export default async function EvidencePage(props: PageProps<"/app/sites/[propert
             rows={[
               ["Organization", pack.organization.name],
               ["Website", `${pack.site.name} (${pack.site.domain})`],
-              ["Site key", <code key="k" className="font-mono text-xs">{pack.site.siteKey}</code>],
+              ["Site key", <code key="k" className="break-all font-mono text-xs">{pack.site.siteKey}</code>],
               ["Records stored in", pack.organization.dataRegion],
               ["Data Protection Officer", pack.organization.dpo ? `${pack.organization.dpo.name}, ${pack.organization.dpo.email}${pack.organization.dpo.address ? `, ${pack.organization.dpo.address}` : ""}` : "Not set"],
               ["Plan and retention", `${pack.plan.name}, ${formatInt(pack.plan.logRetentionDays)} days`],
@@ -174,14 +205,20 @@ export default async function EvidencePage(props: PageProps<"/app/sites/[propert
         </Section>
 
         <Section id="e-chain" title="Record integrity">
-          <p className={`text-sm ${pack.chain.ok ? "text-jade" : "text-rose"}`}>
-            <strong>{pack.chain.ok ? "Chain intact." : `Chain broken at receipt #${pack.chain.brokenAt}.`}</strong>{" "}
+          <p className="text-sm text-ink-2">
+            <Verdict ok={pack.chain.ok}>
+              <strong className="font-semibold">{pack.chain.ok ? "Chain intact." : `Chain broken at receipt #${pack.chain.brokenAt}.`}</strong>
+            </Verdict>{" "}
             {pack.chain.ok
               ? `All ${formatInt(pack.chain.checked)} receipts were re-hashed and each matches the hash stored in the next.`
               : "A record was changed or removed after it was written."}
           </p>
-          {pack.chain.head ? <p className="mt-2 break-all font-mono text-xs text-ink-3">Head {pack.chain.head}</p> : null}
-          <h3 className="mb-2 mt-5 text-sm font-semibold">Daily anchors, last 30 days</h3>
+          {pack.chain.head ? (
+            <p className="mt-3 text-xs text-ink-3">
+              Head <code className="break-all font-mono text-ink-2">{pack.chain.head}</code>
+            </p>
+          ) : null}
+          <h4 className="mb-1 mt-6 text-sm font-semibold">Daily anchors, last 30 days</h4>
           <p className="mb-3 text-xs text-ink-3">The last receipt of each UTC day. Published daily, so a rewritten log would no longer match.</p>
           {/* The hash column takes the remaining width and truncates, so the table always fits; the full hash is in the JSON download. */}
           <table className="w-full text-left text-xs">
@@ -199,7 +236,7 @@ export default async function EvidencePage(props: PageProps<"/app/sites/[propert
                 <tr key={a.day} className="break-inside-avoid">
                   <td className="whitespace-nowrap py-1.5 pr-3 tabular-nums">{a.day}</td>
                   <td className="py-1.5 pr-3 text-right tabular-nums">{formatInt(a.receipts)}</td>
-                  <td className="py-1.5 pr-3 text-right tabular-nums">{a.seq}</td>
+                  <td className="py-1.5 pr-3 text-right font-mono tabular-nums">{a.seq}</td>
                   <td className="w-full max-w-0 truncate py-1.5 font-mono text-ink-2" title={a.hash}>
                     {a.hash}
                   </td>
@@ -224,7 +261,7 @@ export default async function EvidencePage(props: PageProps<"/app/sites/[propert
           />
           <div className="mt-6 space-y-4">
             {pack.banner.regions.map((r) => (
-              <div key={r.framework} className="break-inside-avoid rounded-md border border-line p-4">
+              <div key={r.framework} className="break-inside-avoid rounded-md border border-line bg-canvas p-4">
                 <p className="text-xs text-ink-3">
                   {r.name} notice, {r.model}
                 </p>
@@ -247,7 +284,8 @@ export default async function EvidencePage(props: PageProps<"/app/sites/[propert
         </Section>
 
         <Section id="e-purposes" title="Purposes and data">
-          <table className="w-full text-left text-sm">
+          <div className="scroll-thin overflow-x-auto print:overflow-visible" tabIndex={0} role="region" aria-label="Purposes and data">
+          <table className="w-full min-w-[480px] text-left text-sm print:min-w-0">
             <caption className="sr-only">Purposes, personal data items and retention</caption>
             <thead className="text-xs text-ink-3">
               <tr className="border-b border-line">
@@ -263,13 +301,14 @@ export default async function EvidencePage(props: PageProps<"/app/sites/[propert
                     {p.label}
                     {p.required ? <span className="block text-xs font-normal text-ink-3">Always on</span> : null}
                   </th>
-                  <td className="py-2 pr-3 text-ink-2">{p.dataItems.length ? p.dataItems.join(", ") : <span className="text-rose">Not itemised</span>}</td>
+                  <td className="py-2 pr-3 text-ink-2">{p.dataItems.length ? p.dataItems.join(", ") : <Verdict ok={false}>Not itemised</Verdict>}</td>
                   <td className="py-2 text-ink-2">{p.retention ?? "Not stated"}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-          <h3 className="mb-2 mt-6 text-sm font-semibold">Trackers held until consent</h3>
+          </div>
+          <h4 className="mb-2 mt-6 text-sm font-semibold">Trackers held until consent</h4>
           <p className="text-sm text-ink-2">
             {pack.trackers.length ? pack.trackers.map((t) => `${t.name} (${t.category})`).join(", ") : "None listed."}
           </p>
@@ -299,7 +338,9 @@ export default async function EvidencePage(props: PageProps<"/app/sites/[propert
 
         <Section id="e-leaks" title="Leaks in the last 30 days">
           {pack.leaks.requests === 0 ? (
-            <p className="text-sm text-jade">No tracker fired after a refusal.</p>
+            <p className="text-sm">
+              <Verdict ok>No tracker fired after a refusal.</Verdict>
+            </p>
           ) : (
             <>
               <p className="mb-3 text-sm text-ink-2">
@@ -327,11 +368,15 @@ export default async function EvidencePage(props: PageProps<"/app/sites/[propert
           <CheckList dense rows={pack.readiness.items} />
         </Section>
 
-        <footer className="mt-4 border-t-2 border-ink pt-5 text-xs text-ink-3">
-          <p>
-            SHA-256 of this pack (canonical JSON, keys sorted): <span className="break-all font-mono text-ink">{digest}</span>
-          </p>
-          <p className="mt-1">Recompute it from this pack&apos;s JSON download to confirm nothing was changed after it was generated.</p>
+        <footer className="mt-4 border-t border-ink pt-5 text-xs text-ink-3">
+          <p id="e-digest">SHA-256 of this pack (canonical JSON, keys sorted)</p>
+          <div className="mt-1.5 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+            <code className="min-w-0 break-all font-mono text-ink">{digest}</code>
+            <span className="shrink-0 print:hidden">
+              <CopyButton value={digest} label="Copy" describedBy="e-digest" />
+            </span>
+          </div>
+          <p className="mt-2">Recompute it from this pack&apos;s JSON download to confirm nothing was changed after it was generated.</p>
         </footer>
       </article>
     </>

@@ -28,7 +28,7 @@ export default async function SuspendedPage({ searchParams }: { searchParams: Pr
   const others = orgs.filter((o) => o.id !== active.id && !o.suspendedAt);
 
   return (
-    <div className="min-h-dvh bg-paper">
+    <div className="pt-app min-h-dvh bg-canvas text-ink">
       <header className="border-b border-line bg-surface">
         <div className="mx-auto flex h-16 max-w-2xl items-center justify-between px-4">
           <Link href="/" aria-label="Plain Theory home" className="flex min-h-11 items-center">
@@ -38,17 +38,17 @@ export default async function SuspendedPage({ searchParams }: { searchParams: Pr
         </div>
       </header>
       <main id="main" className="mx-auto max-w-2xl px-4 py-10 sm:py-16">
-        <section aria-labelledby="suspended-h" className="panel p-6 sm:p-8">
-          <span className="grid size-11 place-items-center rounded-full bg-rose-wash text-rose" aria-hidden>
+        <section aria-labelledby="suspended-h" className="rounded-lg border border-line bg-surface p-6 sm:p-8">
+          <span className="grid size-11 place-items-center rounded-full bg-destructive-wash text-destructive" aria-hidden>
             <IconAlert size={22} />
           </span>
-          <h1 id="suspended-h" className="mt-4 text-2xl font-semibold tracking-[-0.02em]">
+          <h1 id="suspended-h" className="mt-4 text-xl font-semibold tracking-[-0.025em] sm:text-2xl">
             {active.name} is suspended
           </h1>
-          <p className="mt-2 text-base text-ink-2">
+          <p className="mt-2 text-sm text-ink-2">
             This organization is suspended, so its dashboard is unavailable. Your data is kept and nothing has been deleted. Contact support to resolve it.
           </p>
-          <dl className="mt-5 grid gap-3 rounded-md bg-paper px-4 py-3 text-sm sm:grid-cols-[auto_1fr] sm:gap-x-6">
+          <dl className="mt-5 grid gap-1 rounded-md bg-raised px-4 py-3 text-sm ring-1 ring-inset ring-line sm:grid-cols-[auto_1fr] sm:gap-x-6 sm:gap-y-2">
             <dt className="text-ink-3">Suspended on</dt>
             <dd>{date(active.suspendedAt)}</dd>
             {active.suspendedReason ? (
@@ -63,7 +63,7 @@ export default async function SuspendedPage({ searchParams }: { searchParams: Pr
               Contact support
             </a>
             <form action={signOut}>
-              <Button type="submit" variant="ghost">
+              <Button type="submit" variant="secondary">
                 Sign out
               </Button>
             </form>
@@ -72,16 +72,16 @@ export default async function SuspendedPage({ searchParams }: { searchParams: Pr
 
         {others.length ? (
           <section aria-labelledby="others-h" className="mt-8">
-            <h2 id="others-h" className="mb-3 text-base font-bold">
+            <h2 id="others-h" className="mb-3 text-base font-semibold">
               Your other organizations
             </h2>
             <ul className="divide-y divide-line rounded-lg border border-line bg-surface">
               {others.map((o) => (
                 <li key={o.id}>
-                  <form action={switchFromSuspended} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3">
+                  <form action={switchFromSuspended} className="flex min-h-14 flex-wrap items-center justify-between gap-3 px-5 py-3 sm:px-6">
                     <input type="hidden" name="orgId" value={o.id} />
-                    <span className="min-w-0 truncate text-sm font-bold">{o.name}</span>
-                    <Button type="submit" variant="ghost" size="sm">
+                    <span className="min-w-0 truncate text-sm font-medium">{o.name}</span>
+                    <Button type="submit" variant="secondary" size="sm">
                       Switch<span className="sr-only"> to {o.name}</span>
                     </Button>
                   </form>

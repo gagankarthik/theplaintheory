@@ -1,12 +1,16 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { MfaBadge, OrgStatusBadge, PlanBadge } from "@/components/admin/badges";
-import { describeAgent, fmtDate, fmtDateTime } from "@/components/admin/format";
+import { MemberRoleBadge, MfaBadge, OrgStatusBadge, PlanBadge } from "@/components/admin/badges";
+import { describeAgent, fmtDate, fmtDateTime, fmtInt } from "@/components/admin/format";
 import { UserActions } from "@/components/admin/user-actions";
 import { PageHeader } from "@/components/app/shell/page-header";
+import { Alert } from "@/components/app/ui/alert";
 import { Badge } from "@/components/app/ui/badge";
+import { Card, CardBody, CardHeader } from "@/components/app/ui/card";
+import { DescriptionList } from "@/components/app/ui/description-list";
 import { EmptyState } from "@/components/app/ui/empty-state";
-import { KpiTile } from "@/components/app/ui/kpi-tile";
+import { ResourceList } from "@/components/app/ui/resource-list";
+import { StatStrip } from "@/components/app/ui/stat-strip";
 import { canPlatform } from "@/lib/auth/platform";
 import { requireStaff, staffMetadata } from "@/lib/auth/staff";
 import { loadUserDetail } from "@/lib/platform/data";
@@ -21,8 +25,8 @@ export default async function AdminUserPage({ params }: { params: Promise<{ user
   const detail = await loadUserDetail(userId);
   if (!detail) notFound();
   const { user, orgs, sessions, locked } = detail;
-  const rows = sessions;
-  const active = rows.filter((s) => !s.problem);
+  const active = sessions.filter((s) => !s.problem);
+  const failures = user.loginFailures?.count ?? 0;
 
   return (
     <>
@@ -32,123 +36,114 @@ export default async function AdminUserPage({ params }: { params: Promise<{ user
         description={
           <span className="flex flex-wrap items-center gap-2">
             <span className="break-all">{user.email}</span>
-            {locked ? <Badge tone="declined">Locked until {fmtDateTime(user.lockedUntil)}</Badge> : null}
+            {locked ? <Badge tone="danger">Locked</Badge> : null}
           </span>
         }
         actions={
           <UserActions
-            user={{ id: user.id, email: user.email, locked, failures: user.loginFailures?.count ?? 0, activeSessions: active.length }}
+            user={{ id: user.id, email: user.email, locked, failures, activeSessions: active.length }}
             canUnlock={canPlatform(ctx.role, "users:unlock")}
             canRevoke={canPlatform(ctx.role, "users:revoke_sessions")}
           />
         }
       />
 
-      <section aria-labelledby="user-facts-h" className="panel overflow-hidden">
-        <h2 id="user-facts-h" className="sr-only">
-          Summary
-        </h2>
-        <div className="grid grid-cols-2 gap-px bg-line xl:grid-cols-4">
-          <KpiTile label="Organizations" value={String(orgs.length)} detail={orgs.length ? "Memberships below" : "Hasn't finished onboarding"} />
-          <KpiTile label="Active sessions" value={String(active.length)} detail={`${sessions.length} in the last 30 days`} />
-          <KpiTile label="Two-factor" value={user.mfa ? "On" : "Off"} detail={user.mfa ? `Since ${fmtDate(user.mfa.enabledAt)}` : "Password only"} />
-          <KpiTile label="Last active" value={fmtDate(user.lastActiveAt)} detail={`Joined ${fmtDate(user.createdAt)}`} />
-        </div>
-      </section>
+      {locked ? (
+        <Alert tone="danger" title={`Sign-in locked until ${fmtDateTime(user.lockedUntil)}`} className="mb-6">
+          {fmtInt(failures)} failed sign-in{failures === 1 ? "" : "s"} in the current window. Unlock only after confirming who you&apos;re talking to.
+        </Alert>
+      ) : null}
 
-      <div className="mt-10 space-y-10">
-        <section aria-labelledby="memberships-h">
-          <h2 id="memberships-h" className="mb-3 text-lg font-bold">
-            Memberships
-          </h2>
-          {orgs.length ? (
-            <ul className="divide-y divide-line rounded-lg border border-line bg-surface">
-              {orgs.map(({ membership, org }) => (
-                <li key={membership.orgId} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3">
-                  <div className="min-w-0 basis-full sm:basis-0 sm:flex-1">
-                    {org ? (
-                      <Link href={`/admin/orgs/${org.id}`} className="block truncate text-sm font-bold hover:underline">
-                        {org.name}
-                      </Link>
-                    ) : (
-                      <span className="text-sm font-bold">Deleted organization</span>
-                    )}
-                    <span className="block text-xs text-ink-3">
-                      Member since {fmtDate(membership.createdAt)}
-                      {membership.invitedBy ? `, invited by ${membership.invitedBy}` : ""}
-                    </span>
-                  </div>
-                  <Badge tone={membership.role === "owner" ? "brand" : "neutral"} className="capitalize">
-                    {membership.role}
-                  </Badge>
-                  {org ? (
-                    <>
-                      <PlanBadge plan={org.plan} />
-                      <OrgStatusBadge suspended={Boolean(org.suspendedAt)} />
-                    </>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <EmptyState headingLevel={3} title="No memberships">
+      <StatStrip
+        label="User summary"
+        stats={[
+          { label: "Organizations", value: fmtInt(orgs.length), note: orgs.length ? "Memberships below" : "Hasn't finished onboarding" },
+          { label: "Active sessions", value: fmtInt(active.length), note: `${fmtInt(sessions.length)} in the last 30 days` },
+          { label: "Two-factor", value: user.mfa ? "On" : "Off", note: user.mfa ? `Since ${fmtDate(user.mfa.enabledAt)}` : "Password only", tone: user.mfa ? undefined : "warn" },
+          { label: "Last active", value: fmtDate(user.lastActiveAt), note: `Joined ${fmtDate(user.createdAt)}` },
+        ]}
+      />
+
+      <div className="mb-6 grid gap-6 xl:grid-cols-2">
+        <ResourceList
+          title="Memberships"
+          titleId="memberships-h"
+          label="Memberships"
+          rows={orgs.map(({ membership, org }) => ({
+            id: membership.orgId,
+            title: org ? (
+              <Link href={`/admin/orgs/${org.id}`} className="underline-offset-4 hover:underline">
+                {org.name}
+              </Link>
+            ) : (
+              "Deleted organization"
+            ),
+            meta: `Member since ${fmtDate(membership.createdAt)}${membership.invitedBy ? `, invited by ${membership.invitedBy}` : ""}`,
+            trailing: (
+              <>
+                <MemberRoleBadge role={membership.role} />
+                {org ? (
+                  <>
+                    <PlanBadge plan={org.plan} />
+                    <OrgStatusBadge suspended={Boolean(org.suspendedAt)} />
+                  </>
+                ) : null}
+              </>
+            ),
+          }))}
+          empty={
+            <EmptyState bare headingLevel={3} title="No memberships">
               This person signed up but hasn&apos;t created or joined an organization.
             </EmptyState>
-          )}
-        </section>
+          }
+        />
 
-        <section aria-labelledby="sessions-h">
-          <h2 id="sessions-h" className="mb-1 text-lg font-bold">
-            Sessions
-          </h2>
-          <p className="mb-3 text-sm text-ink-3">Signed-in browsers from the last 30 days. IP addresses are stored only as salted hashes.</p>
-          {rows.length ? (
-            <ul className="divide-y divide-line rounded-lg border border-line bg-surface">
-              {rows.map((s) => (
-                <li key={s.id} className="grid gap-2 px-5 py-3 text-sm sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-4">
-                  <div className="min-w-0">
-                    <span className="font-bold">{describeAgent(s.userAgent)}</span>
-                    <span className="block text-xs text-ink-3">
-                      Started {fmtDateTime(s.createdAt)} · last seen {fmtDateTime(s.lastSeenAt)}
+        <Card aria-labelledby="security-h" className="self-start">
+          <CardHeader titleId="security-h" title="Sign-in security" />
+          <CardBody>
+            <DescriptionList
+              columns={2}
+              items={[
+                {
+                  label: "Two-factor",
+                  value: (
+                    <span className="flex flex-wrap items-center gap-2">
+                      <MfaBadge on={Boolean(user.mfa)} />
+                      {user.mfa ? <span className="text-xs font-normal text-ink-3">{user.mfa.recoveryCodes.length} recovery codes left</span> : null}
                     </span>
-                  </div>
-                  <span className="flex flex-wrap items-center gap-2">
-                    {s.mfaVerified ? <Badge tone="neutral">Two-factor</Badge> : null}
-                    {s.problem ? <Badge tone="neutral">{PROBLEM_LABEL[s.problem]}</Badge> : <Badge tone="released">Active</Badge>}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <EmptyState headingLevel={3} title="No sessions">
-              No sign-ins in the last 30 days.
-            </EmptyState>
-          )}
-        </section>
-
-        <section aria-labelledby="security-h">
-          <h2 id="security-h" className="mb-3 text-lg font-bold">
-            Sign-in security
-          </h2>
-          <dl className="grid gap-4 rounded-lg border border-line bg-surface px-5 py-4 text-sm sm:grid-cols-3">
-            <div>
-              <dt className="text-ink-3">Two-factor</dt>
-              <dd className="mt-1">
-                <MfaBadge on={Boolean(user.mfa)} />
-                {user.mfa ? <span className="ml-2 text-xs text-ink-3">{user.mfa.recoveryCodes.length} recovery codes left</span> : null}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-ink-3">Failed sign-ins in window</dt>
-              <dd className="mt-1 tabular-nums">{user.loginFailures?.count ?? 0}</dd>
-            </div>
-            <div>
-              <dt className="text-ink-3">Password last changed</dt>
-              <dd className="mt-1">{user.passwordHash ? fmtDate(user.passwordChangedAt) : "Managed by identity provider"}</dd>
-            </div>
-          </dl>
-        </section>
+                  ),
+                },
+                { label: "Failed sign-ins in window", value: <span className="tabular-nums">{fmtInt(failures)}</span> },
+                { label: "Password last changed", value: user.passwordHash ? fmtDate(user.passwordChangedAt) : "Managed by identity provider" },
+                { label: "Sign-in", value: locked ? <Badge tone="danger">Locked until {fmtDateTime(user.lockedUntil)}</Badge> : "Normal" },
+              ]}
+            />
+          </CardBody>
+        </Card>
       </div>
+
+      <ResourceList
+        title="Sessions"
+        titleId="sessions-h"
+        description="Signed-in browsers from the last 30 days. IP addresses are stored only as salted hashes."
+        label="Sessions, last 30 days"
+        rows={sessions.map((s) => ({
+          id: s.id,
+          title: describeAgent(s.userAgent),
+          meta: `Started ${fmtDateTime(s.createdAt)} · last seen ${fmtDateTime(s.lastSeenAt)}`,
+          trailing: (
+            <>
+              {s.mfaVerified ? <Badge tone="neutral">Two-factor</Badge> : null}
+              {s.problem ? <Badge tone="neutral">{PROBLEM_LABEL[s.problem]}</Badge> : <Badge tone="success">Active</Badge>}
+            </>
+          ),
+        }))}
+        empty={
+          <EmptyState bare headingLevel={3} title="No sessions">
+            No sign-ins in the last 30 days.
+          </EmptyState>
+        }
+      />
     </>
   );
 }

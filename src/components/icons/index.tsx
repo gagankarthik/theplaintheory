@@ -279,6 +279,12 @@ export const IconLayoutToast = (p: IconProps) => (
     <rect x="5" y="13" width="7" height="5" rx="1" fill="currentColor" fillOpacity=".25" />
   </Svg>
 );
+export const IconLayoutPill = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="3" y="4" width="18" height="16" rx="2" />
+    <rect x="7" y="15" width="10" height="3" rx="1.5" fill="currentColor" fillOpacity=".25" />
+  </Svg>
+);
 
 /* ---------- App navigation ---------- */
 

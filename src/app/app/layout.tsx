@@ -25,7 +25,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const sidebarCollapsed = jar.get("pt-sidebar")?.value === "collapsed";
   const lastSiteId = jar.get("pt-site")?.value;
   const [orgs, properties] = await Promise.all([
-    Promise.all(memberships.map((m) => store.getOrg(m.orgId))),
+    store.getOrgs(memberships.map((m) => m.orgId)),
     store.listProperties(org.id),
   ]);
 
@@ -38,7 +38,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       role={role}
       initialCollapsed={sidebarCollapsed}
       initialSiteId={lastSiteId}
-      orgs={orgs.filter((o) => o !== null).map((o) => ({ id: o.id, name: o.name }))}
+      orgs={memberships.flatMap((m) => orgs.filter((o) => o.id === m.orgId)).map((o) => ({ id: o.id, name: o.name }))}
       properties={properties
         .sort((a, b) => a.name.localeCompare(b.name))
         .map((p) => ({

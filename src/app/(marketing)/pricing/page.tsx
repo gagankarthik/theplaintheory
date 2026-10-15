@@ -10,7 +10,6 @@ import { SavingsCalculator } from "@/components/marketing/pricing/savings-calcul
 import { Section, SectionIntro } from "@/components/marketing/primitives";
 import { CURRENCIES, planPrice } from "@/lib/plans";
 import { getLivePlans } from "@/lib/stripe-catalog";
-import { sdkSizeLabel } from "@/lib/sdk-size";
 import { absoluteUrl, site } from "@/lib/site";
 
 export const metadata = pageMetadata({
@@ -85,7 +84,7 @@ export default async function PricingPage() {
       <PageHero
         tone="brand"
         title="Pay for your account, not your domains"
-        lead={`Every plan blocks trackers before consent, shows the right notice in each region and keeps a tamper-evident log, from one ${sdkSizeLabel()} script. Prices in dollars, euros, pounds or rupees.`}
+        lead={`Every plan blocks trackers before consent, shows the right notice in each region and keeps a tamper-evident log, from one script. Prices in dollars, euros, pounds or rupees.`}
       >
         <BillingControls tone="dark" />
       </PageHero>

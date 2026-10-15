@@ -1,6 +1,18 @@
 import puppeteer, { type Browser } from "puppeteer";
 
-/** Flags required for Chromium inside containers (Fargate has no user namespaces and a small /dev/shm). */
+/**
+ * Flags required for Chromium inside containers (Fargate has no user namespaces and a small /dev/shm).
+ *
+ * --no-sandbox: Chromium's sandbox needs unprivileged user namespaces or a setuid helper, and Fargate
+ * grants neither (no seccomp/namespace tuning, and every capability is dropped in crawler-stack.ts). The
+ * renderer therefore runs unsandboxed, so the container is the boundary instead: non-root user, read-only
+ * root filesystem with only /tmp writable, no Linux capabilities, a fresh incognito context per crawl, no
+ * inbound access, a least-privilege task role, and the network guard on every browser request.
+ *
+ * Writes: Puppeteer creates the throwaway profile (user data dir) under os.tmpdir(), i.e. TMPDIR=/tmp,
+ * and --disable-dev-shm-usage moves shared memory there too; HOME and the XDG dirs point under /tmp
+ * (Dockerfile), so nothing else needs to be writable.
+ */
 const CONTAINER_ARGS = [
   "--no-sandbox",
   "--disable-setuid-sandbox",

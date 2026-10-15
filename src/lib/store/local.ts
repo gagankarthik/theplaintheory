@@ -1,6 +1,8 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { randomBytes } from "node:crypto";
 import { GENESIS_HASH, hashReceipt, id } from "../crypto";
+import { addFlat, emptyRollup, rollupIncrement } from "../rollups";
 import { AUDIT_GENESIS, hashAudit } from "../audit-chain";
 import { PLATFORM_AUDIT_GENESIS, hashPlatformAudit } from "../platform/audit-chain";
 import type { PlatformAuditEvent } from "../platform/types";
@@ -19,7 +21,9 @@ import type {
   User,
   WebhookDelivery,
 } from "../types";
+import { selectDue } from "../scan-schedule";
 import type { SiteAuditReport } from "../site-audit/types";
+import { withLogAfter } from "../scan-poll";
 import { SCAN_KEEP, type ScanReport } from "../trackers";
 import { SITE_AUDIT_KEEP, type AuditDraft, type AuditQuery, type LeadQuery, type ReceiptDraft, type ReceiptQuery, type Store } from "./types";
 
@@ -46,6 +50,14 @@ interface Db {
   scans?: ScanReport[];
   /** Stripe webhook event ids already handled, with when they were claimed */
   stripeEvents?: { id: string; at: string }[];
+  /** daily decision rollups: flat counters per site and day (lib/rollups.ts) */
+  rollups?: { propertyId: string; day: string; counts: Record<string, number> }[];
+  /** per site: the first receipt seq counted in rollups */
+  rollupFrom?: Record<string, number>;
+  /** IP-hash salts, one per UTC day; days older than yesterday are dropped */
+  dailySalts?: { day: string; salt: string }[];
+  /** contact-form abuse window: keyed IP hash per lead, kept one day */
+  leadAbuse?: { key: string; at: string }[];
 }
 
 const DIR = process.env.LOCAL_DATA_DIR ?? path.join(process.cwd(), ".data");
@@ -66,6 +78,8 @@ interface LocalState {
   cacheMtime: number;
   heads: Map<string, { seq: number; hash: string }>;
   queue: Promise<unknown>;
+  /** fixed-window rate-limit counters; one process, so memory is shared by every request */
+  windows?: Map<string, { count: number; expires: number }>;
 }
 const STATE_KEY = Symbol.for("plain-theory.local-store");
 const g = globalThis as typeof globalThis & { [STATE_KEY]?: LocalState };
@@ -285,6 +299,10 @@ export const localStore: Store = {
   async getOrg(oid) {
     return (await load()).orgs.find((o) => o.id === oid) ?? null;
   },
+  async getOrgs(ids) {
+    const want = new Set(ids);
+    return (await load()).orgs.filter((o) => want.has(o.id));
+  },
   async updateOrg(oid, patch) {
     return mutate((db) => {
       const o = db.orgs.find((x) => x.id === oid);
@@ -357,6 +375,10 @@ export const localStore: Store = {
   async listProperties(orgId) {
     return (await load()).properties.filter((p) => p.orgId === orgId);
   },
+  async listDueScanProperties(nowIso, limit) {
+    // the file store is small: filtering every site is fine here
+    return selectDue((await load()).properties, new Date(nowIso), limit).map((p) => structuredClone(p));
+  },
   async updateProperty(pid, patch) {
     return mutate((db) => {
       const p = db.properties.find((x) => x.id === pid);
@@ -389,6 +411,22 @@ export const localStore: Store = {
       await fs.mkdir(RECEIPTS_DIR, { recursive: true });
       await fs.appendFile(receiptFile(draft.propertyId), JSON.stringify(receipt) + "\n");
       heads.set(draft.propertyId, { seq: receipt.seq, hash: receipt.hash });
+      // Daily rollup, like the DynamoDB store: best effort, never fails the receipt.
+      try {
+        const db = await load();
+        const { day, fields } = rollupIncrement(receipt);
+        db.rollupFrom ??= {};
+        db.rollupFrom[receipt.propertyId] ??= receipt.seq;
+        if (Object.keys(fields).length) {
+          const list = (db.rollups ??= []);
+          let row = list.find((x) => x.propertyId === receipt.propertyId && x.day === day);
+          if (!row) list.push((row = { propertyId: receipt.propertyId, day, counts: {} }));
+          for (const [k, v] of Object.entries(fields)) row.counts[k] = (row.counts[k] ?? 0) + v;
+        }
+        await save();
+      } catch (e) {
+        console.error("[store] rollup update failed", e);
+      }
       return receipt;
     });
   },
@@ -412,6 +450,15 @@ export const localStore: Store = {
     if (q.before) rows = rows.filter((r) => r.seq < q.before!);
     rows.reverse();
     return q.limit ? rows.slice(0, q.limit) : rows;
+  },
+
+  async listDecisionRollups(propertyId, fromDay, toDay) {
+    const db = await load();
+    const rollups = (db.rollups ?? [])
+      .filter((r) => r.propertyId === propertyId && r.day >= fromDay && r.day <= toDay)
+      .sort((a, b) => a.day.localeCompare(b.day))
+      .map((r) => addFlat(emptyRollup(r.day), r.counts));
+    return { rollups, fromSeq: db.rollupFrom?.[propertyId] ?? null };
   },
 
   async recordLeak(l) {
@@ -449,14 +496,22 @@ export const localStore: Store = {
     });
   },
 
-  async createLead(l) {
+  async createLead(l, abuseKey) {
     return mutate((db) => {
       (db.leads ??= []).push(l);
+      // Without an abuse key the lead's own IP hash is the key (counted from the leads below).
+      if (abuseKey) {
+        const cutoff = new Date(Date.now() - 864e5).toISOString();
+        db.leadAbuse = [...(db.leadAbuse ?? []).filter((x) => x.at >= cutoff), { key: abuseKey, at: l.createdAt }];
+      }
       return l;
     });
   },
-  async countRecentLeads(ipHash, sinceIso) {
-    return ((await load()).leads ?? []).filter((l) => l.ipHash === ipHash && l.createdAt >= sinceIso).length;
+  async countRecentLeads(abuseKey, sinceIso) {
+    const db = await load();
+    // Leads stored before abuse keys existed are matched by their IP hash.
+    const legacy = (db.leads ?? []).filter((l) => l.ipHash === abuseKey && l.createdAt >= sinceIso).length;
+    return legacy + (db.leadAbuse ?? []).filter((x) => x.key === abuseKey && x.at >= sinceIso).length;
   },
   async listLeads({ status, topic, limit = 200 }: LeadQuery = {}) {
     return ((await load()).leads ?? [])
@@ -489,6 +544,30 @@ export const localStore: Store = {
     return (await load()).counters
       .filter((c) => c.propertyId === propertyId && c.day >= fromDay && c.day <= toDay)
       .sort((a, b) => a.day.localeCompare(b.day));
+  },
+
+  async hitWindow(key, windowStart, windowMs) {
+    const windows = (state.windows ??= new Map());
+    const now = Date.now();
+    if (windows.size > 50_000) for (const [k, w] of windows) if (w.expires <= now) windows.delete(k);
+    const k = `${key}#${windowStart}`;
+    const w = windows.get(k) ?? { count: 0, expires: windowStart + 2 * windowMs };
+    w.count += 1;
+    windows.set(k, w);
+    return w.count;
+  },
+
+  async dailySalt(day) {
+    const hit = ((await load()).dailySalts ?? []).find((x) => x.day === day);
+    if (hit) return hit.salt;
+    return mutate((db) => {
+      const existing = (db.dailySalts ?? []).find((x) => x.day === day);
+      if (existing) return existing.salt;
+      const yesterday = new Date(Date.parse(`${day}T00:00:00Z`) - 864e5).toISOString().slice(0, 10);
+      const salt = randomBytes(32).toString("base64url");
+      db.dailySalts = [...(db.dailySalts ?? []).filter((x) => x.day >= yesterday), { day, salt }];
+      return salt;
+    });
   },
 
   async claimStripeEvent(eventId) {
@@ -553,6 +632,10 @@ export const localStore: Store = {
   async getScan(propertyId, scanId) {
     const s = ((await load()).scans ?? []).find((x) => x.propertyId === propertyId && x.id === scanId);
     return s ? structuredClone(s) : null;
+  },
+  async pollScan(propertyId, scanId, logAfter) {
+    const s = ((await load()).scans ?? []).find((x) => x.propertyId === propertyId && x.id === scanId);
+    return s ? withLogAfter(structuredClone(s), logAfter) : null;
   },
   async updateScan(propertyId, scanId, patch, opts) {
     return mutate((db) => {

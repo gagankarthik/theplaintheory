@@ -1,6 +1,10 @@
 import type { Cats } from "./types";
 
-/** Google Consent Mode v2. Defines a dataLayer/gtag shim so signals queue even before gtag.js loads. */
+/**
+ * Google Consent Mode v2. Nothing is touched until `start`: only sites with Consent Mode on get the
+ * dataLayer/gtag shim (so signals queue even before gtag.js loads) and a "default" command. Sites
+ * without it keep their own gtag untouched and never see denied defaults they didn't ask for.
+ */
 type W = Window & { dataLayer?: unknown[]; gtag?: (...a: unknown[]) => void };
 
 const g = (v: boolean) => (v ? "granted" : "denied");
@@ -18,16 +22,26 @@ export function consentSignals(c: Cats) {
 }
 
 export function createGcm(w: W = window as W) {
-  w.dataLayer = w.dataLayer || [];
-  if (!w.gtag) {
-    w.gtag = function () {
-      // gtag requires the arguments object itself, not an array
-      // eslint-disable-next-line prefer-rest-params
-      w.dataLayer!.push(arguments);
-    };
-  }
+  let on = false;
   return {
-    default: (c: Cats) => w.gtag!("consent", "default", { ...consentSignals(c), wait_for_update: 500 }),
-    update: (c: Cats) => w.gtag!("consent", "update", consentSignals(c)),
+    active: () => on,
+    /** Install the shim and send the defaults, once. */
+    start(c: Cats) {
+      if (on) return;
+      on = true;
+      w.dataLayer = w.dataLayer || [];
+      if (!w.gtag) {
+        w.gtag = function () {
+          // gtag requires the arguments object itself, not an array
+          // eslint-disable-next-line prefer-rest-params
+          w.dataLayer!.push(arguments);
+        };
+      }
+      w.gtag("consent", "default", { ...consentSignals(c), wait_for_update: 500 });
+    },
+    /** Send the visitor's choice; does nothing unless started. */
+    update(c: Cats) {
+      if (on) w.gtag!("consent", "update", consentSignals(c));
+    },
   };
 }

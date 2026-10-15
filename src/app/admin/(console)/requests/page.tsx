@@ -1,6 +1,10 @@
-import { FilterLinks, RequestsList } from "@/components/admin/requests-list";
+import { FilterChips, type FilterChip } from "@/components/admin/filter-bar";
+import { RequestsTable } from "@/components/admin/requests-table";
 import { PageHeader } from "@/components/app/shell/page-header";
 import { EmptyState } from "@/components/app/ui/empty-state";
+import { SelectField, TextField } from "@/components/app/ui/field";
+import { FilterBar } from "@/components/app/ui/filter-bar";
+import { IconMail } from "@/components/icons";
 import { requireStaff, staffMetadata } from "@/lib/auth/staff";
 import { LEAD_STATUSES, LEAD_TOPICS, STATUS_LABEL, TOPIC_LABEL, matchesReference } from "@/lib/lead-options";
 import { getStore } from "@/lib/store";
@@ -28,17 +32,26 @@ export default async function AdminRequestsPage({ searchParams }: { searchParams
     ? all.filter((l) => matchesReference(l.id, q) || l.email.toLowerCase().includes(needle) || l.name.toLowerCase().includes(needle) || (l.company ?? "").toLowerCase().includes(needle))
     : all;
 
-  const href = (next: { status?: string; topic?: string }) => {
+  /** The list URL with one filter changed (undefined drops it). */
+  const href = (next: { status?: string; topic?: string; q?: string }) => {
     const p = new URLSearchParams();
-    const s = next.status ?? status ?? ALL;
-    const t = next.topic ?? topic ?? ALL;
-    if (s !== ALL) p.set("status", s);
-    if (t !== ALL) p.set("topic", t);
-    if (q) p.set("q", q);
+    const s = "status" in next ? next.status : status;
+    const t = "topic" in next ? next.topic : topic;
+    const query = "q" in next ? next.q : q;
+    if (s && s !== ALL) p.set("status", s);
+    if (t && t !== ALL) p.set("topic", t);
+    if (query) p.set("q", query);
     const qs = p.toString();
     return `/admin/requests${qs ? `?${qs}` : ""}`;
   };
   const filtered = Boolean(status || topic || q);
+  const chips: FilterChip[] = [
+    ...(q ? [{ key: "q", label: `Search: “${q}”`, href: href({ q: undefined }) }] : []),
+    ...(status ? [{ key: "status", label: `Status: ${STATUS_LABEL[status]}`, href: href({ status: undefined }) }] : []),
+    ...(topic ? [{ key: "topic", label: `Topic: ${TOPIC_LABEL[topic]}`, href: href({ topic: undefined }) }] : []),
+  ];
+  const noun = (n: number) => (n === 1 ? "request" : "requests");
+  const summary = `${filtered ? `${leads.length.toLocaleString("en-GB")} ${noun(leads.length)} match` : `${leads.length.toLocaleString("en-GB")} ${noun(leads.length)}`}${all.length >= LIMIT ? `, newest ${LIMIT} loaded` : ""}`;
 
   return (
     <>
@@ -48,33 +61,18 @@ export default async function AdminRequestsPage({ searchParams }: { searchParams
         description="Support tickets, sales enquiries, partner and enterprise requests from the public contact forms, newest first. Status changes are audited."
       />
 
-      <div className="mb-5 space-y-3">
-        <FilterLinks label="Status" current={status ?? ALL} options={[{ value: ALL, label: "All" }, ...LEAD_STATUSES.map((s) => ({ value: s, label: STATUS_LABEL[s] }))]} href={(v) => href({ status: v })} />
-        <FilterLinks label="Topic" current={topic ?? ALL} options={[{ value: ALL, label: "All" }, ...LEAD_TOPICS.map((t) => ({ value: t, label: TOPIC_LABEL[t] }))]} href={(v) => href({ topic: v })} />
-        <form role="search" action="/admin/requests" className="flex flex-col gap-2 sm:flex-row sm:items-end">
-          {status ? <input type="hidden" name="status" value={status} /> : null}
-          {topic ? <input type="hidden" name="topic" value={topic} /> : null}
-          <div className="min-w-0 sm:w-80">
-            <label htmlFor="req-q" className="label">
-              Search requests
-            </label>
-            <input id="req-q" name="q" type="search" defaultValue={q} placeholder="Reference, name, email or company" className="field max-sm:h-11" autoComplete="off" spellCheck={false} />
-          </div>
-          <button type="submit" className="btn btn-ghost max-sm:h-11">
-            Search
-          </button>
-        </form>
-        <p aria-live="polite" className="text-sm text-ink-3">
-          {leads.length} {leads.length === 1 ? "request" : "requests"}
-          {filtered ? " match these filters" : ""}
-          {all.length >= LIMIT ? ` (newest ${LIMIT} loaded)` : ""}
-        </p>
-      </div>
+      {/* "Clear all" lives with the chips below, so the bar itself never shows a second clear link */}
+      <FilterBar label="Filter requests" active={false} className="mb-3">
+        <TextField key={`q-${q}`} id="req-q" name="q" type="search" label="Search" defaultValue={q} placeholder="Reference, name, email or company" autoComplete="off" spellCheck={false} />
+        <SelectField key={`s-${status ?? ALL}`} id="req-status" name="status" label="Status" defaultValue={status ?? ALL} options={[{ value: ALL, label: "Any status" }, ...LEAD_STATUSES.map((s) => ({ value: s, label: STATUS_LABEL[s] }))]} />
+        <SelectField key={`t-${topic ?? ALL}`} id="req-topic" name="topic" label="Topic" defaultValue={topic ?? ALL} options={[{ value: ALL, label: "All topics" }, ...LEAD_TOPICS.map((t) => ({ value: t, label: TOPIC_LABEL[t] }))]} />
+      </FilterBar>
+      <FilterChips chips={chips} summary={summary} clearHref="/admin/requests" />
 
       {leads.length ? (
-        <RequestsList leads={leads} />
+        <RequestsTable leads={leads} />
       ) : (
-        <EmptyState title={filtered ? "No requests match" : "No requests yet"}>
+        <EmptyState icon={<IconMail size={22} />} title={filtered ? "No requests match" : "No requests yet"}>
           {filtered ? "Try another status or topic, or clear the search." : "Requests from the contact form appear here as soon as they're sent."}
         </EmptyState>
       )}

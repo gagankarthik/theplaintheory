@@ -1,6 +1,7 @@
 import "server-only";
 import { z } from "zod";
-import { anonymizeIp, id } from "./crypto";
+import { id, ipRateKey } from "./crypto";
+import { dailyIpHash } from "./ip-hash";
 import {
   COMPANY_SIZES,
   ENTERPRISE_REQUEST_TYPES,
@@ -235,14 +236,16 @@ export type SubmitResult = { ok: true; id: string; reference: string } | { ok: f
  */
 export async function submitContact(t: TopicInput, ip: string | null): Promise<SubmitResult> {
   const store = await getStore();
-  const ipHash = anonymizeIp(ip);
+  // The abuse window must hold across midnight, so it uses the stable keyed hash; the lead itself
+  // stores only the daily-salted hash.
+  const abuseKey = ipRateKey(ip);
   const since = new Date(Date.now() - WINDOW_MS).toISOString();
-  if ((await store.countRecentLeads(ipHash, since)) >= MAX_PER_WINDOW) {
+  if ((await store.countRecentLeads(abuseKey, since)) >= MAX_PER_WINDOW) {
     return { ok: false, error: `We've received several requests from your network in the last hour. Email ${TOPIC_EMAIL[t.topic]} instead.` };
   }
 
-  const lead: Lead = { id: id("lead"), ...leadFields(t), ipHash, createdAt: new Date().toISOString() };
-  await store.createLead(lead);
+  const lead: Lead = { id: id("lead"), ...leadFields(t), ipHash: await dailyIpHash(ip), createdAt: new Date().toISOString() };
+  await store.createLead(lead, abuseKey);
   await notify(lead).catch((e) => console.error("[leads] notification failed", e));
   return { ok: true, id: lead.id, reference: leadReference(lead.id) };
 }

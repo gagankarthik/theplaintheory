@@ -189,6 +189,7 @@ export async function scanSite(options: ScanOptions, existingBrowser?: Browser):
   const pageDelayMs = options.pageDelayMs ?? 500;
   const maxPages = Math.max(1, options.maxPages);
   const maxDepth = Math.max(0, options.maxDepth);
+  const deadline = options.deadlineMs ? Date.now() + Math.max(1, options.deadlineMs) : Number.POSITIVE_INFINITY;
 
   const startUrl = normalizeUrl(options.startUrl);
   if (!startUrl) throw new Error(`Invalid start URL: ${options.startUrl}`);
@@ -197,7 +198,7 @@ export async function scanSite(options: ScanOptions, existingBrowser?: Browser):
   const context = await browser.createBrowserContext();
   const userAgent = await realisticUserAgent(browser);
 
-  const robots = options.respectRobots === false ? ALLOW_ALL : await fetchRobots(startUrl, userAgent);
+  const robots = options.respectRobots === false ? ALLOW_ALL : await fetchRobots(startUrl, userAgent, { guard: options.guard });
   if (robots.rules.length) log("DEBUG", `robots.txt loaded with ${robots.rules.length} rules`, startUrl);
 
   let siteHost = new URL(startUrl).hostname;
@@ -208,6 +209,7 @@ export async function scanSite(options: ScanOptions, existingBrowser?: Browser):
   const queue: Array<{ url: string; depth: number }> = [{ url: startUrl, depth: 0 }];
   const seen = new Set<string>([startUrl]);
   let aborted = false;
+  let timedOut = false;
 
   const progress = (): ScanProgress => ({
     pagesScanned: pages.length,
@@ -223,6 +225,14 @@ export async function scanSite(options: ScanOptions, existingBrowser?: Browser):
         log("WARN", "Scan aborted before completion", null, { pagesScanned: pages.length });
         break;
       }
+      if (pages.length > 0 && Date.now() >= deadline) {
+        timedOut = true;
+        log("WARN", `Time limit reached after ${pages.length} page(s); stopping with ${queue.length} page(s) unvisited`, null, {
+          pagesScanned: pages.length,
+          deadlineMs: options.deadlineMs,
+        });
+        break;
+      }
       const next = queue.shift()!;
       if (!robots.isAllowed(next.url)) {
         skippedByRobots.push(next.url);
@@ -234,7 +244,10 @@ export async function scanSite(options: ScanOptions, existingBrowser?: Browser):
       const t0 = Date.now();
       const cookiesBefore = aggregator.cookies.size + aggregator.storage.size;
       try {
-        const capture = await capturePage(context, next.url, { userAgent, timeoutMs: pageTimeoutMs, settleMs, guard: options.guard });
+        // Never let one page's load outlast the scan budget (the first page keeps its full timeout).
+        const remaining = pages.length > 0 ? deadline - Date.now() : Number.POSITIVE_INFINITY;
+        const timeoutMs = Math.max(1000, Math.min(pageTimeoutMs, remaining));
+        const capture = await capturePage(context, next.url, { userAgent, timeoutMs, settleMs, guard: options.guard });
         for (const w of capture.warnings) log("WARN", w, next.url);
         if (capture.blocked.length) {
           log("WARN", `Blocked ${capture.blocked.length} request(s) to private or internal addresses`, next.url, { blocked: capture.blocked.slice(0, 10) });
@@ -317,6 +330,7 @@ export async function scanSite(options: ScanOptions, existingBrowser?: Browser):
     startedAt,
     finishedAt: new Date().toISOString(),
     aborted,
+    timedOut,
     pages,
     cookies: [...aggregator.cookies.values()],
     storage: [...aggregator.storage.values()],

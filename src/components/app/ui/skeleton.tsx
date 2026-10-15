@@ -9,13 +9,13 @@ export function Skeleton({ className = "", style }: { className?: string; style?
 /** The page header band: title and description lines, an action on the right. */
 export function SkeletonHeader({ actions = true }: { actions?: boolean }) {
   return (
-    <div className="mb-8 flex items-end justify-between gap-6 pt-9">
+    <div className="mb-6 flex items-end justify-between gap-6 pt-6 sm:mb-8 sm:pt-8">
       <div className="w-full max-w-md space-y-3">
         <Skeleton className="h-3 w-24" />
         <Skeleton className="h-7 w-64" />
         <Skeleton className="h-4 w-full" />
       </div>
-      {actions ? <Skeleton className="hidden h-9 w-32 sm:block" /> : null}
+      {actions ? <Skeleton className="hidden h-10 w-32 !rounded-full sm:block" /> : null}
     </div>
   );
 }

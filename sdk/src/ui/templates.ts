@@ -57,9 +57,15 @@ function readable(fg: string, bg: string) {
   return ratio(1, b) >= ratio(lum("#0b1020"), b) ? "#fff" : "#0b1020";
 }
 
+/** A theme colour as a safe CSS value: 6-digit hex only, else the fallback (the server validates too). */
+const hex = (v: unknown, fallback: string) => (typeof v === "string" && /^#[\da-f]{6}$/i.test(v) ? v : fallback);
+
 function themeVars(t: PublicConfig["theme"]) {
-  const r = Math.min(Math.max(t.radius, 4), 24);
-  return `--bg:${t.background};--fg:${readable(t.text, t.background)};--ac:${t.accent};--act:${readable(t.accentText, t.accent)};--r:${r}px;--f:${FONTS[t.font] || FONTS.system}`;
+  const r = Math.min(Math.max(Number(t.radius) || 0, 4), 24);
+  const bg = hex(t.background, "#ffffff");
+  const ac = hex(t.accent, "#0b1020");
+  const font = Object.prototype.hasOwnProperty.call(FONTS, t.font) ? FONTS[t.font] : FONTS.system;
+  return `--bg:${bg};--fg:${readable(hex(t.text, "#0b1020"), bg)};--ac:${ac};--act:${readable(hex(t.accentText, "#ffffff"), ac)};--r:${r}px;--f:${font}`;
 }
 
 /* ---------- parts ---------- */
@@ -69,6 +75,7 @@ const svg = (d: string, w = 16) =>
 const SHIELD = svg("M12 3l7.5 3v5.5c0 4.6-3.2 8.3-7.5 9.5-4.3-1.2-7.5-4.9-7.5-9.5V6zM9 12l2 2 4-4");
 const CHEVRON = svg("M9 6l6 6-6 6", 14);
 const CLOSE = svg("M6 6l12 12M18 6L6 18");
+const CARET = svg("M6 15l6-6 6 6", 14);
 
 const btn = (action: string, label: string, cls: string) => `<button type="button" data-a="${action}" class="${cls}">${esc(label)}</button>`;
 
@@ -81,7 +88,7 @@ function head(id: string, title: string, framework: Framework, extra = "") {
 }
 
 function shell(cfg: PublicConfig, code: string, cls: string, inner: string) {
-  return `<div class="w ${cls}" style="${themeVars(cfg.theme)}" lang="${esc(code)}" dir="${isRtl(code) ? "rtl" : "ltr"}">${inner}</div>`;
+  return `<div class="w ${cls}" style="${esc(themeVars(cfg.theme))}" lang="${esc(code)}" dir="${isRtl(code) ? "rtl" : "ltr"}">${inner}</div>`;
 }
 
 const link = (href: string, label: string) => `<a href="${esc(href)}" target="_blank" rel="noopener">${esc(label)}<span class="sr"> (opens in a new tab)</span></a>`;
@@ -92,6 +99,7 @@ export function bannerHtml(input: RenderInput): string {
   const { cfg, framework } = input;
   const t = cfg.theme;
   const { copy: c, code } = localize(input);
+  if (t.layout === "pill") return pillHtml(input);
   const layout = t.layout === "modal" ? "modal" : t.layout === "toast" ? "toast" : "bar";
   const role = layout === "modal" ? 'role="dialog" aria-modal="true"' : 'role="region"';
   const policyUrl = safeUrl(cfg.policyUrl);
@@ -103,6 +111,27 @@ export function bannerHtml(input: RenderInput): string {
     `<div class="b" ${role} aria-labelledby="pt-t" aria-describedby="pt-d">
 <div class="tx">${head("pt-t", c.title, framework)}<p id="pt-d">${esc(c.body)} ${policy}</p></div>
 <div class="bt">${btn("prefs", c.customize, "s c")}${choices(c, t.equalButtons)}</div></div>`,
+  );
+}
+
+/**
+ * Floating pill: a compact pill (title + disclosure) that expands to the notice and the choices.
+ * Reject and Accept always carry equal weight here, whatever equalButtons says.
+ */
+function pillHtml(input: RenderInput): string {
+  const { cfg, framework } = input;
+  const { copy: c, code } = localize(input);
+  const policyUrl = safeUrl(cfg.policyUrl);
+  const policy = policyUrl ? link(policyUrl, c.policyLabel) : "";
+  const badge = BADGE[framework] ? `<span class="bd">${BADGE[framework]} notice</span>` : "";
+  return shell(
+    cfg,
+    code,
+    "pill",
+    `<div class="b" role="region" aria-labelledby="pt-t">
+<button type="button" class="pt" data-a="expand" aria-expanded="false" aria-controls="pt-pp">${SHIELD}<span id="pt-t">${esc(c.title)}</span>${CARET}</button>
+<div class="pp" id="pt-pp" hidden>${badge}<p id="pt-d">${esc(c.body)} ${policy}</p>
+<div class="bt">${btn("prefs", c.customize, "s c")}${choices(c, true)}</div></div></div>`,
   );
 }
 
@@ -135,11 +164,12 @@ export function prefsHtml(input: RenderInput): string {
   const dpdpa = framework === "dpdpa";
   const rows = categories
     .map((k) => {
-      const id = `pt-${k.id}`;
+      const kid = esc(k.id);
+      const id = `pt-${kid}`;
       const on = k.required || cats[k.id as CategoryId];
       const control = k.required
         ? `<span class="on">Always Active</span>`
-        : `<button type="button" class="sw" role="switch" data-c="${k.id}" aria-labelledby="${id}" aria-checked="${on}"></button>`;
+        : `<button type="button" class="sw" role="switch" data-c="${kid}" aria-labelledby="${id}" aria-checked="${on}"></button>`;
       const data = k.dataItems?.length
         ? `<p class="k">Data collected</p><ul class="di">${k.dataItems.map((d) => `<li>${esc(d)}</li>`).join("")}</ul>`
         : "";

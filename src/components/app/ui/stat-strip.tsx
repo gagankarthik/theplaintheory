@@ -14,7 +14,7 @@ export interface Stat {
   href?: string;
 }
 
-const toneClass = { bad: "text-rose", warn: "text-amber", good: "text-jade" } as const;
+const toneClass = { bad: "text-destructive", warn: "text-warning", good: "text-success" } as const;
 
 /**
  * The page's numbers at a glance: one divided row, 2 columns on phones and up to 4 on desktop.
@@ -24,19 +24,19 @@ const toneClass = { bad: "text-rose", warn: "text-amber", good: "text-jade" } as
 export function StatStrip({ stats, label, className = "mb-6" }: { stats: Stat[]; label: string; className?: string }) {
   const cols = stats.length >= 4 ? "lg:grid-cols-4" : stats.length === 3 ? "sm:grid-cols-3" : "sm:grid-cols-2";
   return (
-    <ul aria-label={label} className={`grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-line bg-line shadow-[var(--shadow-edge)] ${cols} ${className}`}>
+    <ul aria-label={label} className={`grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-line bg-line ${cols} ${className}`}>
       {stats.map((t) => {
         const body = (
           <>
-            <span className="block text-[0.8125rem] text-ink-3 group-hover:text-ink-2">{t.label}</span>
-            <span className={`mt-1 block break-words text-2xl font-semibold tabular-nums tracking-tight ${t.tone ? toneClass[t.tone] : "text-ink"}`}>{t.value}</span>
+            <span className="block text-sm text-ink-3 group-hover:text-ink-2">{t.label}</span>
+            <span className={`mt-1.5 block break-words text-2xl font-semibold leading-tight tabular-nums tracking-tight ${t.tone ? toneClass[t.tone] : "text-ink"}`}>{t.value}</span>
             {t.note ? <span className="mt-0.5 block text-xs text-ink-3">{t.note}</span> : null}
           </>
         );
         return (
           <li key={t.label} className={`bg-surface ${stats.length === 3 ? "max-sm:last:col-span-2" : ""}`}>
             {t.href ? (
-              <Link href={t.href} className="group block h-full px-5 py-4 transition-colors hover:bg-raised">
+              <Link href={t.href} className="group block h-full px-5 py-4 transition-colors duration-150 hover:bg-raised focus-visible:-outline-offset-2">
                 {body}
               </Link>
             ) : (

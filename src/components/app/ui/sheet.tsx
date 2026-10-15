@@ -4,8 +4,9 @@ import { useEffect, useId, useRef, type ReactNode } from "react";
 import { IconClose } from "@/components/icons";
 
 /**
- * Side panel on the native <dialog> (focus trap, Esc, inert page behind): for row details such as a
- * tracker, a scan or a receipt, where the list should stay in view. Slides in from the right.
+ * Side panel on the native <dialog> (focus trap, Esc, inert page behind a scrim): for row details such
+ * as a tracker, a scan or a receipt, where the list should stay in view. Slides in from the right on
+ * wider screens; on phones it is a full-width sheet.
  */
 export function Sheet({
   open,
@@ -46,7 +47,7 @@ export function Sheet({
         (opener.current as HTMLElement | null)?.focus?.();
       }}
       onClick={(e) => e.target === ref.current && onClose()}
-      className="m-0 ml-auto h-dvh max-h-dvh border-l border-line bg-surface p-0 text-ink shadow-[var(--shadow-float)] backdrop:bg-[#05070d]/45 open:animate-[sheet-in_0.38s_var(--ease-spring)]"
+      className="pt-sheet-right m-0 ml-auto h-dvh max-h-dvh border-l border-line bg-surface p-0 text-ink shadow-[var(--shadow-float)] backdrop:bg-[rgb(15_15_15/0.55)] sm:rounded-l-xl"
       style={{ width: `min(${width}px, 100vw)` }}
     >
       {open ? (
@@ -58,7 +59,7 @@ export function Sheet({
               </h2>
               {description ? <div className="mt-0.5 text-sm text-ink-3">{description}</div> : null}
             </div>
-            <button type="button" onClick={onClose} className="-mr-1.5 grid size-8 shrink-0 place-items-center rounded-md text-ink-3 hover:bg-paper hover:text-ink" aria-label="Close panel">
+            <button type="button" onClick={onClose} className="-mr-2 -mt-1 grid size-10 shrink-0 place-items-center rounded-full text-ink-3 transition-colors duration-150 hover:bg-paper hover:text-ink" aria-label="Close panel">
               <IconClose size={16} />
             </button>
           </div>
@@ -66,7 +67,6 @@ export function Sheet({
           {footer ? <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-line bg-raised px-5 py-3">{footer}</div> : null}
         </div>
       ) : null}
-      <style>{`@keyframes sheet-in{from{transform:translateX(24px);opacity:0}}`}</style>
     </dialog>
   );
 }

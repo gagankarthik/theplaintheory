@@ -69,7 +69,7 @@ None of these can be done in code. Each one needs an owner and a calendar entry.
    (MDM), MFA on AWS, GitHub, Stripe and Google Workspace, and AWS CloudTrail with GuardDuty on
    every account.
 6. **Production configuration.** Set `SESSION_SECRET`, `MFA_ENCRYPTION_KEY`, `INTERNAL_CRON_SECRET`
-   and `IP_HASH_SALT` from a secrets manager. Schedule `POST /api/internal/retention` daily. Turn on
+   and `IP_HASH_SECRET` from a secrets manager. Schedule `POST /api/internal/retention` daily. Turn on
    "Require two-factor" for the company's own organization.
 7. **Penetration test.** Commission an independent test before the observation period and fix
    high and critical findings.

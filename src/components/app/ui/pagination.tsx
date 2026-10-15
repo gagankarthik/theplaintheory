@@ -21,16 +21,16 @@ export function Pagination({
 }) {
   return (
     <nav aria-label={label} className="flex flex-wrap items-center justify-between gap-3">
-      <p className="text-xs text-ink-3">{showing}</p>
+      <p className="text-xs tabular-nums text-ink-3">{showing}</p>
       {newestHref || olderHref ? (
         <div className="flex gap-2">
           {newestHref ? (
-            <ButtonLink href={newestHref} variant="ghost" size="sm">
+            <ButtonLink href={newestHref} variant="secondary" size="sm">
               Newest
             </ButtonLink>
           ) : null}
           {olderHref ? (
-            <ButtonLink href={olderHref} variant="ghost" size="sm">
+            <ButtonLink href={olderHref} variant="secondary" size="sm">
               Older <span aria-hidden>→</span>
             </ButtonLink>
           ) : null}

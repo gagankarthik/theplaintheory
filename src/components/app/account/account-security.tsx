@@ -20,8 +20,10 @@ import {
   type RecoveryState,
 } from "@/app/app/account/actions";
 import { passkeyErrorMessage, useWebAuthnSupport } from "@/components/app/auth/passkey-client";
+import { Alert } from "@/components/app/ui/alert";
 import { Badge } from "@/components/app/ui/badge";
-import { Button } from "@/components/app/ui/button";
+import { Button, ButtonAnchor } from "@/components/app/ui/button";
+import { ConfirmDialog } from "@/components/app/ui/confirm-dialog";
 import { CopyButton } from "@/components/app/ui/copy-button";
 import { Dialog } from "@/components/app/ui/dialog";
 import { TextField } from "@/components/app/ui/field";
@@ -56,21 +58,25 @@ function RecoveryCodes({ codes }: { codes: string[] }) {
   const text = codes.join("\n");
   const href = `data:text/plain;charset=utf-8,${encodeURIComponent(`Plain Theory recovery codes\nEach code works once.\n\n${text}\n`)}`;
   return (
-    <div className="rounded-lg border-[1.5px] border-dashed border-amber-bright bg-amber-wash p-4">
-      <p className="text-sm font-semibold text-amber">Save these recovery codes now. They won&apos;t be shown again.</p>
-      <p className="mt-1 text-sm text-ink-2">Each one signs you in once if you lose your phone or passkey. Store them in your password manager.</p>
-      <ol className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1 font-mono text-sm text-ink" aria-label="Recovery codes">
+    <Alert
+      tone="warning"
+      title="Save these recovery codes now. They won't be shown again."
+      actions={
+        <>
+          <CopyButton value={text} label="Copy codes" />
+          <ButtonAnchor href={href} download="plain-theory-recovery-codes.txt" variant="quiet" size="sm">
+            Download .txt
+          </ButtonAnchor>
+        </>
+      }
+    >
+      <p>Each one signs you in once if you lose your phone or passkey. Store them in your password manager.</p>
+      <ol className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1 rounded-md bg-surface px-3 py-2.5 font-mono text-sm text-ink ring-1 ring-inset ring-line" aria-label="Recovery codes">
         {codes.map((c) => (
           <li key={c}>{c}</li>
         ))}
       </ol>
-      <div className="mt-3 flex flex-wrap gap-2">
-        <CopyButton value={text} label="Copy codes" />
-        <a href={href} download="plain-theory-recovery-codes.txt" className="inline-flex h-9 items-center rounded-md px-3 text-sm font-semibold text-ink-2 hover:bg-paper hover:text-ink">
-          Download .txt
-        </a>
-      </div>
-    </div>
+    </Alert>
   );
 }
 
@@ -133,18 +139,18 @@ function SecondFactorProof({ id, totp, passkeys, error }: { id: string; totp: bo
     <div className="space-y-3">
       <input ref={hidden} type="hidden" name="assertion" value={assertion ?? ""} />
       {assertion ? (
-        <p role="status" className="flex items-center gap-2 text-sm text-jade">
+        <p role="status" className="flex items-center gap-2 text-sm font-medium text-success">
           <IconCheck size={16} aria-hidden /> Confirmed with your passkey.
         </p>
       ) : (
         <>
           {usePasskey ? (
             <div className="space-y-2">
-              <Button variant="ghost" loading={pending} loadingLabel="Waiting for your passkey" onClick={confirm}>
+              <Button variant="secondary" loading={pending} loadingLabel="Waiting for your passkey" onClick={confirm}>
                 Confirm with a passkey
               </Button>
               {problem ? (
-                <p role="alert" className="text-xs font-semibold text-rose">
+                <p role="alert" className="text-xs font-medium text-destructive">
                   {problem}
                 </p>
               ) : null}
@@ -228,20 +234,20 @@ function RequirementNotice({ requirement }: { requirement: MfaRequirementInfo })
   const due = day(requirement.deadline);
   if (requirement.state === "deferred") {
     return (
-      <div className="my-4 rounded-md bg-amber-wash px-4 py-3 text-sm text-amber">
-        <strong className="font-semibold">{requirement.orgName} requires two-factor sign-in.</strong> Set it up by {due} to keep using Plain Theory.
-      </div>
+      <Alert tone="warning" className="my-4" title={`${requirement.orgName} requires two-factor sign-in`}>
+        Set it up by {due} to keep using Plain Theory.
+      </Alert>
     );
   }
   return (
-    <div role="alert" className="my-4 flex flex-wrap items-center justify-between gap-3 rounded-md bg-amber-wash px-4 py-3 text-sm text-amber">
-      <p>
-        <strong className="font-semibold">{requirement.orgName} requires two-factor sign-in.</strong>{" "}
-        {requirement.canSkip ? `Set it up below. You can skip until ${due}.` : "Set it up below to keep using Plain Theory."}
-      </p>
-      {requirement.canSkip ? (
-        <Button
-          variant="ghost"
+    <Alert
+      tone="warning"
+      className="my-4"
+      title={`${requirement.orgName} requires two-factor sign-in`}
+      actions={
+        requirement.canSkip ? (
+          <Button
+            variant="secondary"
           size="sm"
           loading={pending}
           loadingLabel="Skipping"
@@ -252,10 +258,13 @@ function RequirementNotice({ requirement }: { requirement: MfaRequirementInfo })
             })
           }
         >
-          Skip for now
-        </Button>
-      ) : null}
-    </div>
+            Skip for now
+          </Button>
+        ) : undefined
+      }
+    >
+      {requirement.canSkip ? `Set it up below. You can skip until ${due}.` : "Set it up below to keep using Plain Theory."}
+    </Alert>
   );
 }
 
@@ -313,11 +322,11 @@ function PasskeysRow({
     >
       <div className="space-y-4">
         {passkeys.length ? (
-          <ul className="divide-y divide-line rounded-lg border border-line" aria-label="Your passkeys">
+          <ul className="divide-y divide-line rounded-md border border-line" aria-label="Your passkeys">
             {passkeys.map((p) => (
               <li key={p.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-ink">{p.name}</p>
+                  <p className="truncate text-sm font-medium text-ink">{p.name}</p>
                   <p className="mt-0.5 text-xs text-ink-3">
                     Added {day(p.createdAt)} · {p.lastUsedAt ? `last used ${day(p.lastUsedAt)}` : "not used to sign in yet"}
                   </p>
@@ -352,7 +361,7 @@ function PasskeysRow({
               error={state?.fieldErrors?.name}
             />
             {state?.error && !state.fieldErrors ? <FormMessage state={state} /> : null}
-            <Button type="submit" variant={primary ? "primary" : "ghost"} loading={pending} loadingLabel="Waiting for your device" disabled={supported === null}>
+            <Button type="submit" variant={primary ? "primary" : "secondary"} loading={pending} loadingLabel="Waiting for your device" disabled={supported === null}>
               {passkeys.length ? "Add another passkey" : "Add a passkey"}
             </Button>
           </form>
@@ -419,7 +428,7 @@ function RemoveFactorDialog({
             This is your only two-factor method, and {orgRequiring} requires two-factor. Add another passkey or an authenticator app first, then remove this one.
           </p>
           <div className="flex justify-end">
-            <Button variant="ghost" onClick={onClose}>
+            <Button variant="secondary" onClick={onClose}>
               Close
             </Button>
           </div>
@@ -430,14 +439,12 @@ function RemoveFactorDialog({
             <input key={k} type="hidden" name={k} value={v} />
           ))}
           {last ? (
-            <p className="rounded-md bg-rose-wash px-3 py-2.5 text-sm text-rose">
-              This is your only two-factor method. Removing it turns two-factor off, and your recovery codes stop working.
-            </p>
+            <Alert tone="warning">This is your only two-factor method. Removing it turns two-factor off, and your recovery codes stop working.</Alert>
           ) : null}
           <SecondFactorProof id="remove-proof" totp={totp} passkeys={passkeys} error={state?.fieldErrors?.code} />
           {state?.error && !state.fieldErrors ? <FormMessage state={state} /> : null}
-          <div className="flex flex-wrap justify-end gap-2">
-            <Button variant="ghost" onClick={onClose}>
+          <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
+            <Button variant="secondary" onClick={onClose}>
               Cancel
             </Button>
             <SubmitButton variant="danger" pending="Removing">
@@ -516,7 +523,7 @@ function TotpEnrol({ onEnrolling, onCodes }: { onEnrolling: (v: boolean) => void
     return (
       <div className="space-y-3">
         <Button
-          variant="ghost"
+          variant="secondary"
           loading={pending}
           loadingLabel="Preparing"
           onClick={() =>
@@ -549,15 +556,15 @@ function TotpEnrol({ onEnrolling, onCodes }: { onEnrolling: (v: boolean) => void
           <p className="label" id="mfa-key-label">
             Setup key
           </p>
-          <p aria-labelledby="mfa-key-label" className="select-all break-all rounded-md border border-line bg-paper px-3 py-2.5 font-mono text-base tracking-wider text-ink">
+          <p aria-labelledby="mfa-key-label" className="select-all break-all rounded-md border border-line bg-raised px-3 py-2.5 font-mono text-base tracking-wider text-ink">
             {grouped}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <CopyButton value={setup.secret} label="Copy key" />
-          <a href={setup.uri} className="inline-flex h-9 items-center rounded-md px-3 text-sm font-semibold text-brand-ink hover:bg-paper">
+          <ButtonAnchor href={setup.uri} variant="quiet" size="sm">
             Open in authenticator app
-          </a>
+          </ButtonAnchor>
         </div>
         <p className="text-xs text-ink-3">Type: time-based (TOTP) · 6 digits · 30 seconds · SHA-1</p>
       </div>
@@ -594,7 +601,7 @@ function RecoveryRow({ totp, passkeys }: { totp: boolean; passkeys: boolean }) {
         <form action={regen} className="space-y-3" noValidate>
           <SecondFactorProof id="mfa-regen" totp={totp} passkeys={passkeys} error={codes?.fieldErrors?.code} />
           {codes?.error && !codes.fieldErrors ? <FormMessage state={codes} /> : null}
-          <SubmitButton variant="ghost" pending="Creating">
+          <SubmitButton variant="secondary" pending="Creating">
             Create new recovery codes
           </SubmitButton>
         </form>
@@ -622,6 +629,7 @@ export function SessionsSection({ sessions }: { sessions: SessionRow[] }) {
   const toast = useToast();
   const [pending, start] = useTransition();
   const [showAll, setShowAll] = useState(false);
+  const [confirmAll, setConfirmAll] = useState(false);
   const listId = useId();
   // this browser first, then most recently active
   const ordered = [...sessions].sort((a, b) => Number(b.current) - Number(a.current) || b.lastSeenAt.localeCompare(a.lastSeenAt));
@@ -636,31 +644,32 @@ export function SessionsSection({ sessions }: { sessions: SessionRow[] }) {
   const others = sessions.filter((s) => !s.current).length;
   return (
     <SettingsSection
+      id="sessions"
       title="Where you're signed in"
-      description="Sessions end after 30 minutes without activity and 12 hours after sign-in, whichever comes first."
+      description="Sessions end after 30 minutes without activity, or 12 hours after sign-in."
       footer={
         others ? (
-          <Button variant="ghost" disabled={pending} onClick={() => run(signOutOtherSessions)}>
+          <Button variant="secondary" disabled={pending} onClick={() => setConfirmAll(true)} aria-haspopup="dialog">
             Sign out everywhere else
           </Button>
         ) : null
       }
     >
-      <ul id={listId} className="divide-y divide-line">
+      <ul id={listId} aria-label="Sessions" className="divide-y divide-line">
         {visible.map((s) => (
           <li key={s.id} className="flex flex-wrap items-center justify-between gap-3 py-4">
             <div className="min-w-0">
-              <p className="flex flex-wrap items-center gap-2 text-sm font-semibold">
+              <p className="flex flex-wrap items-center gap-2 text-sm font-medium text-ink">
                 {s.device}
                 {s.current ? <Badge tone="brand">This browser</Badge> : null}
                 {s.mfaVerified ? <Badge tone="neutral">Two-factor</Badge> : null}
               </p>
               <p className="mt-0.5 text-xs text-ink-3">
-                Signed in {when(s.createdAt)} · last active {when(s.lastSeenAt)} · ends by {when(s.expiresAt)}
+                Last active {when(s.lastSeenAt)} · signed in {when(s.createdAt)} · ends by {when(s.expiresAt)}
               </p>
             </div>
             {s.current ? null : (
-              <Button variant="quiet" size="sm" className="max-sm:min-w-11" disabled={pending} onClick={() => run(() => revokeSession(s.id))}>
+              <Button variant="quiet" size="sm" disabled={pending} onClick={() => run(() => revokeSession(s.id))}>
                 Sign out<span className="sr-only"> {s.device} session, last active {when(s.lastSeenAt)}</span>
               </Button>
             )}
@@ -668,12 +677,26 @@ export function SessionsSection({ sessions }: { sessions: SessionRow[] }) {
         ))}
       </ul>
       {hidden > 0 ? (
-        <div className="border-t border-line pt-3">
+        <div className="py-3">
           <Button variant="quiet" size="sm" aria-expanded={showAll} aria-controls={listId} onClick={() => setShowAll((v) => !v)}>
             {showAll ? "Show fewer sessions" : `Show all ${ordered.length} sessions`}
           </Button>
         </div>
       ) : null}
+      <ConfirmDialog
+        open={confirmAll}
+        onClose={() => setConfirmAll(false)}
+        title="Sign out everywhere else?"
+        description={`${others} other session${others === 1 ? "" : "s"} will be signed out. This browser stays signed in.`}
+        confirmLabel="Sign out other sessions"
+        pendingLabel="Signing out"
+        destructive
+        onConfirm={async () => {
+          const r = await signOutOtherSessions();
+          if (r?.error) return { error: r.error };
+          if (r?.ok) toast(r.ok);
+        }}
+      />
     </SettingsSection>
   );
 }
@@ -705,7 +728,7 @@ export function PasswordSection({ mfa, totp, passkeys, changedAt, hint }: { mfa:
           {mfa ? <SecondFactorProof id="pw-code" totp={totp} passkeys={passkeys} error={fe?.code} /> : null}
           {state?.error && !fe ? <FormMessage state={state} /> : null}
           <div>
-            <SubmitButton pending="Changing" variant="ghost">
+            <SubmitButton pending="Changing" variant="secondary">
               Change password
             </SubmitButton>
           </div>

@@ -97,13 +97,13 @@ function ConfirmBody({ onClose, confirmLabel, pendingLabel, destructive, typeToC
         </div>
       ) : null}
       {error ? (
-        <p role="alert" className="flex items-start gap-2 rounded-md bg-rose-wash px-3 py-2.5 text-sm text-rose">
+        <p role="alert" className="flex items-start gap-2 rounded-md bg-destructive-wash px-3 py-2.5 text-sm text-destructive">
           <IconAlert size={18} aria-hidden className="mt-0.5 shrink-0" />
           <span>{error}</span>
         </p>
       ) : null}
       <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
-        <Button variant="ghost" onClick={onClose} className="max-sm:h-11">
+        <Button variant="secondary" onClick={onClose} className="max-sm:h-11">
           Cancel
         </Button>
         <Button type="submit" variant={destructive ? "danger" : "primary"} loading={pending} loadingLabel={pendingLabel} disabled={locked} className="max-sm:h-11">

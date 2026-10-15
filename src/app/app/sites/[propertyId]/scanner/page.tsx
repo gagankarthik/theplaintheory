@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
+import { ScanScheduleCard } from "@/components/app/scanner/scan-schedule";
 import { ScannerConsole, type ScanHistoryRow } from "@/components/app/scanner/scanner-console";
-import { PageHeader } from "@/components/app/shell/page-header";
+import { LearnMore } from "@/components/app/configure/learn-more";
 import { requireProperty } from "@/lib/auth/access";
 import { can } from "@/lib/auth/rbac";
 import { activeScan, CRAWL_LIMITS, crawlerMode } from "@/lib/crawler";
@@ -23,18 +24,30 @@ export default async function ScannerPage(props: PageProps<"/app/sites/[property
     preConsent: s.preConsent?.length ?? 0,
     error: s.error,
   }));
+  const canWrite = can(role, "property:write");
   return (
-    <>
-      <PageHeader eyebrow="Configure" title="Scanner" description="Find out what your site sets before visitors consent. Findings go to the cookie catalog for review." />
-      <ScannerConsole
-        propertyId={property.id}
-        domain={property.domain}
-        mode={crawlerMode()}
-        limits={CRAWL_LIMITS}
-        canWrite={can(role, "property:write")}
-        initial={running ?? scans[0] ?? null}
-        history={history}
-      />
-    </>
+    <ScannerConsole
+      propertyId={property.id}
+      domain={property.domain}
+      mode={crawlerMode()}
+      limits={CRAWL_LIMITS}
+      canWrite={canWrite}
+      initial={running ?? scans[0] ?? null}
+      history={history}
+      description={
+        <>
+          Find what your site sets before visitors consent. Findings go to the cookie catalog. <LearnMore anchor="scanner" topic="the scanner" />
+        </>
+      }
+      schedule={
+        <ScanScheduleCard
+          propertyId={property.id}
+          canWrite={canWrite}
+          frequency={property.scanSchedule?.frequency ?? "off"}
+          nextDueAt={property.scanSchedule?.nextDueAt ?? null}
+          lastRunAt={property.scanSchedule?.lastRunAt}
+        />
+      }
+    />
   );
 }

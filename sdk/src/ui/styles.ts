@@ -27,6 +27,12 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline:2px solid var(
 .bar .bt{margin:0;flex:none;grid-auto-columns:auto}.bar .bt button{white-space:nowrap}
 .toast{bottom:16px;width:min(392px,calc(100vw - 32px))}.toast.bottom-left{left:16px}.toast:not(.bottom-left){right:16px}
 .toast .bt,.modal .bt{grid-template-columns:1fr 1fr;grid-auto-flow:row}.toast .c,.modal .c{grid-column:1/-1;order:3}
+.pill{left:50%;bottom:16px;transform:translateX(-50%);width:max-content;max-width:calc(100vw - 32px)}
+.pill .b{padding:4px;border-radius:99px}.pill.op .b{border-radius:var(--r);padding:6px 16px 16px;width:min(420px,calc(100vw - 32px))}
+.pt{display:flex;align-items:center;gap:8px;width:100%;background:none;padding:6px 14px;border-radius:99px;font-weight:600;text-align:start}.pt:hover{background:var(--tn)}
+.pt svg{flex:none}.pt svg:last-child{margin-inline-start:auto;transition:transform .18s}.pt[aria-expanded=true] svg:last-child{transform:rotate(180deg)}
+.pp{padding:6px 4px 0}.pp[hidden]{display:none}.pp .bd{display:inline-block;margin:0 0 6px}
+.pill .bt{grid-template-columns:1fr 1fr;grid-auto-flow:row}.pill .c{grid-column:1/-1;order:3}
 .modal{inset:0;display:grid;place-items:center;padding:16px;background:rgba(11,16,32,.42);animation:fd .2s}
 .modal .b{width:min(500px,100%);max-height:calc(100dvh - 32px);overflow:auto;padding:24px}
 .pf .b{width:min(600px,100%);padding:0;display:flex;flex-direction:column;overflow:hidden}
@@ -60,10 +66,14 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline:2px solid var(
 @media (max-width:480px){.bar,.toast,.bar.top{left:0;right:0;bottom:0;top:auto;width:auto}.modal{padding:0;place-items:end stretch}
 .b,.modal .b,.bar .b{border-radius:var(--r) var(--r) 0 0;max-height:85dvh;overflow:auto;width:100%}.pf .b{overflow:hidden}
 .bt,.bar .bt,.toast .bt,.modal .bt,.pf .bt{grid-template-columns:1fr;grid-auto-flow:row}.c{order:3}
+.pill{bottom:12px;max-width:calc(100vw - 24px)}.pill .b{border-radius:99px;width:auto;overflow:visible}.pill.op .b{border-radius:var(--r);width:calc(100vw - 24px);overflow:auto}
 button{min-height:44px}.ex{min-height:44px}.fab{left:12px;bottom:12px}.fab.r{right:12px}.fab button{height:48px;min-width:48px;padding:0 15px}.pf .hd{flex-wrap:wrap;padding:16px}.pf h2{flex:1 1 60%}.sc{padding:14px 16px 4px}.pf .bt{padding:12px 16px 8px}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 @media (forced-colors:active){button,.sw,.ac{border:1px solid ButtonText}.sw[aria-checked=true]:after{background:Highlight}}
 `;
+
+/** Applied after a site's custom CSS (which has !important stripped): Reject and Accept can't be hidden. */
+export const GUARD = `.bt{display:grid!important}.bt,[data-a=reject],[data-a=accept]{visibility:visible!important;opacity:1!important}[data-a=reject],[data-a=accept]{display:block!important}`;
 
 export const FONTS: Record<string, string> = {
   system: "ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',sans-serif",

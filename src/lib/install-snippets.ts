@@ -18,6 +18,8 @@ export interface InstallTarget {
   api?: string;
   /** published settings JSON on the CDN */
   configUrl?: string;
+  /** Google Consent Mode is on: data-gcm lets the SDK set consent defaults before its config arrives */
+  gcm?: boolean;
 }
 
 export type MethodGroup = "code" | "platform";
@@ -35,7 +37,7 @@ export interface InstallMethod {
 
 /** Attributes as [name, value] pairs, so each syntax (HTML, JSX, objects) can render them. */
 function attrs(t: InstallTarget): [string, string][] {
-  return [["src", t.src], ["data-site", t.siteKey], ...(t.api ? [["data-api", t.api] as [string, string]] : []), ...(t.configUrl ? [["data-config-url", t.configUrl] as [string, string]] : [])];
+  return [["src", t.src], ["data-site", t.siteKey], ...(t.api ? [["data-api", t.api] as [string, string]] : []), ...(t.configUrl ? [["data-config-url", t.configUrl] as [string, string]] : []), ...(t.gcm ? [["data-gcm", "true"] as [string, string]] : [])];
 }
 
 const html = (t: InstallTarget, indent = "") =>

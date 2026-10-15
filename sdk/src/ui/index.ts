@@ -1,5 +1,6 @@
 import type { CategoryId, Cats } from "../types";
-import { CSS } from "./styles";
+import { sanitizeCss } from "../../../src/lib/custom-css";
+import { CSS, GUARD } from "./styles";
 import { bannerHtml, fabHtml, prefsHtml, type RenderInput, type View } from "./templates";
 
 export type { RenderInput, View };
@@ -53,12 +54,22 @@ export function createUi() {
 
     const html = view === "banner" ? bannerHtml(input) : view === "prefs" ? prefsHtml(input) : view === "fab" && input.fab ? fabHtml(input) : "";
     root.innerHTML = html ? `<style>${CSS}</style>${html}` : "";
+    // Custom CSS: its own <style> after the built-in one, set as text (never parsed as HTML) and
+    // sanitised again here; the guard after it keeps Reject and Accept visible.
+    const custom = html && sanitizeCss(input.cfg.theme.customCss);
+    if (custom) {
+      const st = document.createElement("style");
+      st.textContent = custom;
+      const guard = document.createElement("style");
+      guard.textContent = GUARD;
+      root.firstChild!.after(st, guard);
+    }
 
     const draft: Cats = { ...input.cats, essential: true };
     root.querySelectorAll<HTMLButtonElement>("button").forEach((b) => {
       b.onclick = () => {
         const cat = b.getAttribute("data-c") as CategoryId | null;
-        if (cat) {
+        if (cat && Object.prototype.hasOwnProperty.call(draft, cat)) {
           draft[cat] = !draft[cat];
           b.setAttribute("aria-checked", String(draft[cat]));
           return;
@@ -71,7 +82,12 @@ export function createUi() {
           return;
         }
         const a = b.getAttribute("data-a");
-        if (a === "more") {
+        if (a === "expand") {
+          const open = b.getAttribute("aria-expanded") !== "true";
+          b.setAttribute("aria-expanded", String(open));
+          root.getElementById("pt-pp")!.hidden = !open;
+          b.closest(".w")!.classList.toggle("op", open);
+        } else if (a === "more") {
           const open = b.getAttribute("aria-expanded") !== "true";
           b.setAttribute("aria-expanded", String(open));
           b.textContent = open ? "Show less" : "Show more";
@@ -113,6 +129,13 @@ export function createUi() {
       if (e.key === "Escape" && view === "prefs") {
         e.stopPropagation();
         h.close();
+      } else if (e.key === "Escape" && view === "banner") {
+        // collapse an expanded floating pill back to its toggle
+        const t = root.querySelector<HTMLElement>('.pt[aria-expanded="true"]');
+        if (t) {
+          t.click();
+          t.focus();
+        }
       } else if (e.key === "Tab" && dialog) {
         const f = focusables(dialog);
         const i = f.indexOf(root.activeElement as HTMLElement);

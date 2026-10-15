@@ -16,6 +16,8 @@ export interface CrawlerConfig {
   pageTimeoutMs: number;
   settleMs: number;
   pageDelayMs: number;
+  /** CRAWLER_SCAN_DEADLINE_MS: wall-clock budget per scan; when spent the crawl stops and keeps what it found. */
+  scanDeadlineMs: number;
   visibilityTimeoutSec: number;
   heartbeatIntervalMs: number;
   /** Minimum gap between progress writes to the store. */
@@ -32,6 +34,7 @@ export function loadConfig(): CrawlerConfig {
     pageTimeoutMs: intEnv("CRAWLER_PAGE_TIMEOUT_MS", 30_000, 1000),
     settleMs: intEnv("CRAWLER_SETTLE_MS", 1500, 0),
     pageDelayMs: intEnv("CRAWLER_PAGE_DELAY_MS", 500, 0),
+    scanDeadlineMs: intEnv("CRAWLER_SCAN_DEADLINE_MS", 10 * 60_000, 30_000),
     visibilityTimeoutSec: intEnv("CRAWLER_VISIBILITY_TIMEOUT_SEC", 180, 30),
     heartbeatIntervalMs: intEnv("CRAWLER_HEARTBEAT_MS", 60_000, 5000),
     progressIntervalMs: intEnv("CRAWLER_PROGRESS_INTERVAL_MS", 1500, 0),

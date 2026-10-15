@@ -4,7 +4,10 @@ import { notFound } from "next/navigation";
 import { AuditTimeline } from "@/components/app/audit/audit-timeline";
 import { VerifyAuditChain, type AuditRow } from "@/components/app/audit/audit-view";
 import { PageHeader } from "@/components/app/shell/page-header";
-import { buttonClass } from "@/components/app/ui/button";
+import { ButtonAnchor } from "@/components/app/ui/button";
+import { SelectField } from "@/components/app/ui/field";
+import { FilterBar } from "@/components/app/ui/filter-bar";
+import { Pagination } from "@/components/app/ui/pagination";
 import { IconDownload } from "@/components/icons";
 import { StatStrip } from "@/components/app/ui/stat-strip";
 import { AUDIT_ACTION_LABELS, verifyAuditChain } from "@/lib/audit";
@@ -12,7 +15,6 @@ import { can } from "@/lib/auth/rbac";
 import { requireUser } from "@/lib/auth/session";
 import { getStore } from "@/lib/store";
 import type { AuditEvent } from "@/lib/types";
-import { Select } from "@/components/app/ui/select";
 
 export const metadata: Metadata = { title: "Audit log" };
 
@@ -101,19 +103,21 @@ export default async function AuditPage(props: PageProps<"/app/audit">) {
   const chain = verifyAuditChain(trail);
   const n = (v: number) => v.toLocaleString("en-GB");
 
+  const people = members.filter((m) => m.user);
+
   return (
     <>
       <PageHeader
         live
         title="Audit log"
-        description={`Who changed what in ${org.name}: sign-ins, access, settings, publishing and exports.`}
+        description={`Who changed what in ${org.name}, in a tamper-evident chain.`}
         actions={
           <>
             <VerifyAuditChain />
-            <a className={buttonClass("primary")} href={`/api/app/audit/export${filterQs.size ? `?${filterQs}` : ""}`} download>
-              <IconDownload size={18} />
+            <ButtonAnchor variant="primary" href={`/api/app/audit/export${filterQs.size ? `?${filterQs}` : ""}`} download>
+              <IconDownload size={18} aria-hidden />
               Export CSV
-            </a>
+            </ButtonAnchor>
           </>
         }
       />
@@ -124,12 +128,7 @@ export default async function AuditPage(props: PageProps<"/app/audit">) {
           {
             label: "Events, last 30 days",
             value: n(last30.length),
-            note: `${n(trail.length)} in the whole log`,
-          },
-          {
-            label: "Sign-ins, last 30 days",
-            value: n(signIns),
-            note: "Successful sign-ins",
+            note: `${n(signIns)} sign-in${signIns === 1 ? "" : "s"} · ${n(trail.length)} in the whole log`,
           },
           {
             label: "Failed sign-ins, last 30 days",
@@ -147,78 +146,47 @@ export default async function AuditPage(props: PageProps<"/app/audit">) {
         ]}
       />
 
-      {/* Filters */}
-      <form method="get" className="flex flex-col gap-2 sm:flex-row sm:items-end" aria-label="Filter audit events">
-        <div>
-          <label htmlFor="f-action" className="label">
-            Activity
-          </label>
-          <div className="w-full sm:w-60">
-            <Select
-              id="f-action"
-              name="action"
-              defaultValue={action ?? ""}
-              options={[{ value: "", label: "All activity" }, ...CATEGORIES.map((c) => ({ value: c.value, label: c.label }))]}
-            />
-          </div>
-        </div>
-        <div>
-          <label htmlFor="f-actor" className="label">
-            Person
-          </label>
-          <div className="w-full sm:w-60">
-            <Select
-              id="f-actor"
-              name="actor"
-              defaultValue={actor ?? ""}
-              menuWidth={280}
-              options={[
-                { value: "", label: "Everyone" },
-                ...members
-                  .filter((m) => m.user)
-                  .map((m) => ({
-                    value: m.userId,
-                    label: m.user!.name || m.user!.email,
-                    description: m.user!.email,
-                  })),
-              ]}
-            />
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <button type="submit" className={buttonClass("ghost")}>
-            Apply
-          </button>
-          {action || actor ? (
-            <Link href="/app/audit" className={buttonClass("quiet")}>
-              Clear
-            </Link>
-          ) : null}
-        </div>
-      </form>
+      <FilterBar label="Filter audit events" active={Boolean(action || actor)} clearHref="/app/audit">
+        <SelectField
+          id="f-action"
+          name="action"
+          label="Activity"
+          defaultValue={action ?? ""}
+          menuWidth={280}
+          options={[{ value: "", label: "All activity" }, ...CATEGORIES.map((c) => ({ value: c.value, label: c.label }))]}
+        />
+        <SelectField
+          id="f-actor"
+          name="actor"
+          label="Person"
+          defaultValue={actor ?? ""}
+          menuWidth={280}
+          options={[
+            { value: "", label: "Everyone" },
+            ...people.map((m) => ({
+              value: m.userId,
+              label: m.user!.name || m.user!.email,
+              description: m.user!.email,
+            })),
+          ]}
+        />
+      </FilterBar>
 
-      <div className="mt-6">
-        <AuditTimeline rows={rows} now={now} />
+      <AuditTimeline rows={rows} now={now} filtered={Boolean(action || actor)} />
+
+      <div className="mt-4">
+        <Pagination
+          label="Audit log pages"
+          showing={page.length ? `Showing #${page[page.length - 1].seq} to #${page[0].seq}` : "No events"}
+          newestHref={before ? qs() : null}
+          olderHref={hasMore ? qs({ before: String(page[page.length - 1].seq) }) : null}
+        />
       </div>
-
-      <nav aria-label="Audit log pages" className="mt-4 flex items-center justify-between gap-3 text-sm text-ink-3">
-        <span>{page.length ? `Showing #${page[page.length - 1].seq} to #${page[0].seq}` : "No events"}</span>
-        <span className="flex gap-2">
-          {before ? (
-            <Link href={qs()} className={buttonClass("ghost", "sm")}>
-              Newest
-            </Link>
-          ) : null}
-          {hasMore ? (
-            <Link href={qs({ before: String(page[page.length - 1].seq) })} className={buttonClass("ghost", "sm")}>
-              Older events
-            </Link>
-          ) : null}
-        </span>
-      </nav>
-      <p className="mt-4 text-xs text-ink-3">
-        Times are in UTC. Each event includes the hash of the one before it, so an edited or removed event breaks the chain. Events are kept for at least one year and are never
-        removed by the retention job. IP addresses are stored only as salted hashes of the truncated address.
+      <p className="mt-6 text-xs text-ink-3">
+        Times are in UTC. Events are kept for at least a year; IP addresses are stored only as salted hashes.{" "}
+        <Link href="/security" className="font-medium text-ink underline underline-offset-4">
+          How we protect your data
+        </Link>
       </p>
     </>
   );

@@ -7,7 +7,7 @@ import { Button } from "@/components/app/ui/button";
 export function DownloadJson({ json, filename }: { json: string; filename: string }) {
   return (
     <Button
-      variant="ghost"
+      variant="secondary"
       onClick={() => {
         const url = URL.createObjectURL(new Blob([json], { type: "application/json" }));
         const a = Object.assign(document.createElement("a"), { href: url, download: filename });
@@ -15,7 +15,7 @@ export function DownloadJson({ json, filename }: { json: string; filename: strin
         setTimeout(() => URL.revokeObjectURL(url), 1000);
       }}
     >
-      <IconDownload size={16} /> Download JSON
+      <IconDownload size={18} aria-hidden /> Download JSON
     </Button>
   );
 }

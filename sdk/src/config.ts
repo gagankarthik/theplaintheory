@@ -9,6 +9,8 @@ export interface ScriptSettings {
   /** testing-only geo override (?plain_country / ?plain_region), honoured on localhost or with data-debug */
   country: string | null;
   region: string | null;
+  /** data-gcm on the script tag: Consent Mode on (true) or off (false) before the config arrives; null when absent */
+  gcm: boolean | null;
 }
 
 export function readSettings(script: HTMLScriptElement | null, loc: Location = location): ScriptSettings {
@@ -23,6 +25,7 @@ export function readSettings(script: HTMLScriptElement | null, loc: Location = l
     configUrl: script?.getAttribute("data-config-url") || `${api}/config/${encodeURIComponent(siteKey)}`,
     country: qs.get("plain_country"),
     region: qs.get("plain_region"),
+    gcm: script?.hasAttribute("data-gcm") ? !/^(false|0|off)$/i.test(script.getAttribute("data-gcm") || "") : null,
   };
 }
 

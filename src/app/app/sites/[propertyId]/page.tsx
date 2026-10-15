@@ -1,17 +1,22 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Breakdowns, DecisionsChart, MetricOverview, type PreviousRates } from "@/components/app/analytics/charts";
+import { Breakdowns, CategoryConsent, DecisionsChart, MetricOverview, type PreviousRates } from "@/components/app/analytics/charts";
+import { RangePicker } from "@/components/app/analytics/range-picker";
+import { NextSteps, SiteHealth, type NextStep } from "@/components/app/analytics/site-status";
 import { PageHeader } from "@/components/app/shell/page-header";
 import { PublishBadge } from "@/components/app/ui/badge";
-import { StatStrip } from "@/components/app/ui/stat-strip";
+import { Card } from "@/components/app/ui/card";
+import { EmptyState } from "@/components/app/ui/empty-state";
 import { SetupGuide, setupComplete, type SetupState } from "@/components/app/sites/setup-guide";
-import { formatInt, isoDaysAgo, outcomeOf, rangeDays, summarize } from "@/lib/analytics";
+import { IconOverview } from "@/components/icons";
+import { formatInt, isoDaysAgo, rangeDays, summarizeRollups } from "@/lib/analytics";
 import { requireProperty } from "@/lib/auth/access";
 import { can } from "@/lib/auth/rbac";
 import { FRAMEWORK_META } from "@/lib/defaults";
 import { evaluateFairness } from "@/lib/fairness";
 import { planById } from "@/lib/plans";
 import { dpdpReadiness } from "@/lib/readiness";
+import { mergeRollups, rollupsFromReceipts } from "@/lib/rollups";
 import { heldTrackers } from "@/lib/trackers";
 
 export const metadata: Metadata = { title: "Overview" };
@@ -28,24 +33,30 @@ export default async function OverviewPage(props: PageProps<"/app/sites/[propert
   const both = rangeDays(range * 2);
   const prevDays = both.slice(0, range);
   const days = both.slice(range);
-  const [receipts, counters, leaks] = await Promise.all([
-    store.listReceipts(property.id, { from: `${both[0]}T00:00:00.000Z` }),
+  const [rolled, counters, leaks, [lastScan]] = await Promise.all([
+    store.listDecisionRollups(property.id, both[0], both[both.length - 1]),
     store.listCounters(property.id, both[0], both[both.length - 1]),
     store.listLeaks(property.id, isoDaysAgo(7)),
+    store.listScans(property.id, 1),
   ]);
+  // Daily rollups cover receipts from rolled.fromSeq on. Receipts stored before rollups existed are
+  // counted from the receipts themselves (only those: the query starts below fromSeq), so the sum is
+  // exact on the cut-over day too. No backfill is needed; these reads fade out as the window moves.
+  const legacy =
+    rolled.fromSeq === 1
+      ? []
+      : await store.listReceipts(property.id, { from: `${both[0]}T00:00:00.000Z`, ...(rolled.fromSeq ? { before: rolled.fromSeq } : {}) });
+  const rollups = mergeRollups(rolled.rollups, rollupsFromReceipts(legacy));
   const fairness = evaluateFairness(property.config, { dpoEmail: org.dpo?.email });
   const readiness = dpdpReadiness(property, org, planById(org.plan));
-  // Decisions only: a withdrawal is a receipt but not a choice on the banner.
-  const windowReceipts = receipts.filter((r) => r.timestamp.slice(0, 10) >= both[range] && outcomeOf(r.action));
-  const gpcHonoured = windowReceipts.filter((r) => r.gpc).length;
   const inWindow = (d: string, w: string[]) => d >= w[0] && d <= w[w.length - 1];
-  const s = summarize(
-    receipts.filter((r) => inWindow(r.timestamp.slice(0, 10), days)),
+  const s = summarizeRollups(
+    rollups.filter((r) => inWindow(r.day, days)),
     counters.filter((c) => inWindow(c.day, days)),
     days,
   );
-  const p = summarize(
-    receipts.filter((r) => inWindow(r.timestamp.slice(0, 10), prevDays)),
+  const p = summarizeRollups(
+    rollups.filter((r) => inWindow(r.day, prevDays)),
     counters.filter((c) => inWindow(c.day, prevDays)),
     prevDays,
   );
@@ -55,22 +66,84 @@ export default async function OverviewPage(props: PageProps<"/app/sites/[propert
     partial: p.decisions ? p.partialRate : null,
     bounce: p.views ? p.bounceRate : null,
   };
+  const base = `/app/sites/${property.id}`;
   const dirty = property.config.version !== property.publishedVersion;
+  const published = property.publishedVersion > 0;
+  const trackers = heldTrackers(property.trackers).length;
+  const canWrite = can(role, "property:write");
   const setup: SetupState = {
     propertyId: property.id,
     domain: property.domain,
     bannerEdited: property.config.version > 1,
-    trackers: heldTrackers(property.trackers).length,
-    published: property.publishedVersion > 0,
+    trackers,
+    published,
     seen: s.views + p.views > 0 || s.decisions + p.decisions > 0,
     decisions: s.decisions + p.decisions,
-    canWrite: can(role, "property:write"),
+    canWrite,
   };
+  const inSetup = !setupComplete(setup);
+  const hasData = s.decisions > 0 || s.views > 0;
   const frameworkLabels = Object.fromEntries(Object.entries(FRAMEWORK_META).map(([k, v]) => [k, v.name]));
+  const leakPages = new Set(leaks.map((l) => l.page)).size;
+  const preConsent = lastScan?.preConsent?.length ?? 0;
+
+  // What needs doing, in the order it matters. Unpublished sites are the setup guide's job.
+  const steps: NextStep[] = [];
+  if (leaks.length)
+    steps.push({
+      id: "leaks",
+      tone: "danger",
+      tag: "Leak",
+      title: `${formatInt(leaks.length)} ${leaks.length === 1 ? "tracker fired" : "trackers fired"} after a refusal`,
+      detail: `Seen on ${leakPages} ${leakPages === 1 ? "page" : "pages"} in the last 7 days. Each one needs blocking.`,
+      href: `${base}/leaks?range=7`,
+      cta: "View leaks",
+    });
+  if (fairness.failures.length)
+    steps.push({
+      id: "fairness",
+      tone: "danger",
+      tag: "Blocks publishing",
+      title: `${fairness.failures.length} fairness ${fairness.failures.length === 1 ? "check fails" : "checks fail"}`,
+      detail: fairness.failures[0]?.title ?? "The banner can't be published until this is fixed.",
+      href: `${base}/banner`,
+      cta: "Fix in banner",
+    });
+  if (preConsent)
+    steps.push({
+      id: "pre-consent",
+      tone: "danger",
+      tag: "Before consent",
+      title: `${preConsent} ${preConsent === 1 ? "tracker loads" : "trackers load"} before a choice`,
+      detail: "The last scan found trackers set before the visitor decided.",
+      href: `${base}/scanner`,
+      cta: "Review scan",
+    });
+  if (published && dirty && !inSetup)
+    steps.push({
+      id: "publish",
+      tone: "warning",
+      tag: "Draft",
+      title: "Unpublished changes",
+      detail: "Visitors still see the last published banner.",
+      href: `${base}/banner`,
+      cta: "Review and publish",
+    });
+  if (lastScan?.status === "failed")
+    steps.push({
+      id: "scan",
+      tone: "warning",
+      tag: "Scan",
+      title: "The last tracker scan failed",
+      detail: lastScan.error ?? "Run it again, or check that the site is reachable.",
+      href: `${base}/scanner`,
+      cta: "Open scanner",
+    });
 
   return (
     <>
-      <PageHeader live
+      <PageHeader
+        live
         crumbs={[{ href: "/app", label: "Sites" }, { label: property.name }]}
         title={property.name}
         description={
@@ -78,89 +151,80 @@ export default async function OverviewPage(props: PageProps<"/app/sites/[propert
             {property.domain}
             {/* the top bar shows publish status from md up; phones see it here */}
             <span className="md:hidden">
-              <PublishBadge dirty={dirty} published={property.publishedVersion > 0} />
+              <PublishBadge dirty={dirty} published={published} />
             </span>
           </span>
         }
+        actions={<RangePicker value={range} options={RANGES} />}
       />
 
-      <nav aria-label="Date range" className="mb-5 flex flex-wrap items-center gap-3">
-        <ul className="inline-flex rounded-md border border-line bg-paper p-0.5">
-          {RANGES.map((r) => (
-            <li key={r}>
-              <Link
-                href={`?range=${r}`}
-                scroll={false}
-                aria-current={r === range ? "page" : undefined}
-                className={`inline-flex h-9 items-center rounded-[7px] px-3 text-xs font-semibold transition-colors max-sm:h-11 ${
-                  r === range ? "bg-surface text-ink shadow-[0_1px_2px_rgb(11_16_32/.14)]" : "text-ink-3 hover:bg-line hover:text-ink"
-                }`}
-              >
-                Last {r} days
-              </Link>
-            </li>
-          ))}
-        </ul>
-        <span className="text-xs text-ink-3">Days are in UTC.</span>
-      </nav>
+      <div className="space-y-6">
+        {inSetup ? <SetupGuide {...setup} /> : null}
+        <NextSteps steps={steps} />
 
-      <StatStrip
-        label="Compliance at a glance"
-        stats={[
-          {
-            href: `/app/sites/${property.id}/banner`,
-            label: "Fairness check",
-            value: fairness.failures.length ? `${fairness.failures.length} failing` : `${fairness.score}%`,
-            note: fairness.failures.length ? "Blocks publishing" : fairness.warnings.length ? `${fairness.warnings.length} to review` : "All checks pass",
-            tone: fairness.failures.length > 0 ? "bad" : fairness.warnings.length ? "warn" : undefined,
-          },
-          {
-            href: `/app/sites/${property.id}/dpdp`,
-            label: "DPDP readiness",
-            value: `${readiness.percent}%`,
-            note: `${readiness.passed} of ${readiness.total} checks pass`,
-            tone: readiness.items.some((i) => i.severity === "fail") ? "bad" : undefined,
-          },
-          {
-            href: `/app/sites/${property.id}/leaks?range=7`,
-            label: "Leaks, last 7 days",
-            value: formatInt(leaks.length),
-            note: leaks.length ? `${new Set(leaks.map((l) => l.page)).size} pages affected` : "Nothing fired after a refusal",
-            tone: leaks.length > 0 ? "bad" : undefined,
-          },
-          {
-            href: `/app/sites/${property.id}/logs?gpc=1`,
-            label: "GPC honoured",
-            value: formatInt(gpcHonoured),
-            note: `of ${formatInt(windowReceipts.length)} decisions, last ${range} days`,
-          },
-        ]}
-      />
+        {hasData ? <MetricOverview current={s} previous={previous} range={range} /> : null}
 
-      {!setupComplete(setup) ? (
-        <div className={s.decisions === 0 && s.views === 0 ? "" : "mb-8"}>
-          <SetupGuide {...setup} />
-        </div>
-      ) : null}
-      {s.decisions === 0 && s.views === 0 ? null : (
-        <div className="space-y-6">
-          <MetricOverview current={s} previous={previous} range={range} />
-          <DecisionsChart series={s.series} />
-          <Breakdowns
-            groups={[
-              { title: "Country", rows: s.byCountry },
-              { title: "Legal framework", rows: s.byFramework, labelFor: frameworkLabels },
-              { title: "Device", rows: s.byDevice },
-              { title: "Browser", rows: s.byBrowser },
-            ]}
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
+          {hasData ? (
+            <CategoryConsent
+              granted={s.granted}
+              decisions={s.decisions}
+              previous={p.decisions ? { functional: p.granted.functional / p.decisions, analytics: p.granted.analytics / p.decisions, marketing: p.granted.marketing / p.decisions } : null}
+              range={range}
+            />
+          ) : (
+            <Card className="grid place-items-center">
+              <EmptyState bare icon={<IconOverview size={22} />} title={inSetup ? "Numbers appear after the first decisions" : `No banner activity in the last ${range} days`}>
+                {inSetup ? (
+                  "Once the banner is live and visitors choose, consent rates and trends show here."
+                ) : (
+                  <>
+                    Try a longer range, or check the{" "}
+                    <Link href={`${base}/install`} className="text-ink-2 underline underline-offset-4 hover:text-ink">
+                      install
+                    </Link>{" "}
+                    if you expected visitors.
+                  </>
+                )}
+              </EmptyState>
+            </Card>
+          )}
+          <SiteHealth
+            base={base}
+            scan={lastScan ? { status: lastScan.status, at: lastScan.finishedAt || lastScan.startedAt, preConsent } : null}
+            trackers={trackers}
+            fairness={{ score: fairness.score, failures: fairness.failures.length, warnings: fairness.warnings.length }}
+            readiness={{ percent: readiness.percent, passed: readiness.passed, total: readiness.total, failing: readiness.items.some((i) => i.severity === "fail") }}
+            gpc={s.gpc}
+            decisions={s.decisions}
+            range={range}
+            leaks={leaks.length}
+            leakPages={leakPages}
           />
-          {s.revoked ? (
-            <p className="text-sm text-ink-3">
-              {formatInt(s.revoked)} visitor{s.revoked > 1 ? "s" : ""} withdrew consent in this period. Each withdrawal is a receipt in the consent log.
-            </p>
-          ) : null}
         </div>
-      )}
+
+        {hasData ? (
+          <>
+            <DecisionsChart series={s.series} />
+            <Breakdowns
+              groups={[
+                { title: "Country", rows: s.byCountry },
+                { title: "Legal framework", rows: s.byFramework, labelFor: frameworkLabels },
+                { title: "Device", rows: s.byDevice },
+                { title: "Browser", rows: s.byBrowser },
+              ]}
+            />
+            {s.revoked ? (
+              <p className="text-sm text-ink-3">
+                {formatInt(s.revoked)} {s.revoked === 1 ? "visitor" : "visitors"} withdrew consent in this period.{" "}
+                <Link href={`${base}/logs`} className="text-ink-2 underline underline-offset-4 hover:text-ink">
+                  See the consent log
+                </Link>
+              </p>
+            ) : null}
+          </>
+        ) : null}
+      </div>
     </>
   );
 }

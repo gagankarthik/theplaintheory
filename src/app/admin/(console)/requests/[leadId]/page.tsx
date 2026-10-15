@@ -3,7 +3,9 @@ import { fmtDateTime } from "@/components/admin/format";
 import { LeadStatusActions } from "@/components/admin/lead-status-actions";
 import { LeadStatusBadge, LeadTopicBadge, SeverityBadge, leadSummary } from "@/components/admin/requests-list";
 import { PageHeader } from "@/components/app/shell/page-header";
-import { buttonClass } from "@/components/app/ui/button";
+import { ButtonAnchor } from "@/components/app/ui/button";
+import { Card, CardBody, CardHeader } from "@/components/app/ui/card";
+import { DescriptionList, type DescriptionItem } from "@/components/app/ui/description-list";
 import { canPlatform } from "@/lib/auth/platform";
 import { requireStaff, staffMetadata } from "@/lib/auth/staff";
 import { DETAIL_LABEL, REGION_CHOICES, TOPIC_LABEL, categoryLabel, detailValueLabel, labelOf, leadReference } from "@/lib/lead-options";
@@ -30,7 +32,7 @@ export default async function AdminRequestPage({ params }: { params: Promise<{ l
   const facts: [string, React.ReactNode][] = [
     ["Reference", <span key="ref" className="font-mono">{ref}</span>],
     ["Name", lead.name],
-    ["Email", <a key="email" href={`mailto:${lead.email}`} className="break-all text-brand underline-offset-4 hover:underline">{lead.email}</a>],
+    ["Email", <a key="email" href={`mailto:${lead.email}`} className="break-all text-ink underline underline-offset-4 hover:text-ink-2">{lead.email}</a>],
   ];
   if (lead.company) facts.push(["Company", lead.company]);
   if (lead.category) facts.push([CATEGORY_TITLE[topic], categoryLabel(topic, lead.category)]);
@@ -60,41 +62,31 @@ export default async function AdminRequestPage({ params }: { params: Promise<{ l
         actions={
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-start">
             {canPlatform(ctx.role, "leads:manage") ? <LeadStatusActions leadId={lead.id} status={status} /> : null}
-            <a href={`mailto:${lead.email}?subject=${encodeURIComponent(replySubject)}`} className={buttonClass("ghost", "md", "w-full max-sm:h-11 sm:w-auto")}>
+            <ButtonAnchor variant="secondary" href={`mailto:${lead.email}?subject=${encodeURIComponent(replySubject)}`} className="w-full sm:w-auto">
               Reply by email
-            </a>
+            </ButtonAnchor>
           </div>
         }
       />
 
-      <div className="grid gap-8 lg:grid-cols-12">
-        <section aria-labelledby="message-h" className="lg:col-span-7">
-          <h2 id="message-h" className="mb-3 text-lg font-bold">
-            Message
-          </h2>
-          <div className="rounded-lg border border-line bg-surface px-5 py-4">
-            {lead.subject ? <p className="mb-3 font-bold">{lead.subject}</p> : null}
+      <div className="grid gap-6 lg:grid-cols-12">
+        <Card aria-labelledby="message-h" className="lg:col-span-7">
+          <CardHeader titleId="message-h" title={lead.subject ?? "Message"} description={`Received ${fmtDateTime(lead.createdAt)}`} />
+          <CardBody>
             {lead.message ? (
-              <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-ink-2 [overflow-wrap:anywhere]">{lead.message}</p>
+              <p className="max-w-[70ch] whitespace-pre-wrap text-sm leading-relaxed text-ink-2 [overflow-wrap:anywhere]">{lead.message}</p>
             ) : (
               <p className="text-sm text-ink-3">No message was included.</p>
             )}
-          </div>
-        </section>
-        <section aria-labelledby="facts-h" className="lg:col-span-5">
-          <h2 id="facts-h" className="mb-3 text-lg font-bold">
-            Details
-          </h2>
-          <dl className="divide-y divide-line rounded-lg border border-line bg-surface text-sm">
-            {facts.map(([k, v]) => (
-              <div key={k} className="grid grid-cols-[minmax(0,10rem)_minmax(0,1fr)] gap-3 px-5 py-3">
-                <dt className="text-ink-3">{k}</dt>
-                <dd className="min-w-0 text-ink [overflow-wrap:anywhere]">{v}</dd>
-              </div>
-            ))}
-          </dl>
-          <p className="mt-3 text-xs text-ink-3">The sender&apos;s IP address is stored only as a salted hash, for abuse limits. Requests are deleted after 24 months.</p>
-        </section>
+          </CardBody>
+        </Card>
+        <Card aria-labelledby="facts-h" className="self-start lg:col-span-5">
+          <CardHeader titleId="facts-h" title="Details" />
+          <CardBody>
+            <DescriptionList layout="stacked" items={facts.map(([label, value]): DescriptionItem => ({ label, value }))} />
+          </CardBody>
+          <p className="border-t border-line px-5 py-3 text-xs text-ink-3 sm:px-6">The sender&apos;s IP address is stored only as a salted hash, for abuse limits. Requests are deleted after 24 months.</p>
+        </Card>
       </div>
     </>
   );

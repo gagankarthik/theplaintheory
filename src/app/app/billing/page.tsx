@@ -9,6 +9,7 @@ import { Card, CardBody, CardFooter, CardHeader } from "@/components/app/ui/card
 import { DateText } from "@/components/app/ui/date-text";
 import { DescriptionList } from "@/components/app/ui/description-list";
 import { EmptyState } from "@/components/app/ui/empty-state";
+import { Progress } from "@/components/app/ui/progress";
 import { ResourceList } from "@/components/app/ui/resource-list";
 import { IconAlert, IconBilling, IconDownload, IconExternal } from "@/components/icons";
 import { can } from "@/lib/auth/rbac";
@@ -29,13 +30,12 @@ function Meter({ label, used, limit, href }: { label: string; used: number; limi
   const over = limit !== null && used > limit;
   const full = limit !== null && !over && used >= limit;
   const near = limit !== null && !over && !full && pct >= 80;
-  const id = `m-${label.replace(/\W+/g, "-").toLowerCase()}`;
   return (
     <div>
       <div className="mb-2 flex items-baseline justify-between gap-3">
-        <span id={id} className="text-sm text-ink-2">
+        <span className="text-sm text-ink-2">
           {href ? (
-            <Link href={href} className="underline-offset-2 hover:text-ink hover:underline">
+            <Link href={href} className="underline decoration-line-strong underline-offset-4 hover:text-ink hover:decoration-current">
               {label}
             </Link>
           ) : (
@@ -48,28 +48,23 @@ function Meter({ label, used, limit, href }: { label: string; used: number; limi
         </span>
       </div>
       {limit !== null ? (
-        <div
-          role="progressbar"
-          aria-labelledby={id}
-          aria-valuemin={0}
-          aria-valuemax={limit}
-          aria-valuenow={used}
-          aria-valuetext={`${formatNumber(used)} of ${formatNumber(limit)}${over ? ", over the limit" : full ? ", all in use" : ""}`}
-          className="h-1.5 overflow-hidden rounded-full bg-paper ring-1 ring-inset ring-line"
-        >
-          <div className={`h-full rounded-full ${over ? "bg-rose" : full || near ? "bg-amber-bright" : "bg-brand"}`} style={{ width: `${Math.max(pct, 1.5)}%` }} />
-        </div>
-      ) : (
-        <div aria-hidden className="h-1.5 rounded-full bg-[repeating-linear-gradient(90deg,var(--color-line)_0_6px,transparent_6px_10px)]" />
-      )}
+        <Progress
+          label={label}
+          value={Math.min(used, limit)}
+          max={limit}
+          size="sm"
+          tone={over ? "bad" : full || near ? "warn" : "brand"}
+          valueText={`${formatNumber(used)} of ${formatNumber(limit)}${over ? ", over the limit" : full ? ", all in use" : ""}`}
+        />
+      ) : null}
       {over ? (
-        <p className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-rose">
-          <IconAlert size={14} /> Over the limit. Nothing stops; you have 30 days to upgrade or come back under.
+        <p className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-destructive">
+          <IconAlert size={14} aria-hidden /> Over the limit. Nothing stops; you have 30 days to upgrade or come back under.
         </p>
       ) : full ? (
-        <p className="mt-1.5 text-xs text-amber">All in use on your plan.</p>
+        <p className="mt-1.5 text-xs text-warning">All in use on your plan.</p>
       ) : near ? (
-        <p className="mt-1.5 text-xs text-amber">{Math.round(pct)}% used.</p>
+        <p className="mt-1.5 text-xs text-warning">{Math.round(pct)}% used.</p>
       ) : null}
     </div>
   );
@@ -101,7 +96,7 @@ function CurrentPlan({ plan, summary, canBill, hasPortal }: { plan: Plan; summar
     <Card aria-labelledby="plan-h" className="flex flex-col">
       <CardHeader titleId="plan-h" title="Current plan" actions={sub ? statusBadge(sub) : !paid ? <Badge tone="neutral">Free forever</Badge> : null} />
       <CardBody className="flex-1">
-        <p className="text-xl font-semibold tracking-tight text-ink">{plan.name}</p>
+        <p className="text-xl font-semibold tracking-[-0.02em] text-ink">{plan.name}</p>
         <p className="mt-1 max-w-prose text-sm text-ink-3">{plan.summary}</p>
 
         <DescriptionList
@@ -144,14 +139,15 @@ function CurrentPlan({ plan, summary, canBill, hasPortal }: { plan: Plan; summar
       <CardFooter align="start">
         {canBill ? (
           <>
-            <ButtonAnchor href="#plans" size="sm">
+            <ButtonAnchor href="#plans" variant="secondary" size="sm">
               {paid ? "Change plan" : "See plans"}
             </ButtonAnchor>
             {hasPortal ? (
               <form action="/api/stripe/portal" method="post">
-                <Button type="submit" variant="ghost" size="sm">
-                  Manage payment and invoices
+                <Button type="submit" variant="secondary" size="sm">
+                  Payment and invoices
                   <IconExternal size={14} aria-hidden />
+                  <span className="sr-only"> (opens the Stripe billing portal)</span>
                 </Button>
               </form>
             ) : null}
@@ -177,7 +173,7 @@ function Invoices({ invoices }: { invoices: BillingSummary["invoices"] }) {
       }
       rows={invoices.map((i) => ({
         id: i.id,
-        leading: <DateText iso={i.date} className="block w-28 tabular-nums" />,
+        leading: <DateText iso={i.date} className="block w-24 tabular-nums sm:w-28" />,
         title: <span className="tabular-nums">{formatMoney(i.amount, i.currency)}</span>,
         meta: <span className="font-mono">{i.number ?? "Draft"}</span>,
         trailing: (
@@ -258,7 +254,7 @@ export default async function BillingPage(props: PageProps<"/app/billing">) {
       ) : null}
 
       {/* 1. What you're on, and what you've used */}
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+      <div className="grid gap-6 lg:grid-cols-2">
         <CurrentPlan plan={plan} summary={summary} canBill={canBill} hasPortal={hasPortal && canBill} />
 
         <Card aria-labelledby="usage-h" className="flex flex-col">
@@ -277,7 +273,7 @@ export default async function BillingPage(props: PageProps<"/app/billing">) {
             <Meter label="Team seats" used={members.length} limit={plan.seats} href="/app/team" />
           </CardBody>
           <CardFooter align="start">
-            <p className="text-xs text-ink-3">Going over never charges you automatically. Everything keeps working for 30 days while you decide.</p>
+            <p className="text-xs text-ink-3">Going over never charges you automatically.</p>
           </CardFooter>
         </Card>
       </div>
@@ -290,7 +286,7 @@ export default async function BillingPage(props: PageProps<"/app/billing">) {
       ) : null}
 
       {/* 3. Plans */}
-      <section id="plans" aria-labelledby="plans-h" className="mt-12 scroll-mt-20">
+      <section id="plans" aria-labelledby="plans-h" className="mt-10 scroll-mt-20">
         <PlanPicker
           plans={livePlans.filter((p) => SELF_SERVE_PLANS.some((s) => s.id === p.id))}
           current={org.plan}
@@ -301,17 +297,21 @@ export default async function BillingPage(props: PageProps<"/app/billing">) {
         <Card as="div" className="mt-4">
           <CardBody className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-ink-2">
-              <span className="font-semibold text-ink">Enterprise{org.plan === "enterprise" ? " (your plan)" : ""}.</span> Custom volume, EU or US data residency, SSO on request and an uptime SLA in your contract.
+              <span className="font-semibold text-ink">Enterprise{org.plan === "enterprise" ? " (your plan)" : ""}.</span> Custom volume, data residency, SSO and an uptime SLA.
             </p>
-            <ButtonLink variant="ghost" size="sm" className="shrink-0" href="/contact?topic=sales">
+            <ButtonLink variant="secondary" size="sm" className="shrink-0" href="/contact?topic=sales">
               Talk to sales
             </ButtonLink>
           </CardBody>
         </Card>
         <p className="mt-4 text-xs text-ink-3">
-          Cancel or downgrade any time from the billing portal. You keep your plan until the end of the period, and every consent receipt stays exportable.{" "}
-          <Link href="/pricing#compare" className="font-medium text-brand underline-offset-2 hover:underline">
-            Compare every feature
+          Cancel or downgrade any time from the billing portal; you keep your plan until the period ends.{" "}
+          <Link href="/pricing#compare" className="font-medium text-ink underline underline-offset-4">
+            Compare plans
+          </Link>
+          <span aria-hidden> · </span>
+          <Link href="/legal/terms" className="font-medium text-ink underline underline-offset-4">
+            Terms
           </Link>
         </p>
       </section>

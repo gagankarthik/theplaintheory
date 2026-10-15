@@ -1,3 +1,4 @@
+import { findPattern } from "./match";
 import type { CategoryId } from "./types";
 
 /**
@@ -16,11 +17,8 @@ const doc = document;
 const scriptSrc = Object.getOwnPropertyDescriptor(HTMLScriptElement.prototype, "src")!;
 const iframeSrc = Object.getOwnPropertyDescriptor(HTMLIFrameElement.prototype, "src")!;
 
-function catFor(src: string | null | undefined): CategoryId | null {
-  if (!src) return null;
-  for (const t of patterns) if (t.c !== "essential" && src.indexOf(t.p) > -1) return t.c;
-  return null;
-}
+/** Category of a tracker address: hostname (exact or subdomain) and path prefix, never a substring of the query. */
+const catFor = (src: string | null | undefined): CategoryId | null => findPattern(patterns, src)?.c ?? null;
 
 /** Hold an element: remember its src, keep it from loading. Returns true if held. */
 function hold(el: HTMLScriptElement | HTMLIFrameElement, src: string): boolean {

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { blockedCss, CUSTOM_CSS_MAX, sanitizeCss } from "./custom-css";
 
 /**
  * Validation for banner configuration, shared by every server action that writes it. Unknown keys
@@ -58,7 +59,7 @@ export const rightsSchema = z.object({
 });
 export const configSchema = z.object({
   theme: z.object({
-    layout: z.enum(["bar", "modal", "toast"]),
+    layout: z.enum(["bar", "modal", "toast", "pill"]),
     position: z.enum(["bottom", "top", "bottom-left", "bottom-right", "center"]),
     background: hex,
     text: hex,
@@ -68,6 +69,15 @@ export const configSchema = z.object({
     font: z.enum(["system", "inherit", "serif", "mono"]),
     equalButtons: z.boolean(),
     fabSide: z.enum(["left", "right"]).optional(),
+    customCss: z
+      .string()
+      .max(CUSTOM_CSS_MAX, `Custom CSS can be at most ${CUSTOM_CSS_MAX} characters.`)
+      .optional()
+      .superRefine((v, ctx) => {
+        const bad = v ? blockedCss(v) : [];
+        if (bad.length) ctx.addIssue({ code: "custom", message: `Custom CSS can't load files or run code. Remove: ${bad.join(", ")}.` });
+      })
+      .transform((v) => sanitizeCss(v) || undefined),
   }),
   categories: z
     .array(

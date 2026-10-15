@@ -31,7 +31,7 @@ function StatusButton({ leadId, status, label, pending, primary }: { leadId: str
     <form action={action} className="w-full sm:w-auto">
       <input type="hidden" name="leadId" value={leadId} />
       <input type="hidden" name="status" value={status} />
-      <SubmitButton variant={primary ? "primary" : "ghost"} pending={pending} className="w-full max-sm:h-11 sm:w-auto">
+      <SubmitButton variant={primary ? "primary" : "secondary"} pending={pending} className="w-full sm:w-auto">
         {label}
       </SubmitButton>
       {state?.error ? (

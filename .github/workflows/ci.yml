@@ -40,7 +40,7 @@ jobs:
       - name: Type check
         run: npx tsc --noEmit -p .
 
-      - name: SDK build and 10 KB budget
+      - name: SDK build and 15 KB budget
         run: npm run sdk:build
 
       - name: Tests
@@ -50,7 +50,7 @@ jobs:
         run: npx next build
         env:
           SESSION_SECRET: ci-only-session-secret-not-used-in-production-000000
-          IP_HASH_SALT: ci-only-salt
+          IP_HASH_SECRET: ci-only-ip-hash-secret
 
       - name: Dependency audit (high and critical)
         run: npm audit --omit=dev --audit-level=high

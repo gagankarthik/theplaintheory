@@ -2,15 +2,18 @@
 
 import Link from "next/link";
 import { useActionState, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { IconArrowRight, IconCheck, IconChevronRight, IconRegion } from "@/components/icons";
-import { Button } from "@/components/app/ui/button";
+import { IconAlert, IconArrowRight, IconCheck, IconRegion } from "@/components/icons";
+import { Alert } from "@/components/app/ui/alert";
+import { Badge } from "@/components/app/ui/badge";
+import { Button, ButtonLink } from "@/components/app/ui/button";
+import { Progress } from "@/components/app/ui/progress";
 import { TextField } from "@/components/app/ui/field";
 import { Segmented } from "@/components/app/ui/tabs";
 import { SubmitButton } from "@/components/app/ui/submit-button";
 import { FormMessage } from "@/components/app/ui/toast";
 import { CurrencySelect } from "@/components/shared/currency-select";
 import { compactNumber, retentionLabel } from "@/components/marketing/pricing/billing";
-import { EASE, gsap, reducedMotion } from "@/lib/motion";
+import { gsap, reducedMotion } from "@/lib/motion";
 import { SELF_SERVE_PLANS, currencyInfo, formatPrice, planById, planPrice, type Currency, type Plan } from "@/lib/plans";
 import { DATA_REGIONS, regionLabel } from "@/lib/regions";
 import { TEAM_SIZES, type Organization, type PlanId, type TeamSize, type WorkspaceKind } from "@/lib/types";
@@ -84,16 +87,16 @@ function ChoiceCard({
 }) {
   return (
     <label
-      className={`group relative flex cursor-pointer rounded-[16px] bg-surface p-5 ring-1 transition-[box-shadow,transform,background-color] duration-300 ease-[var(--ease-spring)] has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand hover:-translate-y-0.5 ${
-        checked ? "bg-brand-wash/50 shadow-[0_18px_40px_-26px_rgba(46,43,214,0.55)] ring-2 ring-brand" : "ring-line hover:shadow-[var(--shadow-lift)] hover:ring-line-strong"
+      className={`group relative flex cursor-pointer rounded-lg p-5 transition-[box-shadow,background-color] duration-150 ease-out has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-focus ${
+        checked ? "bg-selected/45 ring-2 ring-marker dark:bg-selected" : "bg-surface ring-1 ring-line-strong hover:bg-raised hover:ring-boundary"
       } ${className}`}
     >
       <input type="radio" name={name} checked={checked} onChange={onSelect} className="sr-only" />
       <span
         aria-hidden
-        className={`absolute right-4 top-4 grid size-5 place-items-center rounded-full transition-colors ${checked ? "bg-brand-solid text-white" : "ring-1 ring-inset ring-line-strong"}`}
+        className={`absolute right-4 top-4 grid size-5 place-items-center rounded-full transition-colors duration-150 ${checked ? "bg-marker text-surface" : "bg-surface ring-1 ring-inset ring-boundary"}`}
       >
-        {checked ? <IconCheck size={12} className="pt-pop" /> : null}
+        {checked ? <IconCheck size={12} /> : null}
       </span>
       {children}
     </label>
@@ -108,9 +111,7 @@ function StepRail({ step, maxReached, onJump }: { step: number; maxReached: numb
         <p className="text-sm font-medium text-ink-2">
           Step {step + 1} of {STEPS.length} <span className="text-ink-3">· {STEPS[step].title}</span>
         </p>
-        <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-line" aria-hidden>
-          <div className="h-full rounded-full bg-brand transition-[width] duration-500 ease-[var(--ease-spring)]" style={{ width: `${((step + 1) / STEPS.length) * 100}%` }} />
-        </div>
+        <Progress className="mt-2.5" size="sm" label="Setup progress" value={step + 1} max={STEPS.length} valueText={`Step ${step + 1} of ${STEPS.length}`} />
       </div>
       {/* Larger screens: every step, completed ones are links back */}
       <ol className="hidden items-center sm:flex">
@@ -121,29 +122,29 @@ function StepRail({ step, maxReached, onJump }: { step: number; maxReached: numb
           const dot = (
             <span
               className={`grid size-7 shrink-0 place-items-center rounded-full text-xs font-semibold transition-colors duration-300 ${
-                done ? "bg-brand-wash text-brand ring-1 ring-inset ring-brand/25" : current ? "bg-brand-solid text-white shadow-[0_6px_16px_-6px_rgba(46,43,214,0.7)]" : "bg-surface text-ink-3 ring-1 ring-inset ring-line-strong"
+                done ? "bg-selected text-on-selected" : current ? "bg-interactive text-on-interactive" : "bg-surface text-ink-3 ring-1 ring-inset ring-line-strong"
               }`}
             >
-              {done ? <IconCheck size={14} className="pt-pop" /> : i + 1}
+              {done ? <IconCheck size={14} /> : i + 1}
             </span>
           );
           return (
             <li key={s.id} className="flex flex-1 items-center last:flex-none" aria-current={current ? "step" : undefined}>
               {reachable ? (
-                <button type="button" onClick={() => onJump(i)} className="flex items-center gap-2 rounded-full pr-2 text-sm font-medium text-ink-2 hover:text-ink">
+                <button type="button" onClick={() => onJump(i)} className="flex min-h-10 items-center gap-2 rounded-full pr-2 text-sm font-medium text-ink-2 transition-colors duration-150 hover:text-ink">
                   {dot}
                   <span className="hidden md:inline">{s.title}</span>
                   <span className="sr-only">{done ? " (done)" : ""}, go back to this step</span>
                 </button>
               ) : (
-                <span className={`flex items-center gap-2 pr-2 text-sm font-medium ${current ? "text-ink" : "text-ink-3"}`}>
+                <span className={`flex min-h-10 items-center gap-2 pr-2 text-sm ${current ? "font-semibold text-ink" : "font-medium text-ink-3"}`}>
                   {dot}
                   <span className="hidden md:inline">{s.title}</span>
                 </span>
               )}
               {i < LAST ? (
                 <span aria-hidden className="mx-1 h-px flex-1 overflow-hidden bg-line">
-                  <span className="block h-full bg-brand transition-[width] duration-500 ease-[var(--ease-spring)]" style={{ width: done ? "100%" : "0%" }} />
+                  <span className="block h-full bg-marker transition-[width] duration-300 ease-out" style={{ width: done ? "100%" : "0%" }} />
                 </span>
               ) : null}
             </li>
@@ -180,26 +181,26 @@ function PlanPrice({ plan, currency, interval }: { plan: Plan; currency: Currenc
 function SitePreview({ domain }: { domain: string }) {
   const shown = normalizeDomain(domain) || "yourdomain.com";
   return (
-    <div aria-hidden className="overflow-hidden rounded-[14px] bg-surface shadow-[var(--shadow-float)] ring-1 ring-line">
-      <div className="flex items-center gap-2 border-b border-line bg-paper px-3 py-2">
+    <div aria-hidden className="overflow-hidden rounded-lg bg-surface ring-1 ring-line">
+      <div className="flex items-center gap-2 border-b border-line bg-raised px-3 py-2">
         <span className="flex gap-1">
           <span className="size-2 rounded-full bg-line-strong" />
           <span className="size-2 rounded-full bg-line-strong" />
           <span className="size-2 rounded-full bg-line-strong" />
         </span>
-        <span className="min-w-0 flex-1 truncate rounded-md bg-surface px-2 py-1 text-center font-mono text-[11px] text-ink-2 ring-1 ring-line">{shown}</span>
+        <span className="min-w-0 flex-1 truncate rounded-sm bg-surface px-2 py-1 text-center font-mono text-2xs text-ink-2 ring-1 ring-line">{shown}</span>
       </div>
-      <div className="relative h-40 bg-[linear-gradient(180deg,var(--color-paper),var(--color-surface))] p-4">
+      <div className="relative h-40 bg-canvas p-4">
         <span className="block h-2 w-1/2 rounded-full bg-line" />
         <span className="mt-2 block h-2 w-1/3 rounded-full bg-line" />
-        <div className="absolute inset-x-3 bottom-3 rounded-[10px] bg-surface p-3 shadow-[var(--shadow-lift)] ring-1 ring-line">
-          <span className="block text-[11px] font-semibold text-ink">{shown} uses cookies</span>
+        <div className="absolute inset-x-3 bottom-3 rounded-md bg-surface p-3 shadow-lift ring-1 ring-line">
+          <span className="block text-2xs font-semibold text-ink">{shown} uses cookies</span>
           <span className="mt-1.5 block h-1.5 w-full rounded-full bg-line" />
           {/* Reject and Accept carry equal weight, as on the real banner */}
           <span className="mt-2.5 grid grid-cols-3 gap-1.5">
-            <span className="h-5 rounded-md bg-brand" />
-            <span className="h-5 rounded-md ring-1 ring-line-strong" />
-            <span className="h-5 rounded-md bg-brand" />
+            <span className="h-5 rounded-full bg-interactive" />
+            <span className="h-5 rounded-full ring-1 ring-boundary" />
+            <span className="h-5 rounded-full bg-interactive" />
           </span>
         </div>
       </div>
@@ -274,14 +275,14 @@ export function OnboardingForm({
       return;
     }
     if (!el || reducedMotion()) return;
-    const from = dir === "fwd" ? 36 : -36;
-    const tl = gsap.timeline({ defaults: { ease: EASE } });
-    tl.fromTo(el, { x: from, opacity: 0 }, { x: 0, opacity: 1, duration: 0.6, clearProps: "transform,opacity" });
+    const from = dir === "fwd" ? 16 : -16;
+    const tl = gsap.timeline({ defaults: { ease: "power2.out" } });
+    tl.fromTo(el, { x: from, opacity: 0 }, { x: 0, opacity: 1, duration: 0.28, clearProps: "transform,opacity" });
     tl.fromTo(
       el.querySelectorAll("header, .grid > *, .space-y-5 > *, dl > div, fieldset > div"),
       { y: 10, opacity: 0 },
-      { y: 0, opacity: 1, duration: 0.5, stagger: 0.04, clearProps: "transform,opacity" },
-      0.08,
+      { y: 0, opacity: 1, duration: 0.24, stagger: 0.02, clearProps: "transform,opacity" },
+      0.04,
     );
     return () => {
       tl.kill();
@@ -338,10 +339,10 @@ export function OnboardingForm({
   const fieldId = (k: string) => `${uid}-${k}`;
   const heading = (title: string, lead: ReactNode) => (
     <header className="mb-7">
-      <h2 ref={headingRef} tabIndex={-1} className="text-[1.5rem] font-semibold tracking-[-0.025em] outline-none sm:text-[1.75rem]">
+      <h2 ref={headingRef} tabIndex={-1} className="text-xl font-semibold tracking-[-0.025em] outline-none sm:text-2xl">
         {title}
       </h2>
-      <p className="mt-1.5 text-[15px] text-ink-2">{lead}</p>
+      <p className="mt-2 max-w-[60ch] text-sm text-ink-3">{lead}</p>
     </header>
   );
 
@@ -369,7 +370,7 @@ export function OnboardingForm({
 
       <StepRail step={step} maxReached={maxReached} onJump={go} />
 
-      <div className="mt-8 rounded-[22px] bg-surface p-5 shadow-[var(--shadow-lift)] ring-1 ring-line sm:p-8">
+      <div className="mt-6 rounded-xl border border-line bg-surface p-5 sm:mt-8 sm:p-8">
         <div key={step} ref={stepRef}>
           {step === 0 ? (
             <fieldset aria-describedby={errors.kind ? fieldId("kind-error") : undefined}>
@@ -388,7 +389,7 @@ export function OnboardingForm({
                   <ChoiceCard key={o.value} name={`${uid}-kind`} checked={kind === o.value} onSelect={() => setKind(o.value)} className="min-h-40 flex-col">
                     <span
                       id={i === 0 ? fieldId("kind") : undefined}
-                      className={`grid size-12 place-items-center rounded-[12px] ring-1 ring-inset transition-colors ${kind === o.value ? "bg-brand-solid text-white ring-brand" : "bg-paper text-ink-2 ring-line"}`}
+                      className={`grid size-12 place-items-center rounded-md ring-1 ring-inset transition-colors duration-150 ${kind === o.value ? "bg-surface text-ink ring-line-strong" : "bg-raised text-ink-2 ring-line"}`}
                     >
                       <o.Glyph />
                     </span>
@@ -398,7 +399,8 @@ export function OnboardingForm({
                 ))}
               </div>
               {errors.kind ? (
-                <p id={fieldId("kind-error")} role="alert" className="mt-3 text-sm font-bold text-rose">
+                <p id={fieldId("kind-error")} role="alert" className="mt-3 flex items-start gap-1.5 text-sm font-medium text-destructive">
+                  <IconAlert size={16} aria-hidden className="mt-0.5 shrink-0" />
                   {errors.kind}
                 </p>
               ) : null}
@@ -432,8 +434,8 @@ export function OnboardingForm({
                       {TEAM_SIZES.map((s, i) => (
                         <label
                           key={s}
-                          className={`inline-flex h-11 min-w-16 cursor-pointer items-center justify-center rounded-full px-4 text-sm font-medium ring-1 ring-inset transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand ${
-                            teamSize === s ? "bg-brand-solid text-white ring-brand" : "bg-surface text-ink-2 ring-line-strong hover:bg-paper"
+                          className={`inline-flex h-11 min-w-16 cursor-pointer items-center justify-center gap-1.5 rounded-full px-4 text-sm ring-inset transition-colors duration-150 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-focus ${
+                            teamSize === s ? "bg-selected font-semibold text-on-selected ring-1 ring-marker" : "bg-surface font-medium text-ink-2 ring-1 ring-boundary hover:bg-raised"
                           }`}
                         >
                           <input
@@ -444,12 +446,14 @@ export function OnboardingForm({
                             onChange={() => setTeamSize(s)}
                             className="sr-only"
                           />
+                          {teamSize === s ? <IconCheck size={14} aria-hidden /> : null}
                           {s}
                         </label>
                       ))}
                     </div>
                     {errors.teamSize ? (
-                      <p id={fieldId("teamSize-error")} className="mt-1.5 text-xs font-bold text-rose">
+                      <p id={fieldId("teamSize-error")} className="mt-1.5 flex items-start gap-1.5 text-xs font-medium text-destructive">
+                        <IconAlert size={14} aria-hidden className="mt-px shrink-0" />
                         {errors.teamSize}
                       </p>
                     ) : null}
@@ -457,12 +461,12 @@ export function OnboardingForm({
                 ) : null}
                 <div>
                   <p className="label">Where consent records are stored</p>
-                  <p className="flex items-center gap-2.5 rounded-[var(--radius-md)] border border-line bg-paper px-3 py-2.5 text-sm text-ink">
+                  <p className="flex items-center gap-2.5 rounded-md border border-line bg-raised px-3 py-2.5 text-sm text-ink">
                     <IconRegion size={16} className="shrink-0 text-ink-3" />
                     {DATA_REGIONS.find((r) => r.id === region)?.label}
                   </p>
                   <p className="mt-1.5 text-xs text-ink-3">Records stay in India, which suits DPDPA. Need EU or US residency? Enterprise plans include it.</p>
-                  {errors.dataRegion ? <p className="mt-1.5 text-xs font-semibold text-rose">{errors.dataRegion}</p> : null}
+                  {errors.dataRegion ? <p className="mt-1.5 text-xs font-medium text-destructive">{errors.dataRegion}</p> : null}
                 </div>
               </div>
             </div>
@@ -540,16 +544,16 @@ export function OnboardingForm({
                         <span className="min-w-0">
                           <span className="flex flex-wrap items-center gap-2">
                             <span className="text-base font-semibold text-ink">{p.name}</span>
-                            {recommended ? <span className="rounded-full bg-brand-solid px-2 py-0.5 text-[11px] font-semibold text-white">Recommended</span> : null}
-                            {initialPlan === p.id && !recommended ? <span className="rounded-full bg-ink/[0.06] px-2 py-0.5 text-[11px] font-semibold text-ink-2">Your pick</span> : null}
+                            {recommended ? <Badge tone="info">Recommended</Badge> : null}
+                            {initialPlan === p.id && !recommended ? <Badge tone="neutral">Your pick</Badge> : null}
                           </span>
-                          <span className="mt-1 block text-[13px] leading-snug text-ink-3">{p.summary}</span>
+                          <span className="mt-1 block text-sm leading-snug text-ink-3">{p.summary}</span>
                         </span>
                         <span className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-4 md:grid-cols-2 lg:grid-cols-4">
                           {limits.map((l) => (
                             <span key={l.label} className="min-w-0">
                               <span className="block text-sm font-semibold tabular-nums text-ink">{l.value}</span>
-                              <span className="block text-[11px] leading-tight text-ink-3">{l.label}</span>
+                              <span className="block text-xs leading-tight text-ink-3">{l.label}</span>
                             </span>
                           ))}
                         </span>
@@ -560,10 +564,10 @@ export function OnboardingForm({
                       {selected ? (
                         <span className="mt-5 block border-t border-line pt-4">
                           <span className="block text-xs font-medium text-ink-3">Included in {p.name}</span>
-                          <span className="mt-2 grid gap-x-6 gap-y-1.5 text-[13px] text-ink-2 sm:grid-cols-2">
+                          <span className="mt-2 grid gap-x-6 gap-y-1.5 text-sm text-ink-2 sm:grid-cols-2">
                             {p.features.map((f) => (
                               <span key={f} className="flex gap-2">
-                                <IconCheck size={14} className="mt-0.5 shrink-0 text-jade" />
+                                <IconCheck size={14} className="mt-0.5 shrink-0 text-success" />
                                 {f}
                               </span>
                             ))}
@@ -575,20 +579,20 @@ export function OnboardingForm({
                 })}
 
                 {/* Enterprise isn't self-serve: it's a conversation, not a radio option */}
-                <div className="flex flex-col gap-3 rounded-[16px] bg-paper p-5 ring-1 ring-inset ring-line sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-3 rounded-lg bg-raised p-5 ring-1 ring-inset ring-line sm:flex-row sm:items-center sm:justify-between">
                   <span className="min-w-0">
                     <span className="block text-base font-semibold text-ink">Enterprise</span>
-                    <span className="mt-1 block text-[13px] leading-snug text-ink-3">Custom volume, SSO on request, EU or US residency by arrangement and an uptime SLA in your contract.</span>
+                    <span className="mt-1 block text-sm leading-snug text-ink-3">Custom volume, SSO on request, EU or US residency by arrangement and an uptime SLA in your contract.</span>
                   </span>
-                  <Link href="/contact?topic=sales" className="btn btn-pill btn-ghost shrink-0">
+                  <ButtonLink href="/contact?topic=sales" variant="secondary" size="sm" className="shrink-0 self-start sm:self-center">
                     Talk to sales
-                  </Link>
+                  </ButtonLink>
                 </div>
               </div>
 
               <p className="mt-4 flex flex-col gap-1 text-sm text-ink-3 sm:flex-row sm:items-center sm:justify-between">
                 <span>{currency !== "usd" ? `${currencyInfo(currency).code} prices are ${currencyInfo(currency).tax}.` : "Prices in US dollars, excluding taxes."} Change plans any time.</span>
-                <Link href="/pricing#compare" target="_blank" className="font-medium text-brand underline-offset-4 hover:underline">
+                <Link href="/pricing#compare" target="_blank" className="font-medium text-ink-2 underline underline-offset-4 hover:text-ink">
                   Compare every feature<span className="sr-only"> (opens in a new tab)</span>
                 </Link>
               </p>
@@ -598,7 +602,7 @@ export function OnboardingForm({
           {step === 4 ? (
             <div>
               {heading("Review and create", paid ? "Check the details, then confirm payment securely on Stripe." : "Check the details. Your banner can be live in about five minutes.")}
-              <dl className="divide-y divide-line overflow-hidden rounded-[14px] ring-1 ring-line">
+              <dl className="divide-y divide-line overflow-hidden rounded-lg ring-1 ring-line">
                 {[
                   { k: "Type", v: kind === "personal" ? "Personal organization" : `Company or agency${teamSize ? `, ${teamSize} people` : ""}`, to: 0 },
                   { k: "Organization", v: org, to: 1 },
@@ -621,18 +625,17 @@ export function OnboardingForm({
                       <dd className="mt-0.5 break-words text-sm font-medium text-ink sm:mt-0 sm:min-w-0 sm:flex-1">{r.v}</dd>
                     </div>
                     <dd className="shrink-0">
-                      <button type="button" onClick={() => go(r.to)} className="inline-flex h-11 items-center rounded-full px-3 text-sm font-medium text-brand hover:bg-brand-wash">
+                      <Button variant="quiet" size="sm" onClick={() => go(r.to)}>
                         Edit<span className="sr-only"> {r.k.toLowerCase()}</span>
-                      </button>
+                      </Button>
                     </dd>
                   </div>
                 ))}
               </dl>
               {paid ? (
-                <p className="mt-4 flex gap-2 rounded-[12px] bg-paper px-4 py-3 text-sm text-ink-2 ring-1 ring-inset ring-line">
-                  <IconChevronRight size={16} className="mt-0.5 shrink-0 text-brand" />
+                <Alert tone="info" className="mt-4">
                   We create your organization first, so your site is protected on Free straight away. {planById(chosenPlan).name} applies as soon as Stripe confirms payment.
-                </p>
+                </Alert>
               ) : null}
             </div>
           ) : null}
@@ -644,7 +647,7 @@ export function OnboardingForm({
 
         <div className="mt-8 flex flex-col-reverse gap-3 border-t border-line pt-6 sm:flex-row sm:items-center sm:justify-between">
           {step > 0 ? (
-            <Button type="button" variant="ghost" onClick={() => go(step - 1)} className="w-full sm:w-auto">
+            <Button type="button" variant="secondary" onClick={() => go(step - 1)} className="w-full sm:w-auto">
               Back
             </Button>
           ) : (

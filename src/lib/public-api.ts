@@ -1,6 +1,7 @@
 import "server-only";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { getStore } from "./store";
 
 /**
  * Shared plumbing for the public SDK API (/api/v1/*).
@@ -82,15 +83,19 @@ export async function parseBody<S extends z.ZodType>(
   return { ok: true, data: result.data };
 }
 
-/** Fixed-window limiter, per server instance. Production should also front the API with AWS WAF rate rules. */
-const windows = new Map<string, { start: number; count: number }>();
-export function rateLimited(key: string, limit = 30, windowMs = 60_000, now = Date.now()) {
-  const w = windows.get(key);
-  if (!w || now - w.start > windowMs) {
-    if (windows.size > 50_000) windows.clear();
-    windows.set(key, { start: now, count: 1 });
+/**
+ * Fixed-window limiter shared by every server instance: one atomic counter per key and window in the
+ * store (DynamoDB ADD with a TTL; in memory for the local file store). If the store fails, the request
+ * is allowed and the error logged: rate limiting must never take the consent API down. Production
+ * should also front the API with AWS WAF rate rules.
+ */
+export async function rateLimited(key: string, limit = 30, windowMs = 60_000, now = Date.now()) {
+  const windowStart = Math.floor(now / windowMs) * windowMs;
+  try {
+    const hits = await (await getStore()).hitWindow(`api:${key}`, windowStart, windowMs);
+    return hits > limit;
+  } catch (e) {
+    console.error("[public-api] rate limit store failed; allowing the request", e);
     return false;
   }
-  w.count += 1;
-  return w.count > limit;
 }

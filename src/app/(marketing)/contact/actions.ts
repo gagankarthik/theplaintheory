@@ -3,7 +3,7 @@
 import { randomBytes } from "node:crypto";
 import { headers } from "next/headers";
 import { invalid, type ActionResult } from "@/lib/action-result";
-import { anonymizeIp } from "@/lib/crypto";
+import { ipRateKey } from "@/lib/crypto";
 import { checkFormGuard, type FormName } from "@/lib/form-guard";
 import { RESPONSE_TIMES } from "@/lib/lead-options";
 import { TOPIC_EMAIL, enterpriseSchema, leadSchema, partnerSchema, submitContact, submitLead, supportSchema, type TopicInput } from "@/lib/leads";
@@ -43,7 +43,7 @@ async function handle(form: FormData, formName: FormName, topic: Exclude<LeadTop
 
   const h = await headers();
   const ip = h.get("x-forwarded-for") ?? h.get("x-real-ip");
-  const limit = await rateLimiter("contact").consume(anonymizeIp(ip));
+  const limit = await rateLimiter("contact").consume(ipRateKey(ip));
   if (!limit.ok) {
     return {
       error: `We've had several requests from your network in the last hour. Try again in ${retryAfterText(limit.retryAfterMs)}, or email ${TOPIC_EMAIL[topic]}.`,
@@ -133,7 +133,7 @@ export async function contactSales(_prev: ContactState, form: FormData): Promise
 
   const h = await headers();
   const ip = h.get("x-forwarded-for") ?? h.get("x-real-ip");
-  const limit = await rateLimiter("contactSales").consume(anonymizeIp(ip));
+  const limit = await rateLimiter("contactSales").consume(ipRateKey(ip));
   if (!limit.ok) {
     return {
       error: `We've had several requests from your network in the last hour. Try again in ${retryAfterText(limit.retryAfterMs)}, or email sales@theplaintheory.in.`,

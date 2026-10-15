@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/app/shell/page-header";
 import { InviteButton, TeamManager } from "@/components/app/team/team-manager";
-import { buttonClass } from "@/components/app/ui/button";
+import { ButtonAnchor } from "@/components/app/ui/button";
 import { StatStrip, type Stat } from "@/components/app/ui/stat-strip";
 import { IconDownload } from "@/components/icons";
 import { can } from "@/lib/auth/rbac";
@@ -26,21 +26,14 @@ export default async function TeamPage() {
   const locked = canManage && seatsLeft === 0;
   const offer = locked ? await upgradeOffer(org, role, (p) => p.seats === null || p.seats > (plan.seats ?? 0)) : null;
 
-  // Facts for the strip, all from the member and invite records above.
+  // Three facts for the strip, all from the member and invite records above.
   const now = new Date().getTime();
   const people = members.filter((m) => m.user);
   const withoutMfa = people.filter((m) => !m.user!.mfa).length;
   const owners = members.filter((m) => m.role === "owner").length;
-  const staleInvites = invites.filter((i) => now - Date.parse(i.createdAt) > 30 * 86_400_000).length;
   const full = plan.seats !== null && used >= plan.seats;
   const stats: Stat[] = [
     { label: "Members", value: String(members.length), note: `${owners} owner${owners === 1 ? "" : "s"}` },
-    {
-      label: "Pending invitations",
-      value: String(invites.length),
-      note: staleInvites ? `${staleInvites} over 30 days old` : invites.length ? "Waiting for sign-up" : "None waiting",
-      tone: staleInvites ? "warn" : undefined,
-    },
     {
       label: "Seats used",
       value: plan.seats === null ? String(used) : `${used} of ${plan.seats}`,
@@ -51,8 +44,9 @@ export default async function TeamPage() {
     {
       label: "Without two-factor",
       value: String(withoutMfa),
-      note: withoutMfa ? (org.security?.requireMfa ? "Required; each gets 7 days to set it up" : "Two-factor is optional") : "Everyone has it on",
+      note: withoutMfa ? (org.security?.requireMfa ? "Required, 7 days to set up" : "Optional for this organization") : "Everyone has it on",
       tone: withoutMfa ? "warn" : undefined,
+      href: can(role, "security:manage") ? "/app/settings#sign-in-security" : undefined,
     },
   ];
 
@@ -66,10 +60,10 @@ export default async function TeamPage() {
         actions={
           <>
             {can(role, "audit:read") ? (
-              <a className={buttonClass("ghost")} href="/api/app/team/access-review" download>
-                <IconDownload size={18} />
+              <ButtonAnchor variant="secondary" href="/api/app/team/access-review" download>
+                <IconDownload size={18} aria-hidden />
                 Export access review
-              </a>
+              </ButtonAnchor>
             ) : null}
             {inviteAction}
           </>

@@ -3,7 +3,8 @@ import type { ComponentProps, ReactNode } from "react";
 /**
  * A native checkbox, styled: the browser keeps keyboard, form posting and the checked state, and
  * the whole label is the click target (44px tall on phones). The description is linked with
- * aria-describedby. Checked boxes use ultramarine, the "current state" colour. Server-safe.
+ * aria-describedby. Checked boxes take the interactive fill (soot, lime in dark) with a contrasting
+ * tick, so "checked" reads by shape as well as colour. Server-safe.
  */
 export function Checkbox({
   id,
@@ -25,9 +26,9 @@ export function Checkbox({
           type="checkbox"
           aria-describedby={description ? `${id}-d` : undefined}
           {...input}
-          className="peer size-5 cursor-pointer appearance-none rounded-sm border border-line-input bg-surface transition-colors checked:border-brand-solid checked:bg-brand-solid hover:border-ink-3 checked:hover:border-brand-solid checked:hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:cursor-not-allowed disabled:opacity-50"
+          className="peer size-5 cursor-pointer appearance-none rounded-sm border border-boundary bg-surface transition-colors duration-150 checked:border-interactive checked:bg-interactive hover:border-ink checked:hover:bg-interactive-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:cursor-not-allowed disabled:opacity-50"
         />
-        <svg aria-hidden width="14" height="14" viewBox="0 0 16 16" className="pointer-events-none absolute text-white opacity-0 peer-checked:opacity-100">
+        <svg aria-hidden width="14" height="14" viewBox="0 0 16 16" className="pointer-events-none absolute text-on-interactive opacity-0 peer-checked:opacity-100">
           <path d="m3.5 8.5 3 3 6-7" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </span>

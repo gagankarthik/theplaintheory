@@ -74,6 +74,11 @@ export interface ScanOptions {
   settleMs?: number;
   pageDelayMs?: number;
   respectRobots?: boolean;
+  /**
+   * Wall-clock budget for the whole crawl. Once spent, no new page is started (the first page always
+   * is) and the result comes back with timedOut set and whatever was captured so far.
+   */
+  deadlineMs?: number;
   signal?: AbortSignal;
   onLog?: (level: ScanLogLevel, message: string, url?: string | null, meta?: Record<string, unknown>) => void;
   onProgress?: (progress: ScanProgress) => void;
@@ -90,6 +95,8 @@ export interface ScanResult {
   startedAt: string;
   finishedAt: string;
   aborted: boolean;
+  /** Stopped early because deadlineMs ran out; pages and findings are partial. */
+  timedOut: boolean;
   pages: PageResult[];
   cookies: CapturedCookie[];
   storage: CapturedStorageKey[];

@@ -26,7 +26,7 @@ export function VerifyAuditChain() {
   const router = useRouter();
   return (
     <Button
-      variant="ghost"
+      variant="secondary"
       loading={pending}
       loadingLabel="Verifying"
       onClick={() =>
@@ -39,7 +39,7 @@ export function VerifyAuditChain() {
         })
       }
     >
-      <IconChain size={18} />
+      <IconChain size={18} aria-hidden />
       Verify chain
     </Button>
   );

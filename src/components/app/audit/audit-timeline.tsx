@@ -1,21 +1,26 @@
 import { IconAlert, IconBilling, IconBrush, IconDownload, IconLock, IconPlug, IconServer, IconSettings, IconSites, IconTeam, type IconProps } from "@/components/icons";
+import { EmptyState } from "@/components/app/ui/empty-state";
 import type { AuditRow } from "./audit-view";
 
 type Kind = { icon: (p: IconProps) => React.ReactNode; tone: string };
 
-/** Each family of events gets one icon and colour, so a day's activity can be scanned at a glance. */
+/**
+ * Each family of events gets one icon, so a day's activity can be scanned at a glance. Colour is kept
+ * for the events that need a second look (failed sign-ins, removals), which also read as such in words.
+ */
 function kindOf(action: string): Kind {
   if (action === "auth.login_failed" || action === "auth.locked" || action === "auth.mfa_disabled" || action.endsWith("deleted") || action.endsWith("removed"))
-    return { icon: IconAlert, tone: "bg-rose-wash text-rose" };
-  if (action.startsWith("auth.")) return { icon: IconLock, tone: "bg-paper text-ink-2" };
-  if (action.startsWith("member.") || action.startsWith("access_review.")) return { icon: IconTeam, tone: "bg-brand-wash text-brand" };
-  if (action.startsWith("org.")) return { icon: IconSettings, tone: "bg-paper text-ink-2" };
-  if (action.startsWith("property.")) return { icon: IconSites, tone: "bg-brand-wash text-brand" };
-  if (/^(banner|regions|notice|tracker|language)\./.test(action)) return { icon: IconBrush, tone: "bg-brand-wash text-brand" };
-  if (action.startsWith("webhook.")) return { icon: IconPlug, tone: "bg-paper text-ink-2" };
-  if (action.startsWith("billing.")) return { icon: IconBilling, tone: "bg-paper text-ink-2" };
-  if (action.endsWith("exported") || action.startsWith("logs.") || action.startsWith("evidence.") || action.startsWith("audit.")) return { icon: IconDownload, tone: "bg-paper text-ink-2" };
-  return { icon: IconServer, tone: "bg-paper text-ink-2" };
+    return { icon: IconAlert, tone: "bg-destructive-wash text-destructive" };
+  const quiet = "bg-raised text-ink-2 ring-1 ring-inset ring-line";
+  if (action.startsWith("auth.")) return { icon: IconLock, tone: quiet };
+  if (action.startsWith("member.") || action.startsWith("access_review.")) return { icon: IconTeam, tone: quiet };
+  if (action.startsWith("org.")) return { icon: IconSettings, tone: quiet };
+  if (action.startsWith("property.")) return { icon: IconSites, tone: quiet };
+  if (/^(banner|regions|notice|tracker|language)\./.test(action)) return { icon: IconBrush, tone: quiet };
+  if (action.startsWith("webhook.")) return { icon: IconPlug, tone: quiet };
+  if (action.startsWith("billing.")) return { icon: IconBilling, tone: quiet };
+  if (action.endsWith("exported") || action.startsWith("logs.") || action.startsWith("evidence.") || action.startsWith("audit.")) return { icon: IconDownload, tone: quiet };
+  return { icon: IconServer, tone: quiet };
 }
 
 const DAY = 86_400_000;
@@ -33,8 +38,13 @@ const clock = (iso: string) => new Date(iso).toLocaleTimeString("en-GB", { hour:
  * The audit log as a timeline: events grouped by day (UTC), each with who did it, what they did and to
  * what, the details, and its place in the hash chain. Server-rendered; the rows come from the page.
  */
-export function AuditTimeline({ rows, now = new Date() }: { rows: AuditRow[]; now?: Date }) {
-  if (!rows.length) return <p className="rounded-[14px] border border-line bg-surface px-5 py-12 text-center text-sm text-ink-3">No events match these filters.</p>;
+export function AuditTimeline({ rows, now = new Date(), filtered = false }: { rows: AuditRow[]; now?: Date; filtered?: boolean }) {
+  if (!rows.length)
+    return (
+      <EmptyState icon={<IconServer size={22} />} title={filtered ? "No events match these filters" : "No events yet"}>
+        {filtered ? "Try another activity or person, or clear the filters." : "Sign-ins, access changes, settings and exports are recorded here as they happen."}
+      </EmptyState>
+    );
   const days: { key: string; rows: AuditRow[] }[] = [];
   for (const r of rows) {
     const key = dayKey(r.createdAt);
@@ -52,12 +62,12 @@ export function AuditTimeline({ rows, now = new Date() }: { rows: AuditRow[]; no
               {d.rows.length} event{d.rows.length === 1 ? "" : "s"}
             </span>
           </h3>
-          <ol className="divide-y divide-line overflow-hidden rounded-[14px] border border-line bg-surface">
+          <ol className="divide-y divide-line overflow-hidden rounded-lg border border-line bg-surface">
             {d.rows.map((r) => {
               const { icon: Icon, tone } = kindOf(r.action);
               return (
-                <li key={r.seq} className="flex gap-3 px-4 py-3.5 sm:gap-4 sm:px-5">
-                  <span className={`mt-0.5 grid size-8 shrink-0 place-items-center rounded-[9px] ${tone}`}>
+                <li key={r.seq} className="flex gap-3 px-4 py-3 transition-colors duration-150 ease-out hover:bg-raised sm:gap-4 sm:px-6">
+                  <span aria-hidden className={`mt-0.5 grid size-8 shrink-0 place-items-center rounded-full ${tone}`}>
                     <Icon size={16} />
                   </span>
                   <div className="min-w-0 flex-1">
@@ -71,7 +81,7 @@ export function AuditTimeline({ rows, now = new Date() }: { rows: AuditRow[]; no
                       ) : null}
                     </p>
                     {r.details ? <p className="mt-0.5 text-xs text-ink-3 [overflow-wrap:anywhere]">{r.details}</p> : null}
-                    <p className="mt-1 font-mono text-2xs text-ink-3">
+                    <p className="mt-1 font-mono text-xs text-ink-3">
                       #{r.seq} · {r.action} ·{" "}
                       <span title={r.hash}>
                         {r.hash.slice(0, 10)}…

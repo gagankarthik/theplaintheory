@@ -4,7 +4,6 @@ import { CodeBlock, CodeTabs } from "@/components/marketing/docs/code-block";
 import { INSTALL_SNIPPETS } from "@/components/marketing/docs/framework-snippets";
 import { PageHero } from "@/components/marketing/page-hero";
 import { Toc, type TocItem } from "@/components/marketing/toc";
-import { sdkSizeLabel } from "@/lib/sdk-size";
 
 export const metadata = pageMetadata({
   title: "Developer documentation",
@@ -103,7 +102,7 @@ export default function DocsPage() {
         ]}
         title="Developer documentation"
         lead="One script tag holds trackers, shows the right notice and records each decision. Everything else is optional."
-        meta={`SDK version 1.0.0. ${sdkSizeLabel()} gzipped.`}
+        meta="SDK version 1.0.0."
       />
 
       <div className="bg-surface">

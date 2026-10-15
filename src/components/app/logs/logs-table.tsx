@@ -15,43 +15,32 @@ import { FRAMEWORK_META } from "@/lib/defaults";
 import type { CategoryId, ConsentReceipt } from "@/lib/types";
 import { ACTION, CAT_SHORT } from "./receipt-labels";
 
+/** The categories a receipt allowed, in plain words. */
+const allowed = (r: ConsentReceipt) => {
+  const on = (Object.keys(CAT_SHORT) as CategoryId[]).filter((c) => r.categories[c]);
+  return on.length === 1 && on[0] === "essential" ? "Essential only" : on.map((c) => CAT_SHORT[c]).join(", ") || "None";
+};
+
 const columns = (propertyId: string): Column<ConsentReceipt>[] => [
   {
     id: "seq",
     header: "Receipt",
     sortValue: (r) => r.seq,
     cell: (r) => (
-      <>
-        {/* The link's ::after covers the whole row, so any click on it opens the receipt; it is the row's one tab stop. */}
-        <Link
-          href={`/app/sites/${propertyId}/logs/${r.seq}`}
-          className="inline-flex min-h-6 items-center gap-1 rounded font-semibold tabular-nums text-ink after:absolute after:inset-0 after:content-[''] hover:text-brand hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-        >
-          #{formatNumber(r.seq)}
-          <span className="sr-only">, open proof of consent</span>
-          <IconChevronRight size={14} aria-hidden className="text-ink-3" />
-        </Link>
-        <DateText iso={r.timestamp} mode="datetime" className="block text-xs text-ink-3" />
-      </>
+      // The link's ::after covers the whole row, so a click anywhere opens the receipt; it is the
+      // row's one tab stop, and its focus ring outlines the row.
+      <Link
+        href={`/app/sites/${propertyId}/logs/${r.seq}`}
+        className="inline-flex min-h-6 items-center gap-1 font-mono text-xs font-medium tabular-nums text-ink after:absolute after:inset-0 after:content-[''] hover:underline focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-focus"
+      >
+        #{formatNumber(r.seq)}
+        <span className="sr-only">, open receipt</span>
+        <IconChevronRight size={14} aria-hidden className="text-ink-3 sm:hidden" />
+      </Link>
     ),
   },
   { id: "action", header: "Decision", cell: (r) => <Badge tone={ACTION[r.action].tone}>{ACTION[r.action].label}</Badge> },
-  {
-    id: "categories",
-    header: "Categories",
-    cell: (r) => (
-      <ul className="flex flex-wrap gap-1" aria-label="Categories">
-        {(Object.keys(CAT_SHORT) as CategoryId[]).map((c) => (
-          <li key={c}>
-            <Badge tone={r.categories[c] ? "released" : "held"} icon={<span aria-hidden className="text-2xs">{r.categories[c] ? "✓" : "–"}</span>}>
-              {CAT_SHORT[c]}
-              <span className="sr-only">{r.categories[c] ? " allowed" : " held"}</span>
-            </Badge>
-          </li>
-        ))}
-      </ul>
-    ),
-  },
+  { id: "categories", header: "Allowed", cell: (r) => <span className="text-ink-2">{allowed(r)}</span> },
   {
     id: "notice",
     header: "Notice",
@@ -59,10 +48,8 @@ const columns = (propertyId: string): Column<ConsentReceipt>[] => [
     cell: (r) => (
       <>
         <span>{FRAMEWORK_META[r.framework].name}</span>
-        {r.language || r.gpc || r.automated ? (
-          <span className="block text-xs text-ink-3">
-            {[r.language ? `Shown in ${r.language}` : "", r.gpc ? "GPC honoured" : "", r.automated ? "Automated browser" : ""].filter(Boolean).join(" · ")}
-          </span>
+        {r.gpc || r.automated ? (
+          <span className="block text-xs text-ink-3">{[r.gpc ? "GPC honoured" : "", r.automated ? "Automated browser" : ""].filter(Boolean).join(" · ")}</span>
         ) : null}
       </>
     ),
@@ -72,11 +59,12 @@ const columns = (propertyId: string): Column<ConsentReceipt>[] => [
     header: "Visitor",
     cell: (r) => (
       <>
-        <span>
-          {r.country}, <span className="capitalize">{r.device}</span>
-        </span>
-        <span className="block font-mono text-xs text-ink-3" title={r.visitorId}>
+        <span className="block font-mono text-xs text-ink" title={r.visitorId}>
           {r.visitorId.slice(0, 10)}
+        </span>
+        <span className="block text-xs text-ink-3">
+          {r.country}, <span className="capitalize">{r.device}</span>
+          {r.language ? `, ${r.language}` : ""}
         </span>
       </>
     ),
@@ -84,11 +72,19 @@ const columns = (propertyId: string): Column<ConsentReceipt>[] => [
   {
     id: "hash",
     header: "Hash",
+    hideOnMobile: true,
     cell: (r) => (
-      <code className="font-mono text-xs text-ink-2" title={`hash ${r.hash}\nprev ${r.prevHash}`}>
+      <code className="font-mono text-xs text-ink-3" title={`hash ${r.hash}\nprev ${r.prevHash}`}>
         {r.hash.slice(0, 8)}…{r.hash.slice(-4)}
       </code>
     ),
+  },
+  {
+    id: "time",
+    header: "Recorded",
+    numeric: true,
+    sortValue: (r) => r.timestamp,
+    cell: (r) => <DateText iso={r.timestamp} mode="datetime" className="whitespace-nowrap text-ink-2" />,
   },
 ];
 
@@ -100,7 +96,8 @@ export function LogsTable({ propertyId, rows, footer, empty = "No receipts in th
       rows={rows}
       columns={cols}
       rowKey={(r) => r.id}
-      minWidth={880}
+      minWidth={920}
+      maxHeight="min(70dvh, 760px)"
       empty={empty}
       footer={footer}
       rowClassName={() => "relative cursor-pointer"}
@@ -110,17 +107,16 @@ export function LogsTable({ propertyId, rows, footer, empty = "No receipts in th
 
 /**
  * Re-hashes the whole chain on demand. The result is saved on the site as its last check, so the
- * "Chain" number above the log updates on refresh; a toast says what was found. It is the consent
- * log's one primary action: checking the chain is what the log is for.
+ * "Chain" number above the log updates on refresh (and a broken chain shows as an alert there); a
+ * toast says what was found. Secondary: the log's main job is reading receipts.
  */
-/** Primary only when there is a chain to check; with no receipts it's a quiet, disabled action. */
 export function VerifyChainButton({ propertyId, receipts }: { propertyId: string; receipts: number }) {
   const [pending, start] = useTransition();
   const toast = useToast();
   const router = useRouter();
   return (
     <Button
-      variant={receipts ? "primary" : "ghost"}
+      variant="secondary"
       disabled={!receipts}
       title={receipts ? undefined : "Nothing to verify until the first receipt is recorded"}
       loading={pending}

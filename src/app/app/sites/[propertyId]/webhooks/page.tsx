@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { PageHeader } from "@/components/app/shell/page-header";
 import { ButtonLink } from "@/components/app/ui/button";
 import { EmptyState } from "@/components/app/ui/empty-state";
@@ -22,7 +23,14 @@ export default async function WebhooksPage(props: PageProps<"/app/sites/[propert
   const { propertyId } = await props.params;
   const { property, org, role, store } = await requireProperty(propertyId);
   const plan = planById(org.plan);
-  const description = "Tell your CRM, CDP and warehouse when consent changes, so a withdrawal is honoured everywhere.";
+  const description = (
+    <>
+      Tell your CRM, CDP and warehouse when consent changes, so a withdrawal is honoured everywhere.{" "}
+      <Link href="/docs#api" className="font-medium text-ink underline underline-offset-2 hover:no-underline">
+        Webhook docs
+      </Link>
+    </>
+  );
 
   if (!plan.limits.webhooks) {
     return (

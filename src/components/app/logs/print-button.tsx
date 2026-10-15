@@ -1,13 +1,14 @@
 "use client";
 
-import { Button } from "@/components/app/ui/button";
+import { Button, type ButtonVariant } from "@/components/app/ui/button";
 import { IconDownload } from "@/components/icons";
 
-export function PrintButton() {
+/** Opens the browser's print dialog, where the page can be saved as PDF. */
+export function PrintButton({ variant = "secondary", label = "Save as PDF" }: { variant?: ButtonVariant; label?: string }) {
   return (
-    <Button onClick={() => window.print()}>
-      <IconDownload size={18} />
-      Save as PDF
+    <Button variant={variant} onClick={() => window.print()}>
+      <IconDownload size={18} aria-hidden />
+      {label}
     </Button>
   );
 }

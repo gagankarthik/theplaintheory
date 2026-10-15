@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { IconCheck, IconCopy } from "@/components/icons";
-import { buttonClass } from "./button";
+import { buttonClass, type ButtonSize } from "./button";
 
-export function CopyButton({ value, label = "Copy", describedBy }: { value: string; label?: string; describedBy?: string }) {
+/** `size` is optional (default "sm"); "md" gives the 40px target for a standalone copyable field. */
+export function CopyButton({ value, label = "Copy", describedBy, size = "sm" }: { value: string; label?: string; describedBy?: string; size?: ButtonSize }) {
   const [state, setState] = useState<"idle" | "copied" | "failed">("idle");
   useEffect(() => {
     if (state === "idle") return;
@@ -14,7 +15,7 @@ export function CopyButton({ value, label = "Copy", describedBy }: { value: stri
   return (
     <button
       type="button"
-      className={buttonClass("ghost", "sm")}
+      className={buttonClass("secondary", size)}
       aria-describedby={describedBy}
       onClick={() =>
         navigator.clipboard

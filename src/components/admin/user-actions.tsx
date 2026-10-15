@@ -32,7 +32,6 @@ export function UserActions({
       {canRevoke ? (
         <ActionDialog
           trigger="Sign out everywhere"
-          triggerVariant="danger"
           danger
           title={`Sign ${user.email} out everywhere?`}
           description={`Ends ${user.activeSessions === 1 ? "their 1 active session" : `all ${user.activeSessions} of their active sessions`}. They'll need to sign in again, with two-factor if they use it.`}

@@ -35,7 +35,7 @@ export function SettingsRow({ label, description, htmlFor, children }: { label: 
   return (
     <div className="grid gap-3 py-5 md:grid-cols-[minmax(0,280px)_minmax(0,1fr)] md:gap-10">
       <div>
-        <Label {...(htmlFor ? { htmlFor } : {})} className="text-sm font-medium text-ink">
+        <Label {...(htmlFor ? { htmlFor } : {})} className="text-sm font-semibold text-ink">
           {label}
         </Label>
         {description ? <p className="mt-1 text-sm text-ink-3">{description}</p> : null}

@@ -1,3 +1,4 @@
+import { findPattern } from "./match";
 import type { CategoryId } from "./types";
 
 /**
@@ -26,7 +27,7 @@ export function watchLeaks(
 
   const check = (url: string | null, startedAt: number) => {
     if (!url || seen.size >= MAX_REPORTS || !/^https?:/i.test(url)) return;
-    const hit = patterns().find((t) => t.c !== "essential" && url.indexOf(t.p) > -1);
+    const hit = findPattern(patterns(), url);
     if (!hit) return;
     const category = hit.c as CategoryId;
     if (startedAt >= grantedAt(category)) return;

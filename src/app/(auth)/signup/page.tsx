@@ -33,7 +33,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Promi
 
       {plan ? (
         <div className="mt-5 flex items-center gap-3 rounded-[14px] bg-brand-wash/60 px-4 py-3 ring-1 ring-inset ring-brand/20">
-          <span className="grid size-8 shrink-0 place-items-center rounded-full bg-brand-solid text-white">
+          <span className="grid size-8 shrink-0 place-items-center rounded-full bg-brand-solid text-on-brand-solid">
             <IconCheck size={16} />
           </span>
           <p className="min-w-0 flex-1 text-sm text-ink-2">

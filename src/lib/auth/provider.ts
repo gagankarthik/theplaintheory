@@ -96,8 +96,8 @@ export async function linkCognitoUser(identity: { sub: string; email: string; na
   return existing.cognitoSub === identity.sub ? existing : store.updateUser(existing.id, { cognitoSub: identity.sub });
 }
 
-export async function signIn(emailRaw: string, password: string, ipHash: string): Promise<AuthResult> {
-  if (!(await allowIpAttempt(ipHash))) return { ok: false, error: THROTTLED, reason: "throttled" };
+export async function signIn(emailRaw: string, password: string, ipKey: string): Promise<AuthResult> {
+  if (!(await allowIpAttempt(ipKey))) return { ok: false, error: THROTTLED, reason: "throttled" };
   const store = await getStore();
   const email = emailRaw.trim().toLowerCase();
   const existing = await store.getUserByEmail(email);

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { LearnMore } from "@/components/app/configure/learn-more";
 import { NoticeSettings } from "@/components/app/regions/notice-settings";
 import { RegionsEditor, type RegionStats } from "@/components/app/regions/regions-editor";
 import { PageHeader } from "@/components/app/shell/page-header";
@@ -40,9 +41,12 @@ export default async function RegionsPage(props: PageProps<"/app/sites/[property
   return (
     <>
       <PageHeader
-        crumbs={[{ href: "/app", label: "Sites" }, { href: `/app/sites/${property.id}`, label: property.name }, { label: "Regions" }]}
         title="Regions"
-        description="Each visitor gets the notice for the law that covers them. We read their country at the edge and store no IP address."
+        description={
+          <>
+            Each visitor gets the notice for the law that covers them. <LearnMore anchor="regions" topic="regions" />
+          </>
+        }
       />
       <StatStrip
         label="Regions at a glance"
@@ -72,10 +76,7 @@ export default async function RegionsPage(props: PageProps<"/app/sites/[property
         ]}
       />
       <RegionsEditor key={property.config.version} propertyId={property.id} initial={regions} stats={stats} canWrite={canWrite} />
-      <div className="mt-12 border-t border-line pt-10">
-        <h2 className="mb-6 text-xl font-semibold tracking-tight">Notice details</h2>
-        <NoticeSettings key={`n-${property.config.version}`} propertyId={property.id} config={property.config} dpoEmail={org.dpo?.email} canWrite={canWrite} />
-      </div>
+      <NoticeSettings key={`n-${property.config.version}`} propertyId={property.id} config={property.config} dpoEmail={org.dpo?.email} canWrite={canWrite} />
     </>
   );
 }

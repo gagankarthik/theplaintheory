@@ -1,8 +1,9 @@
 import localFont from "next/font/local";
 
 /**
- * Switzer (Indian Type Foundry, Fontshare), the marketing and sign-in face. Self-hosted, so public pages
- * make no third-party font request. Apply `switzer.variable` together with the `mk` class.
+ * Switzer (Indian Type Foundry, Fontshare), the brand face for the website, sign-in, dashboard and staff
+ * console. Self-hosted, so no page makes a third-party font request. The root layout sets
+ * `switzer.variable` on <html>; marketing also applies it with the `mk` class.
  */
 export const switzer = localFont({
   src: [

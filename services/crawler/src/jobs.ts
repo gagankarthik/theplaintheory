@@ -132,6 +132,7 @@ export async function runClaimedScan(report: ScanReport, ctx: JobContext): Promi
       pageTimeoutMs: ctx.config.pageTimeoutMs,
       settleMs: ctx.config.settleMs,
       pageDelayMs: ctx.config.pageDelayMs,
+      deadlineMs: ctx.config.scanDeadlineMs,
       signal: crawlAbort.signal,
       guard: isAllowedUrl,
       onLog: (level, message, url, meta) => {
@@ -187,6 +188,11 @@ export async function runClaimedScan(report: ScanReport, ctx: JobContext): Promi
       return "failed";
     }
 
+    if (result.timedOut) {
+      const minutes = Math.round(ctx.config.scanDeadlineMs / 60_000);
+      pushLine("warn", `Stopped at the ${minutes}-minute time limit; these results cover the ${result.pages.length} page(s) scanned so far.`);
+      log.warn("Scan hit its time limit; recording partial results", { deadlineMs: ctx.config.scanDeadlineMs, pages: result.pages.length });
+    }
     if (preConsent.length) {
       pushLine("warn", `Loaded before any consent: ${preConsent.slice(0, 12).join(", ")}${preConsent.length > 12 ? ` and ${preConsent.length - 12} more` : ""}`);
     }
@@ -209,11 +215,11 @@ export async function runClaimedScan(report: ScanReport, ctx: JobContext): Promi
       actorEmail: "system:crawler",
       action: "tracker.scan_run",
       target: { type: "property", id: propertyId, label: fresh.domain.slice(0, 120) },
-      metadata: { ok: true, engine: "headless", pages: loaded.length, findings: findings.length, added: merged.added.length, preConsent: preConsent.length },
+      metadata: { ok: true, engine: "headless", partial: result.timedOut, pages: loaded.length, findings: findings.length, added: merged.added.length, preConsent: preConsent.length },
       ipHash: "system",
       userAgent: "system",
     });
-    log.info("Scan completed", { pages: loaded.length, findings: findings.length, added: merged.added.length, preConsent: preConsent.length });
+    log.info("Scan completed", { partial: result.timedOut, pages: loaded.length, findings: findings.length, added: merged.added.length, preConsent: preConsent.length });
     return "completed";
   } catch (e) {
     await writing.catch(() => undefined);

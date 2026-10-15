@@ -1,4 +1,5 @@
 import type { ComponentProps, ReactNode } from "react";
+import { IconAlert } from "@/components/icons";
 import { Select, type SelectProps } from "./select";
 
 interface FieldBase {
@@ -38,7 +39,8 @@ function Frame({ id, label, hint, error, hideLabel, className, aside, children }
         </p>
       ) : null}
       {error ? (
-        <p id={`${id}-error`} className="mt-1.5 text-xs font-semibold text-rose">
+        <p id={`${id}-error`} className="mt-1.5 flex items-start gap-1.5 text-xs font-medium text-destructive">
+          <IconAlert size={14} aria-hidden className="mt-px shrink-0" />
           {error}
         </p>
       ) : null}
@@ -46,7 +48,7 @@ function Frame({ id, label, hint, error, hideLabel, className, aside, children }
   );
 }
 
-const invalidRing = "!border-rose focus:!shadow-[0_0_0_4px_var(--color-rose-wash)]";
+const invalidRing = "!border-destructive focus:!outline-destructive";
 
 export function TextField({ id, label, hint, error, hideLabel, className, aside, controlClassName, ...input }: FieldBase & Omit<ComponentProps<"input">, "id">) {
   const err = firstError(error);

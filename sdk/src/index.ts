@@ -1,10 +1,11 @@
 import { createTransport } from "./api";
 import { release, setPatterns, startBlocking } from "./blocker";
+import { BUILTIN } from "./builtin";
 import { loadConfig, readSettings } from "./config";
 import { createGcm } from "./consent-mode";
 import { pickLang } from "./lang";
 import { watchLeaks } from "./leaks";
-import { ALL, NONE, isFresh, randomId, readStored, writeStored } from "./storage";
+import { ALL, NONE, isFresh, randomId, readGcmFlag, readStored, writeGcmFlag, writeStored } from "./storage";
 import type { Action, CategoryId, Cats, ConsentState, Framework, PublicConfig, Stored } from "./types";
 import { createUi, type UiHandlers, type View } from "./ui";
 
@@ -39,18 +40,6 @@ export interface PlainConsentApi {
   setLanguage(code: string): void;
   preview(c: PublicConfig, f?: Framework, v?: "banner" | "prefs", lang?: string): void;
 }
-
-// Held from the first instant, before the site's own tracker list arrives with the config.
-const BUILTIN = [
-  ["googletagmanager.com/gtag", "analytics"],
-  ["google-analytics.com", "analytics"],
-  ["static.hotjar.com", "analytics"],
-  ["clarity.ms", "analytics"],
-  ["connect.facebook.net", "marketing"],
-  ["snap.licdn.com", "marketing"],
-  ["analytics.tiktok.com", "marketing"],
-  ["googleadservices.com", "marketing"],
-].map(([p, c]) => ({ p, c }));
 
 const w = window as Window & { PlainConsent?: PlainConsentApi | Queued[] };
 const settings = readSettings(document.currentScript as HTMLScriptElement | null);
@@ -140,7 +129,7 @@ function decide(action: Action, next: Cats) {
   rejectedAt = action === "reject_all" ? Date.now() : undefined;
   persist();
   markGranted();
-  if (cfg?.gcm) gcm.update(cats);
+  gcm.update(cats);
   release();
   logReceipt(action);
   show("fab");
@@ -166,7 +155,11 @@ async function boot() {
   const stored = readStored();
   visitorId = stored?.id || randomId();
   if (stored) cats = { ...stored.c, essential: true }; // honour a returning visitor's choice before config arrives
-  gcm.default(cats);
+  // Consent Mode defaults must reach dataLayer before Google tags run, which can be before the config
+  // arrives (Tag Manager is never held). Decide from data-gcm on the script tag, else from the last
+  // config this browser saw. A first visit without data-gcm waits for the config: gtag.js, GA and Ads
+  // are held by BUILTIN until then, and only released after the defaults.
+  if (settings.gcm ?? readGcmFlag()) gcm.start(cats);
   startBlocking(BUILTIN, (c) => cats[c] === true);
 
   try {
@@ -183,7 +176,10 @@ async function boot() {
   lang = rule ? pickLang(rule, stored?.l) : undefined;
   // A returning visitor's and an opt-out region's categories count as allowed from page start.
   markGranted(0);
-  if (cfg.gcm) gcm.update(cats);
+  writeGcmFlag(cfg.gcm);
+  if (cfg.gcm) gcm.start(cats);
+  // Once defaults went out (early, from data-gcm or the cached flag), keep the signals truthful.
+  gcm.update(cats);
   release();
   if (cfg.leaks)
     watchLeaks(
@@ -213,7 +209,7 @@ const api: PlainConsentApi = {
     decided = false;
     rejectedAt = undefined;
     markGranted();
-    if (cfg?.gcm) gcm.update(cats);
+    gcm.update(cats);
     show("banner");
     emit("change");
   },

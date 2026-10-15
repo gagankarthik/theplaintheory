@@ -17,33 +17,31 @@ export default async function SettingsPage() {
 
   return (
     <>
-      <PageHeader title="Settings" description={`Details, data residency and compliance contacts for ${org.name}.`} />
-      <div className="max-w-5xl">
+      <PageHeader title="Settings" description={`Details, data protection contact and sign-in policy for ${org.name}.`} />
+      <div className="max-w-4xl">
         <OrgSettingsForm org={{ name: org.name, dataRegion: org.dataRegion, dpo: org.dpo }} canEdit={can(role, "org:settings")} />
 
-        <div className="mt-12">
-          <SecurityPolicyForm
-            requireMfa={Boolean(org.security?.requireMfa)}
-            canEdit={can(role, "security:manage")}
-            ownMfa={Boolean(user.mfa)}
-            unenrolled={members.filter((m) => m.user && !m.user.mfa).length}
-          />
-        </div>
+        <SecurityPolicyForm
+          requireMfa={Boolean(org.security?.requireMfa)}
+          canEdit={can(role, "security:manage")}
+          ownMfa={Boolean(user.mfa)}
+          unenrolled={members.filter((m) => m.user && !m.user.mfa).length}
+        />
 
         {properties.length ? (
-          <div className="mt-12">
-            <SettingsSection tone="danger" title="Danger zone" description="Deleting a site can't be undone. Its settings, consent receipts and statistics are deleted with it, so export the consent log first.">
+          <SettingsSection id="delete-sites" tone="danger" title="Delete a site" description="Removes the site with its settings, statistics and consent receipts. This can't be undone.">
+            <ul aria-label="Sites" className="divide-y divide-line">
               {properties.map((p) => (
-                <div key={p.id} className="flex items-center justify-between gap-4 py-4">
+                <li key={p.id} className="flex min-h-16 items-center justify-between gap-4 py-3">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold">{p.name}</p>
-                    <p className="truncate text-xs text-ink-3">{p.domain}</p>
+                    <p className="truncate text-sm font-medium text-ink">{p.name}</p>
+                    <p className="truncate font-mono text-xs text-ink-3">{p.domain}</p>
                   </div>
                   <DeleteSite propertyId={p.id} name={p.name} domain={p.domain} />
-                </div>
+                </li>
               ))}
-            </SettingsSection>
-          </div>
+            </ul>
+          </SettingsSection>
         ) : null}
       </div>
     </>

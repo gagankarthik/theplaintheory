@@ -1,4 +1,4 @@
-import { createHash, randomBytes, scrypt as _scrypt, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomBytes, scrypt as _scrypt, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
 import type { ConsentReceipt } from "./types";
 
@@ -14,18 +14,49 @@ export function sha256(input: string) {
   return createHash("sha256").update(input).digest("hex");
 }
 
-/**
- * Drop the host part of the address before hashing (last octet for IPv4, last 80 bits for IPv6),
- * then salt so the hash can't be reversed by enumerating the address space.
- */
-export function anonymizeIp(ip: string | null | undefined) {
-  if (!ip) return "unknown";
+/** Drop the host part of the address (last octet for IPv4, last 80 bits for IPv6). */
+export function truncateIp(ip: string | null | undefined) {
+  if (!ip) return null;
   const raw = ip.split(",")[0].trim();
-  let truncated = raw;
-  if (raw.includes(".")) truncated = raw.split(".").slice(0, 3).join(".") + ".0";
-  else if (raw.includes(":")) truncated = raw.split(":").slice(0, 3).join(":") + "::";
-  const salt = process.env.IP_HASH_SALT ?? "plain-dev-salt";
+  if (!raw) return null;
+  if (raw.includes(".")) return raw.split(".").slice(0, 3).join(".") + ".0";
+  if (raw.includes(":")) return raw.split(":").slice(0, 3).join(":") + "::";
+  return raw;
+}
+
+/**
+ * Hash a truncated IP with a salt. Stored IP hashes use the daily salt (lib/ip-hash.ts): once that
+ * day's salt expires, nobody (including us) can recompute or reverse them.
+ */
+export function hashIpWithSalt(ip: string | null | undefined, salt: string) {
+  const truncated = truncateIp(ip);
+  if (!truncated) return "unknown";
   return sha256(`${salt}:${truncated}`).slice(0, 32);
+}
+
+const DEV_IP_SECRET = "plain-dev-ip-secret";
+
+/**
+ * The server secret behind ipRateKey. Required outside development and test: a missing or empty
+ * IP_HASH_SECRET fails the request loudly instead of falling back to a guessable key.
+ */
+export function ipHashSecret() {
+  const v = process.env.IP_HASH_SECRET?.trim();
+  if (v) return v;
+  const env = process.env.NODE_ENV;
+  if (env === "development" || env === "test") return DEV_IP_SECRET;
+  throw new Error("IP_HASH_SECRET is not set. Set it to 32+ random bytes (openssl rand -base64 48); it keys the IP hashes used for rate limits.");
+}
+
+/**
+ * A stable keyed hash of the truncated IP, for rate limits and abuse windows that must hold across
+ * midnight. HMAC with a server secret, so it can't be reversed without the secret. Never store it
+ * with a record: records get the daily hash (lib/ip-hash.ts).
+ */
+export function ipRateKey(ip: string | null | undefined) {
+  const truncated = truncateIp(ip);
+  if (!truncated) return "unknown";
+  return createHmac("sha256", ipHashSecret()).update(truncated).digest("base64url").slice(0, 32);
 }
 
 /**

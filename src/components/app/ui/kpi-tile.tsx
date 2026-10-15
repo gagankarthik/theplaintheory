@@ -18,7 +18,7 @@ export function DeltaText({ d }: { d: KpiDelta }) {
   const flat = Math.abs(d.change) < 0.0005;
   const up = d.change > 0;
   const good = flat || d.goodWhen === "neutral" ? null : up === (d.goodWhen === "up");
-  const color = good === null ? "text-ink-3" : good ? "text-jade" : "text-rose";
+  const color = good === null ? "text-ink-3" : good ? "text-success" : "text-destructive";
   return (
     <span className="inline-flex items-baseline gap-1.5 text-xs">
       <span className={`inline-flex items-center gap-1 font-semibold tabular-nums ${color}`}>
@@ -56,8 +56,8 @@ export function KpiTile({
 }) {
   const body = (
     <>
-      <span className="block text-[0.8125rem] text-ink-3">{label}</span>
-      <span className="mt-2 block text-[1.75rem] font-semibold leading-none tracking-[-0.03em] tabular-nums text-ink">{value}</span>
+      <span className="block text-sm text-ink-3">{label}</span>
+      <span className="mt-2 block text-2xl font-semibold leading-none tracking-[-0.03em] tabular-nums text-ink">{value}</span>
       {delta ? (
         <span className="mt-2 block">
           <DeltaText d={delta} />
@@ -74,10 +74,11 @@ export function KpiTile({
       aria-pressed={selected}
       aria-controls={controls}
       onClick={onSelect}
-      className={`relative block h-full w-full px-5 py-5 text-left transition-colors ${selected ? "bg-raised" : "bg-surface hover:bg-raised"}`}
+      className={`relative block h-full w-full px-5 py-5 text-left transition-colors duration-150 focus-visible:-outline-offset-2 ${selected ? "bg-selected/45 dark:bg-selected" : "bg-surface hover:bg-raised"}`}
     >
       {body}
-      <span aria-hidden className={`absolute inset-x-0 top-0 h-[2px] bg-brand transition-opacity ${selected ? "opacity-100" : "opacity-0"}`} />
+      {/* selected: a lime wash plus the marker bar along the top (aria-pressed carries it for AT) */}
+      <span aria-hidden className={`absolute inset-x-0 top-0 h-[3px] bg-marker transition-opacity duration-150 ${selected ? "opacity-100" : "opacity-0"}`} />
     </button>
   );
 }

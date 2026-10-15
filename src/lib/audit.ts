@@ -93,6 +93,7 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   "tracker.updated": "Changed tracker category",
   "tracker.removed": "Removed tracker",
   "tracker.scan_run": "Ran tracker scan",
+  "tracker.scan_schedule_changed": "Changed scan schedule",
   "tracker.approved": "Approved tracker",
   "tracker.ignored": "Ignored tracker",
   "tracker.restored": "Restored tracker to review",

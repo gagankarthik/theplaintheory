@@ -35,17 +35,17 @@ export const PLATFORM: NavMenu = {
     {
       heading: "Collect consent",
       links: [
-        { href: "/#capabilities", title: "Consent banner" },
-        { href: "/#capabilities", title: "Script blocking" },
-        { href: "/#capabilities", title: "Banner studio" },
+        { href: "/#inside", title: "Consent banner" },
+        { href: "/#inside", title: "Script blocking" },
+        { href: "/#inside", title: "Banner studio" },
       ],
     },
     {
       heading: "Find and prove",
       links: [
-        { href: "/#capabilities", title: "Cookie scanner" },
-        { href: "/#capabilities", title: "Consent records and audit" },
-        { href: "/#capabilities", title: "Integrations" },
+        { href: "/#inside", title: "Cookie scanner" },
+        { href: "/#inside", title: "Consent records and audit" },
+        { href: "/#inside", title: "Integrations" },
       ],
     },
     {

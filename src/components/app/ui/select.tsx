@@ -87,7 +87,11 @@ export function Select<T extends string = string>({
     const below = window.innerHeight - r.bottom - 8;
     const above = r.top - 8;
     const up = below < 220 && above > below;
-    setPos({ left: r.left, top: up ? r.top - 6 : r.bottom + 6, width: Math.max(r.width, menuWidth ?? 0), up, maxH: Math.min(320, up ? above : below) });
+    const width = Math.min(Math.max(r.width, menuWidth ?? 0), window.innerWidth - 16);
+    // keep the whole list on screen: clamp it inside an 8px margin, using its real width once drawn
+    const drawn = list.current?.offsetWidth ?? width;
+    const left = Math.max(8, Math.min(r.left, window.innerWidth - Math.max(drawn, width) - 8));
+    setPos({ left, top: up ? r.top - 6 : r.bottom + 6, width, up, maxH: Math.min(320, up ? above : below) });
   }, [menuWidth]);
 
   const show = (at?: number) => {
@@ -114,9 +118,12 @@ export function Select<T extends string = string>({
   useLayoutEffect(() => {
     if (!open) return;
     place();
+    // a second pass once the list has its real width
+    const frame = requestAnimationFrame(place);
     window.addEventListener("resize", place);
     window.addEventListener("scroll", place, true);
     return () => {
+      cancelAnimationFrame(frame);
       window.removeEventListener("resize", place);
       window.removeEventListener("scroll", place, true);
     };
@@ -217,9 +224,9 @@ export function Select<T extends string = string>({
         disabled={disabled}
         onClick={() => (open ? hide() : show())}
         onKeyDown={onKeyDown}
-        className={`group/sel flex w-full min-w-0 items-center gap-2 rounded-[var(--radius-md)] border bg-surface text-left text-ink transition-[border-color,box-shadow] duration-150 focus-visible:border-brand focus-visible:shadow-[0_0_0_3px_var(--color-brand-wash)] focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60 aria-expanded:border-brand aria-expanded:shadow-[0_0_0_3px_var(--color-brand-wash)] aria-[invalid=true]:border-rose ${
-          sm ? "h-9 px-2.5 text-xs max-sm:h-11" : "h-10 px-3 text-sm"
-        } border-line-input hover:border-ink-3 ${className}`}
+        className={`group/sel flex w-full min-w-0 items-center gap-2 rounded-[var(--radius-md)] border bg-surface text-left text-ink transition-[border-color] duration-150 focus-visible:border-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:cursor-not-allowed disabled:opacity-60 aria-expanded:border-ink aria-[invalid=true]:border-destructive ${
+          sm ? "h-9 px-3 text-xs max-sm:h-11" : "h-10 px-3.5 text-sm"
+        } border-boundary hover:border-ink-3 ${className}`}
       >
         {selected?.icon ? <span className="shrink-0 text-ink-3">{selected.icon}</span> : null}
         <span className={`min-w-0 flex-1 truncate ${unset ? "text-ink-3" : ""}`}>{selected?.label ?? placeholder}</span>
@@ -238,7 +245,7 @@ export function Select<T extends string = string>({
               aria-labelledby={aria["aria-labelledby"] ?? triggerId}
               tabIndex={-1}
               style={{ left: pos.left, top: pos.top, minWidth: pos.width, maxHeight: pos.maxH, transform: pos.up ? "translateY(-100%)" : undefined }}
-              className="scroll-thin fixed z-[60] max-w-[min(26rem,calc(100vw-2rem))] overflow-y-auto rounded-[12px] border border-line bg-surface p-1 shadow-[0_12px_32px_-8px_rgb(11_16_32/0.18),0_2px_6px_rgb(11_16_32/0.06)] motion-safe:animate-[sel-in_140ms_ease-out]"
+              className="scroll-thin fixed z-[60] max-w-[min(26rem,calc(100vw-1rem))] overflow-y-auto rounded-md border border-line-strong bg-surface p-1 shadow-[var(--shadow-float)] motion-safe:animate-[sel-in_150ms_ease-out]"
             >
               {options.map((o, i) => {
                 const isSel = o.value === value;
@@ -252,13 +259,13 @@ export function Select<T extends string = string>({
                     aria-disabled={o.disabled || undefined}
                     onPointerMove={() => enabled(i) && active !== i && setActive(i)}
                     onClick={() => pick(i)}
-                    className={`flex cursor-pointer items-start gap-2.5 rounded-[8px] px-2.5 py-2 text-sm ${i === active ? "bg-paper" : ""} ${
+                    className={`flex cursor-pointer items-start gap-2.5 rounded-[8px] px-2.5 py-2 text-sm ${i === active ? "bg-raised ring-1 ring-inset ring-line-strong" : ""} ${isSel ? "bg-selected/45 dark:bg-selected" : ""} ${
                       o.disabled ? "cursor-not-allowed opacity-50" : ""
                     } ${sm ? "max-sm:min-h-11" : "min-h-9"}`}
                   >
                     {o.icon ? <span className="mt-0.5 shrink-0 text-ink-3">{o.icon}</span> : null}
                     <span className="min-w-0 flex-1">
-                      <span className={`block ${isSel ? "font-medium text-ink" : "text-ink-2"}`}>{o.label}</span>
+                      <span className={`block ${isSel ? "font-semibold text-ink" : "text-ink-2"}`}>{o.label}</span>
                       {o.description ? <span className="mt-0.5 block text-xs leading-snug text-ink-3">{o.description}</span> : null}
                     </span>
                     <svg aria-hidden width="16" height="16" viewBox="0 0 16 16" className={`mt-0.5 shrink-0 text-brand ${isSel ? "" : "invisible"}`}>

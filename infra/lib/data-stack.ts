@@ -32,6 +32,7 @@ const SPECS: TableSpec[] = [
       // Lookups: EMAIL#<email>, SITEKEY#<key>, USER#<id> -> ORG#<id>
       { name: "GSI1", projection: dynamodb.ProjectionType.ALL },
       // Staff console lists, newest first: TYPE#ORG / TYPE#USER -> <createdAt>#<id>
+      // Scheduled scans (sparse, keys only needed): SCHED#SCAN -> <nextDueAt>#<propertyId>, set only on sites with a schedule
       { name: "GSI2", projection: dynamodb.ProjectionType.INCLUDE, include: ["name", "email", "plan", "kind", "dataRegion", "suspendedAt", "createdAt"] },
     ],
   },

@@ -1,10 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { useRef, useState, useTransition, type ReactNode } from "react";
 import { runSiteAudit } from "@/app/app/sites/[propertyId]/actions";
-import { IconAlert, IconCheck, IconClose, IconExternal, IconInfo, IconScan } from "@/components/icons";
-import { Button } from "@/components/app/ui/button";
+import { IconAlert, IconCheck, IconChevronRight, IconClose, IconExternal, IconInfo, IconScan } from "@/components/icons";
+import { Alert } from "@/components/app/ui/alert";
+import { Button, ButtonLink } from "@/components/app/ui/button";
+import { Card, CardFooter, CardHeader } from "@/components/app/ui/card";
 import { EmptyState } from "@/components/app/ui/empty-state";
 import { Spinner } from "@/components/app/ui/spinner";
 import { siteAuditFixHref, type SiteAuditReport, type SiteCheck, type SiteCheckStatus } from "@/lib/site-audit/types";
@@ -12,10 +13,10 @@ import { siteAuditFixHref, type SiteAuditReport, type SiteCheck, type SiteCheckS
 const STEPS = ["Fetching homepage", "Finding policy pages", "Checking"] as const;
 
 const ICON: Record<SiteCheckStatus, { el: ReactNode; cls: string; sr: string }> = {
-  fail: { el: <IconClose size={14} />, cls: "bg-rose text-on-inverse", sr: "Failing" },
-  warn: { el: <IconAlert size={14} />, cls: "bg-amber-wash text-amber ring-1 ring-inset ring-amber-bright", sr: "Needs review" },
-  pass: { el: <IconCheck size={14} />, cls: "bg-jade-wash text-jade", sr: "Passing" },
-  unknown: { el: <IconInfo size={14} />, cls: "bg-paper text-ink-3 ring-1 ring-inset ring-line", sr: "Couldn't check" },
+  fail: { el: <IconClose size={14} />, cls: "bg-destructive-wash text-destructive", sr: "Failing" },
+  warn: { el: <IconAlert size={14} />, cls: "bg-warning-wash text-warning", sr: "Needs review" },
+  pass: { el: <IconCheck size={14} />, cls: "bg-success-wash text-success", sr: "Passing" },
+  unknown: { el: <IconInfo size={14} />, cls: "bg-raised text-ink-3 ring-1 ring-inset ring-line", sr: "Couldn't check" },
 };
 
 const GROUPS: { status: SiteCheckStatus; title: string; hint?: string }[] = [
@@ -49,7 +50,7 @@ function Progress({ step }: { step: number }) {
         const current = i === step;
         return (
           <li key={label} className="flex items-center gap-2 sm:after:mx-3 sm:after:h-px sm:after:w-6 sm:after:bg-line sm:last:after:hidden">
-            <span className={`grid size-5 shrink-0 place-items-center rounded-full ${done ? "bg-jade-wash text-jade" : current ? "text-ink" : "bg-paper text-ink-3 ring-1 ring-inset ring-line"}`} aria-hidden>
+            <span className={`grid size-5 shrink-0 place-items-center rounded-full ${done ? "bg-success-wash text-success" : current ? "text-ink" : "bg-raised text-ink-3 ring-1 ring-inset ring-line"}`} aria-hidden>
               {done ? <IconCheck size={12} /> : current ? <Spinner size={16} /> : null}
             </span>
             <span className={current ? "font-medium text-ink" : done ? "text-ink-2" : "text-ink-3"}>
@@ -67,7 +68,7 @@ function Evidence({ check }: { check: SiteCheck }) {
   const ev = check.evidence;
   if (!ev) return null;
   return (
-    <figure className="mt-2.5 rounded-md border-l-2 border-line-strong bg-paper px-3.5 py-2.5">
+    <figure className="mt-2.5 rounded-md border-l-2 border-line-strong bg-raised px-3.5 py-2.5">
       {ev.quote ? <blockquote className="text-sm leading-relaxed text-ink-2">&ldquo;{ev.quote}&rdquo;</blockquote> : null}
       <figcaption className={`text-xs text-ink-3 ${ev.quote ? "mt-1.5" : ""}`}>
         <a href={ev.url} target="_blank" rel="noopener noreferrer nofollow" className="inline-flex items-center gap-1 break-all font-medium text-ink-2 underline underline-offset-2 hover:text-ink">
@@ -97,7 +98,7 @@ function Row({ check, propertyId }: { check: SiteCheck; propertyId: string }) {
         {check.items?.length ? (
           <ul className="mt-2 flex flex-wrap gap-1.5" aria-label="Found">
             {check.items.map((it) => (
-              <li key={it} className="rounded-full bg-paper px-2 py-0.5 text-xs text-ink-2 ring-1 ring-inset ring-line">
+              <li key={it} className="rounded-full bg-raised px-2 py-0.5 text-xs text-ink-2 ring-1 ring-inset ring-line">
                 {it}
               </li>
             ))}
@@ -115,12 +116,10 @@ function Row({ check, propertyId }: { check: SiteCheck; propertyId: string }) {
               <span />
             )}
             {check.action ? (
-              <Link
-                href={siteAuditFixHref(propertyId, check.action.target)}
-                className="inline-flex h-8 shrink-0 items-center self-start rounded-md px-2.5 text-xs font-medium text-ink shadow-[inset_0_0_0_1px_var(--color-line-strong)] hover:shadow-[inset_0_0_0_1px_var(--color-ink)] max-sm:h-11"
-              >
+              <ButtonLink href={siteAuditFixHref(propertyId, check.action.target)} variant="secondary" size="sm" className="shrink-0 self-start">
                 {check.action.label}
-              </Link>
+                <span className="sr-only">: {check.title}</span>
+              </ButtonLink>
             ) : null}
           </div>
         ) : null}
@@ -137,9 +136,8 @@ function Report({ report, propertyId }: { report: SiteAuditReport; propertyId: s
       {report.notices.length ? (
         <ul className="mb-2 flex flex-col gap-2 pt-4">
           {report.notices.map((n) => (
-            <li key={n.id} className="flex gap-2.5 rounded-md bg-paper px-3.5 py-2.5 text-sm text-ink-2 ring-1 ring-inset ring-line">
-              <IconInfo size={16} className="mt-0.5 shrink-0 text-ink-3" />
-              {n.text}
+            <li key={n.id}>
+              <Alert tone="info">{n.text}</Alert>
             </li>
           ))}
         </ul>
@@ -165,9 +163,7 @@ function Report({ report, propertyId }: { report: SiteAuditReport; propertyId: s
             {g.status === "pass" ? (
               <details className="group">
                 <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 text-sm font-semibold text-ink [&::-webkit-details-marker]:hidden">
-                  <span aria-hidden className="text-ink-3 transition-transform group-open:rotate-90">
-                    ›
-                  </span>
+                  <IconChevronRight size={16} aria-hidden className="text-ink-3 transition-transform duration-150 ease-out group-open:rotate-90" />
                   <h3>{head}</h3>
                 </summary>
                 {list}
@@ -219,7 +215,7 @@ export function LiveSiteCheck({ propertyId, domain, initial, canRun }: { propert
   };
 
   const button = canRun ? (
-    <Button variant={report ? "ghost" : "primary"} size={report ? "sm" : "md"} loading={pending} loadingLabel="Checking" onClick={run}>
+    <Button variant={report ? "secondary" : "primary"} size={report ? "sm" : "md"} loading={pending} loadingLabel="Checking" onClick={run}>
       {report ? null : <IconScan size={18} />}
       {report ? "Check again" : "Check my live site"}
     </Button>
@@ -233,16 +229,16 @@ export function LiveSiteCheck({ propertyId, domain, initial, canRun }: { propert
         </div>
       ) : null}
       {error ? (
-        <p role="alert" className="py-3 text-sm text-rose">
-          {error}
-        </p>
+        <div className="py-3">
+          <Alert tone="danger">{error}</Alert>
+        </div>
       ) : null}
     </div>
   );
 
   if (!report) {
     return (
-      <div className="mt-8">
+      <div>
         <EmptyState
           icon={<IconScan size={22} />}
           title="Check what visitors see on your live site"
@@ -254,8 +250,8 @@ export function LiveSiteCheck({ propertyId, domain, initial, canRun }: { propert
           }
         >
           <p>
-            We read the public pages of {domain}, the homepage and the privacy, grievance and contact pages it links to, and check what they actually say: a grievance contact, the 90-day answer
-            time, rights, and trackers that load before consent. Takes up to 20 seconds.
+            We read {domain}&apos;s homepage and the privacy, grievance and contact pages it links to, and check what they say: a grievance contact, the 90-day answer time, rights, and trackers
+            that load before consent. Takes up to 20 seconds.
           </p>
         </EmptyState>
       </div>
@@ -264,29 +260,28 @@ export function LiveSiteCheck({ propertyId, domain, initial, canRun }: { propert
 
   const s = report.summary;
   return (
-    <section aria-labelledby="live-h" className="mt-8 overflow-hidden rounded-[16px] border border-line bg-surface">
-      <div className="flex flex-col gap-3 border-b border-line px-5 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-6">
-        <div className="min-w-0">
-          <h2 id="live-h" className="text-base font-semibold">
-            Live site check
-          </h2>
-          <p className="mt-0.5 max-w-[68ch] text-sm text-ink-3">
-            What visitors to {domain} actually see, read from your public pages. Last checked{" "}
+    <Card aria-labelledby="live-h">
+      <CardHeader
+        titleId="live-h"
+        title="Live site check"
+        description={
+          <>
+            Checked{" "}
             <time dateTime={report.finishedAt} suppressHydrationWarning>
               {when(report.finishedAt)}
             </time>
             : {s.fail} failing, {s.warn} to review, {s.pass} passing{s.unknown ? `, ${s.unknown} couldn't check` : ""}.
-          </p>
-        </div>
-        {button ? <div className="shrink-0">{button}</div> : null}
-      </div>
+          </>
+        }
+        actions={button}
+      />
       <div className="px-5 sm:px-6">
         {status}
         <Report report={report} propertyId={propertyId} />
       </div>
-      <p className="border-t border-line bg-paper/60 px-5 py-3 text-xs text-ink-3 sm:px-6">
+      <CardFooter align="start" className="text-xs text-ink-3">
         This reads the HTML your server sends, without running JavaScript or clicking your banner, so it can miss things a browser would show. It isn&apos;t legal advice.
-      </p>
-    </section>
+      </CardFooter>
+    </Card>
   );
 }

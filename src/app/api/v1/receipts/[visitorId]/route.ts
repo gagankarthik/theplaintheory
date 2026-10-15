@@ -1,4 +1,4 @@
-import { ipHashFor, SiteKey, VisitorId, visitorReceipts } from "@/lib/consent";
+import { ipKeyFor, SiteKey, VisitorId, visitorReceipts } from "@/lib/consent";
 import { apiError, json, outcomeError, preflight, rateLimited } from "@/lib/public-api";
 
 export const OPTIONS = preflight;
@@ -12,7 +12,7 @@ export async function GET(req: Request, ctx: RouteContext<"/api/v1/receipts/[vis
   const key = SiteKey.safeParse(new URL(req.url).searchParams.get("siteKey"));
   const vid = VisitorId.safeParse(visitorId);
   if (!key.success || !vid.success) return apiError("bad_request", "Pass ?siteKey= and a valid visitor id.");
-  if (rateLimited(`receipts:${ipHashFor(req.headers)}`, 20)) return apiError("rate_limited", "Too many requests. Try again in a minute.");
+  if (await rateLimited(`receipts:${ipKeyFor(req.headers)}`, 20)) return apiError("rate_limited", "Too many requests. Try again in a minute.");
 
   const result = await visitorReceipts(key.data, vid.data);
   if (!result.ok) return outcomeError(result.reason);

@@ -10,6 +10,7 @@ import { activeScan, cancelCrawl, getScan, requestCrawl } from "@/lib/crawler";
 import { auditSite } from "@/lib/site-config";
 import { writeTrackers } from "@/lib/tracker-writes";
 import { candidatesFrom, mergeScan, statusOf, type ScanReport } from "@/lib/trackers";
+import type { LogCursor } from "@/lib/scan-poll";
 import type { CategoryId, Tracker } from "@/lib/types";
 
 /**
@@ -90,6 +91,25 @@ export async function getScanStatus(propertyId: string, scanId: string): Promise
   try {
     const ctx = await requireProperty(propertyId, "property:read");
     return await getScan(ctx.property.id, SCAN_ID.parse(scanId));
+  } catch {
+    return null;
+  }
+}
+
+const LOG_CURSOR = z.object({ at: z.string().max(40), message: z.string().max(2000) }).nullable().optional();
+
+/**
+ * For polling a running crawl: the report read by key, with only the log lines after `logAfter`
+ * (the newest line the browser already shows). `logMode` says whether to append or replace.
+ */
+export async function pollScanStatus(
+  propertyId: string,
+  scanId: string,
+  logAfter?: LogCursor | null,
+): Promise<(ScanReport & { logMode: "append" | "replace" }) | null> {
+  try {
+    const ctx = await requireProperty(propertyId, "property:read");
+    return await ctx.store.pollScan(ctx.property.id, SCAN_ID.parse(scanId), LOG_CURSOR.parse(logAfter));
   } catch {
     return null;
   }

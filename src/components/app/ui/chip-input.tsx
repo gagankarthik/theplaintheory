@@ -60,12 +60,12 @@ export function ChipInput({
         {label}
       </label>
       <div
-        className="flex min-h-11 flex-wrap items-center gap-1.5 rounded-md border border-line-strong bg-surface px-2 py-1.5 focus-within:border-brand focus-within:shadow-[0_0_0_3px_var(--color-brand-wash)]"
+        className="flex min-h-10 flex-wrap items-center gap-1.5 rounded-md border border-boundary bg-surface px-2 py-1.5 transition-colors duration-150 hover:border-ink-3 focus-within:border-ink focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-focus"
         onClick={() => input.current?.focus()}
       >
         <ul className="flex flex-wrap gap-1.5 empty:hidden" aria-label={`${label}: ${values.length} item${values.length === 1 ? "" : "s"}`}>
           {values.map((v, i) => (
-            <li key={v} className="inline-flex max-w-full items-center gap-1 rounded-full bg-line py-0.5 pl-2.5 pr-1 text-xs font-medium text-ink">
+            <li key={v} className="inline-flex max-w-full items-center gap-1 rounded-full bg-paper py-0.5 pl-2.5 pr-1 text-xs font-medium text-ink ring-1 ring-inset ring-line-strong">
               <span className="truncate">{v}</span>
               <button
                 type="button"
@@ -74,7 +74,7 @@ export function ChipInput({
                   e.stopPropagation();
                   remove(i);
                 }}
-                className="grid size-5 shrink-0 place-items-center rounded-full text-ink-3 hover:bg-line-strong hover:text-ink"
+                className="grid size-6 shrink-0 place-items-center rounded-full text-ink-3 hover:bg-line-strong hover:text-ink"
                 aria-label={`Remove ${v}`}
               >
                 <IconClose size={12} />
@@ -106,7 +106,7 @@ export function ChipInput({
             }
           }}
           onBlur={() => add(text)}
-          className="h-7 min-w-[8rem] flex-1 bg-transparent px-1 text-sm outline-none placeholder:text-ink-3"
+          className="h-7 min-w-[8rem] flex-1 bg-transparent px-1 text-sm outline-none placeholder:text-ink-3 focus-visible:outline-none"
         />
       </div>
       {hint ? (

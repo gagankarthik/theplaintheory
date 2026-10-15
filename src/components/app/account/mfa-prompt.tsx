@@ -20,8 +20,8 @@ export function MfaPrompt({ kind, orgName, deadline }: { kind: "optional" | "def
   if (hidden) return null;
   const deferred = kind === "deferred";
   return (
-    <section aria-labelledby="mfa-prompt-title" className="mb-6 flex flex-wrap items-center gap-4 rounded-[16px] border border-line bg-surface px-5 py-4 sm:px-6">
-      <span className="grid size-10 shrink-0 place-items-center rounded-full bg-paper text-ink-2" aria-hidden>
+    <section aria-labelledby="mfa-prompt-title" className="mb-6 flex flex-wrap items-center gap-4 rounded-lg border border-line bg-surface px-5 py-4 sm:px-6">
+      <span className="grid size-10 shrink-0 place-items-center rounded-full bg-raised text-ink-2 ring-1 ring-inset ring-line" aria-hidden>
         <IconLock size={18} />
       </span>
       <div className="min-w-0 flex-1">
@@ -35,7 +35,7 @@ export function MfaPrompt({ kind, orgName, deadline }: { kind: "optional" | "def
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <ButtonLink href="/app/account#two-factor" variant="ghost">
+        <ButtonLink href="/app/account#two-factor" variant="secondary">
           Set up
         </ButtonLink>
         {deferred ? null : (

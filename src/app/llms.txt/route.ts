@@ -1,7 +1,6 @@
 import { formatPrice } from "@/lib/plans";
 import { getLivePlans } from "@/lib/stripe-catalog";
 import { MARKETING_ROUTES } from "@/lib/marketing-routes";
-import { sdkSizeKb } from "@/lib/sdk-size";
 import { absoluteUrl, site } from "@/lib/site";
 
 /** Short descriptions for each public page, so language models can pick the right one to cite. */
@@ -47,7 +46,7 @@ export async function GET() {
 > ${site.description}
 
 Key facts:
-- Consent script: ${sdkSizeKb()} KB gzipped, blocks known trackers until the visitor chooses, honours Global Privacy Control and sends Google Consent Mode v2 signals.
+- Consent script: blocks known trackers until the visitor chooses, honours Global Privacy Control and sends Google Consent Mode v2 signals.
 - Laws covered: GDPR and UK GDPR, CCPA/CPRA, and India's DPDP Act 2023 with the DPDP Rules 2025 (notices in all 22 Eighth Schedule languages).
 - Proof: every decision is a receipt chained to the previous one by a SHA-256 hash; verification runs in one click, and anyone with the export can verify the chain; an Evidence Pack exports the verified chain.
 - Data residency: stored in India (AWS Mumbai, ap-south-1). EU or US residency on Enterprise, by arrangement.

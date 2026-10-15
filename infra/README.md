@@ -8,7 +8,7 @@ so there are no access keys. One deploy creates one stage (`prod`, `staging` or 
 
 | Stack | Creates | Env vars it feeds |
 |---|---|---|
-| `PlainTheory-{Stage}-Data` | KMS key and six DynamoDB tables: `core`, `receipts`, `telemetry`, `audit`, `leads`, `ephemeral`. Optional receipt archive (Kinesis → Firehose → S3 Object Lock → Athena) | `DYNAMO_TABLE_*`, `AWS_REGION` |
+| `PlainTheory-{Stage}-Data` | KMS key and six DynamoDB tables: `core`, `receipts`, `telemetry`, `audit`, `leads`, `ephemeral`. Optional receipt archive (Kinesis → Firehose → S3 Object Lock → Athena) | `DYNAMO_TABLE_*`, `PT_AWS_REGION` |
 | `PlainTheory-{Stage}-Identity` | Cognito `customers` pool (self sign-up, optional TOTP) and `staff` pool (invite-only, TOTP required, groups `platform-*`) | `COGNITO_CUSTOMER_*`, `COGNITO_STAFF_*`, `COGNITO_REGION` |
 | `PlainTheory-{Stage}-Delivery` | Private S3 config bucket and CloudFront (OAC, HTTP/3, Brotli, geo headers); uploads the SDK | `CONFIG_BUCKET`, `CLOUDFRONT_DISTRIBUTION_ID`, `NEXT_PUBLIC_CDN_URL` |
 | `PlainTheory-{Stage}-Mail` | SES domain identity (DKIM, custom MAIL FROM), configuration set | `MAIL_FROM` |
@@ -20,6 +20,11 @@ so there are no access keys. One deploy creates one stage (`prod`, `staging` or 
 The crawler image is passed with `-c crawlerImage=<RepositoryUri>:<ImageTag>` (outputs of the CrawlerImages stack after
 its CodeBuild run). Without it, `cdk deploy` builds the image locally with Docker. Steps:
 [`docs/architecture/crawler.md`](../docs/architecture/crawler.md#deploy-no-local-docker-needed).
+
+The `core` table's GSI2 also serves scheduled tracker scans as a sparse index: only sites with a weekly or monthly
+schedule carry `GSI2PK = SCHED#SCAN` and `GSI2SK = <nextDueAt>#<propertyId>`, so the daily
+`/api/internal/scheduled-scans` cron finds due sites with one query. It reuses the existing index, so no table change or
+backfill is needed (sites default to no schedule).
 
 Every resource is named `pt-{stage}-{regionCode}-{component}` and carries the tags `Project`, `Environment`,
 `Component`, `Owner`, `CostCenter`, `DataClassification`, `Compliance`, `ManagedBy` and `Repository`. Synth fails if
@@ -60,8 +65,9 @@ After the first deploy:
 ## Vercel
 
 Set the stack outputs as env vars per Vercel environment (Production → prod outputs; Preview → staging outputs),
-plus `vercel.json` `"regions": ["bom1"]`. App secrets (`SESSION_SECRET`, `IP_HASH_SALT`, `INTERNAL_CRON_SECRET`,
-Stripe keys) stay in Vercel's encrypted env vars. The app builds its AWS clients with
+plus `vercel.json` `"regions": ["bom1"]`. App secrets (`SESSION_SECRET`, `MFA_ENCRYPTION_KEY`, `IP_HASH_SECRET`,
+`INTERNAL_CRON_SECRET`, Stripe keys) stay in Vercel's encrypted env vars. The full list, with which ones production
+requires, is in the root [README](../README.md#environment). The app builds its AWS clients with
 `awsCredentialsProvider({ roleArn: process.env.AWS_ROLE_ARN })` from `@vercel/oidc-aws-credentials-provider`.
 
 ## Edge geo headers

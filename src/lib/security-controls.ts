@@ -180,7 +180,7 @@ export async function evaluateControls(store: Store, org: Organization, now = ne
       detail: [
         process.env.SESSION_SECRET ? null : "SESSION_SECRET isn't set (development fallback in use).",
         process.env.MFA_ENCRYPTION_KEY ? null : "MFA_ENCRYPTION_KEY isn't set; MFA secrets are encrypted with a key derived from SESSION_SECRET.",
-        process.env.INTERNAL_CRON_SECRET ? null : "INTERNAL_CRON_SECRET isn't set; the retention endpoint refuses requests in production.",
+        process.env.INTERNAL_CRON_SECRET ? null : "INTERNAL_CRON_SECRET isn't set; the retention and scheduled-scan endpoints refuse requests in production unless Vercel's CRON_SECRET is set.",
       ]
         .filter(Boolean)
         .join(" ") || "Session signing, MFA encryption and job secrets are set from the environment.",

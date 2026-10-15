@@ -1,4 +1,5 @@
 import { formatNumber, formatPct as fmtPct } from "./format";
+import { emptyRollup, mergeRollups, rollupsFromReceipts, type DecisionRollup, type OptionalCategory } from "./rollups";
 import type { CategoryId, ConsentAction, ConsentReceipt, Framework, LeakReport, PageviewCounter, Tracker } from "./types";
 
 export type Outcome = "accepted" | "partial" | "rejected";
@@ -47,6 +48,10 @@ export interface Summary {
   partial: number;
   rejected: number;
   revoked: number;
+  /** decisions made with a Global Privacy Control signal */
+  gpc: number;
+  /** decisions that granted each optional category */
+  granted: Record<OptionalCategory, number>;
   views: number;
   bounces: number;
   optInRate: number;
@@ -60,18 +65,11 @@ export interface Summary {
   byFramework: BreakdownRow[];
 }
 
-function breakdown(rows: ConsentReceipt[], key: (r: ConsentReceipt) => string, limit = 8): BreakdownRow[] {
-  const map = new Map<string, BreakdownRow>();
-  for (const r of rows) {
-    const o = outcomeOf(r.action);
-    if (!o) continue;
-    const k = key(r) || "Unknown";
-    const row = map.get(k) ?? { key: k, total: 0, accepted: 0, partial: 0, rejected: 0 };
-    row.total += 1;
-    row[o] += 1;
-    map.set(k, row);
-  }
-  const sorted = [...map.values()].sort((a, b) => b.total - a.total);
+function breakdown(byValue: Record<string, Record<Outcome, number>>, limit = 8): BreakdownRow[] {
+  const sorted = Object.entries(byValue)
+    .map(([key, c]) => ({ key, total: c.accepted + c.partial + c.rejected, accepted: c.accepted, partial: c.partial, rejected: c.rejected }))
+    .filter((r) => r.total > 0)
+    .sort((a, b) => b.total - a.total);
   if (sorted.length <= limit) return sorted;
   const head = sorted.slice(0, limit - 1);
   const other = sorted.slice(limit - 1).reduce(
@@ -89,47 +87,66 @@ function breakdown(rows: ConsentReceipt[], key: (r: ConsentReceipt) => string, l
 
 const pct = (n: number, d: number) => (d ? n / d : 0);
 
+/** Summary from receipts. Kept for pages that already hold the receipts (e.g. the proof report). */
 export function summarize(receipts: ConsentReceipt[], counters: PageviewCounter[], days: string[]): Summary {
-  const decisions = receipts.filter((r) => outcomeOf(r.action));
-  const count = (o: Outcome) => decisions.filter((r) => outcomeOf(r.action) === o).length;
-  const accepted = count("accepted");
-  const partial = count("partial");
-  const rejected = count("rejected");
-  const views = counters.reduce((s, c) => s + c.views, 0);
-  const bounces = counters.reduce((s, c) => s + c.bounces, 0);
+  return summarizeRollups(rollupsFromReceipts(receipts), counters, days);
+}
+
+/**
+ * Summary from daily decision rollups (lib/rollups.ts). Totals cover every rollup passed in; the
+ * series covers `days`.
+ */
+export function summarizeRollups(rollups: DecisionRollup[], counters: PageviewCounter[], days: string[]): Summary {
+  const total = mergeRollups(rollups.map((r) => ({ ...r, day: "all" })))[0] ?? emptyRollup("all");
+  const { accepted, partial, rejected } = total;
+  const decisions = accepted + partial + rejected;
+  const views = counters.reduce((s, c) => s + (c.views ?? 0), 0);
+  const bounces = counters.reduce((s, c) => s + (c.bounces ?? 0), 0);
 
   const byDay = new Map<string, DayPoint>(days.map((d) => [d, { day: d, accepted: 0, partial: 0, rejected: 0, views: 0, bounces: 0 }]));
   for (const c of counters) {
     const row = byDay.get(c.day);
     if (row) {
-      row.views += c.views;
-      row.bounces += c.bounces;
+      row.views += c.views ?? 0;
+      row.bounces += c.bounces ?? 0;
     }
   }
-  for (const r of decisions) {
-    const row = byDay.get(r.timestamp.slice(0, 10));
-    if (row) row[outcomeOf(r.action)!] += 1;
+  for (const r of rollups) {
+    const row = byDay.get(r.day);
+    if (!row) continue;
+    row.accepted += r.accepted;
+    row.partial += r.partial;
+    row.rejected += r.rejected;
   }
 
   return {
-    decisions: decisions.length,
+    decisions,
     accepted,
     partial,
     rejected,
-    revoked: receipts.filter((r) => r.action === "revoke").length,
+    revoked: total.revoked,
+    gpc: total.gpc,
+    granted: total.granted,
     views,
     bounces,
-    optInRate: pct(accepted, decisions.length),
-    optOutRate: pct(rejected, decisions.length),
-    partialRate: pct(partial, decisions.length),
+    optInRate: pct(accepted, decisions),
+    optOutRate: pct(rejected, decisions),
+    partialRate: pct(partial, decisions),
     bounceRate: pct(bounces, views),
     series: [...byDay.values()],
-    byCountry: breakdown(decisions, (r) => r.country),
-    byDevice: breakdown(decisions, (r) => r.device),
-    byBrowser: breakdown(decisions, (r) => r.browser),
-    byFramework: breakdown(decisions, (r) => r.framework),
+    byCountry: breakdown(total.dims.country),
+    byDevice: breakdown(total.dims.device),
+    byBrowser: breakdown(total.dims.browser),
+    byFramework: breakdown(total.dims.framework),
   };
 }
+
+/** Per-category consent: of all decisions, the share that granted each optional category. */
+export const CATEGORY_RATES: { id: OptionalCategory; label: string; describe: string }[] = [
+  { id: "analytics", label: "Analytics", describe: "Measurement and site statistics" },
+  { id: "marketing", label: "Marketing", describe: "Advertising and cross-site tracking" },
+  { id: "functional", label: "Functional", describe: "Preferences, chat and embedded content" },
+];
 
 // Kept for existing callers; new code imports formatNumber / formatPct from @/lib/format.
 export const formatInt = (n: number) => formatNumber(n);

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { LearnMore } from "@/components/app/configure/learn-more";
 import { PageHeader } from "@/components/app/shell/page-header";
 import { ButtonLink } from "@/components/app/ui/button";
 import { flagsFrom } from "@/components/app/trackers/risk";
@@ -34,12 +35,15 @@ export default async function TrackersPage(props: PageProps<"/app/sites/[propert
   return (
     <>
       <PageHeader
-        eyebrow="Configure"
         title="Cookie catalog"
-        description="Every cookie, storage key, script, embed and pixel your site uses. Verified trackers are held until visitors consent to their category."
+        description={
+          <>
+            Every cookie, script, embed and pixel on your site. Verified trackers wait for consent. <LearnMore anchor="blocking" topic="blocking trackers" />
+          </>
+        }
         actions={
           canWrite ? (
-            <ButtonLink href={`/app/sites/${property.id}/scanner`} variant="ghost">
+            <ButtonLink href={`/app/sites/${property.id}/scanner`} variant="secondary">
               <IconRadar size={16} aria-hidden />
               Scanner
             </ButtonLink>

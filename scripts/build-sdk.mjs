@@ -1,9 +1,9 @@
-// Builds sdk/src -> public/sdk/plain-consent.js and enforces the 10 KB gzip budget (PRD FR-3.1).
+// Builds sdk/src -> public/sdk/plain-consent.js and enforces the 15 KB gzip budget (raised from PRD FR-3.1's 10 KB by the product owner).
 import { build } from "esbuild";
 import { readFileSync, writeFileSync } from "node:fs";
 import { gzipSync } from "node:zlib";
 
-const BUDGET = 10 * 1024;
+const BUDGET = 15 * 1024;
 const outfile = "public/sdk/plain-consent.js";
 
 await build({
@@ -22,7 +22,7 @@ const gz = gzipSync(code, { level: 9 }).length;
 const kb = (n) => (n / 1024).toFixed(2) + " KB";
 console.log(`plain-consent.js  raw ${kb(code.length)}  gzip ${kb(gz)}  (budget ${kb(BUDGET)})`);
 if (gz > BUDGET) {
-  console.error("SDK is over the 10 KB gzip budget. Trim it before shipping.");
+  console.error(`SDK is over the ${BUDGET / 1024} KB gzip budget. Trim it before shipping.`);
   process.exit(1);
 }
 

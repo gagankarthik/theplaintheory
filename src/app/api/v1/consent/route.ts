@@ -1,5 +1,5 @@
 import { after } from "next/server";
-import { ConsentInput, ipHashFor, recordConsent } from "@/lib/consent";
+import { ConsentInput, ipKeyFor, recordConsent } from "@/lib/consent";
 import { apiError, json, outcomeError, parseBody, preflight, rateLimited } from "@/lib/public-api";
 
 export const OPTIONS = preflight;
@@ -8,7 +8,7 @@ export const OPTIONS = preflight;
 export async function POST(req: Request) {
   const parsed = await parseBody(req, ConsentInput);
   if (!parsed.ok) return parsed.response;
-  if (rateLimited(`consent:${ipHashFor(req.headers)}`)) return apiError("rate_limited", "Too many consent requests. Try again in a minute.");
+  if (await rateLimited(`consent:${ipKeyFor(req.headers)}`)) return apiError("rate_limited", "Too many consent requests. Try again in a minute.");
 
   const result = await recordConsent(parsed.data, req.headers);
   if (!result.ok) return outcomeError(result.reason);

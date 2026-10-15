@@ -1,6 +1,7 @@
 import "server-only";
 import { z } from "zod";
-import { anonymizeIp, id } from "./crypto";
+import { id, ipRateKey } from "./crypto";
+import { dailyIpHash } from "./ip-hash";
 import { parseUserAgent, viewerLocation } from "./geo";
 import { toPublicConfig, type PublicConfig } from "./public-config";
 import { getStore } from "./store";
@@ -99,7 +100,10 @@ export function originAllowed(headers: Headers, p: Pick<Property, "domain">) {
 }
 
 export const clientIp = (headers: Headers) => headers.get("x-forwarded-for") ?? headers.get("x-real-ip");
-export const ipHashFor = (headers: Headers) => anonymizeIp(clientIp(headers));
+/** Stable keyed hash of the caller's network, for rate limits only (never stored). */
+export const ipKeyFor = (headers: Headers) => ipRateKey(clientIp(headers));
+/** Daily-salted hash of the caller's network, stored with receipts (lib/ip-hash.ts). */
+export const ipHashFor = (headers: Headers) => dailyIpHash(clientIp(headers));
 
 const today = (d = new Date()) => d.toISOString().slice(0, 10);
 
@@ -164,7 +168,7 @@ export async function recordConsent(input: ConsentInput, headers: Headers): Prom
     country,
     device,
     browser,
-    ipHash: ipHashFor(headers),
+    ipHash: await ipHashFor(headers),
     configVersion: input.configVersion,
     // Signals are only written when the SDK sent them, so receipts from older SDKs hash as before.
     ...(input.gpc !== undefined ? { gpc: input.gpc } : {}),

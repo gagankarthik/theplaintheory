@@ -49,8 +49,8 @@ const STEP_PATH: Record<StaffStep, string> = {
 
 /** Every step counts against one per-network window. */
 async function throttled(): Promise<string | null> {
-  const { ipHash } = await requestContext();
-  const r = await rateLimiter("staffSignIn").consume(ipHash);
+  const { ipKey } = await requestContext();
+  const r = await rateLimiter("staffSignIn").consume(ipKey);
   return r.ok ? null : `Too many sign-in attempts from your network. Try again in ${retryAfterText(r.retryAfterMs)}.`;
 }
 

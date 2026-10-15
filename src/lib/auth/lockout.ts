@@ -26,6 +26,6 @@ export function registerFailure(user: Pick<User, "loginFailures">, now = Date.no
 }
 
 /** Resolves false when this network has made too many attempts recently. Records the attempt. */
-export async function allowIpAttempt(ipHash: string, now = Date.now()) {
-  return (await rateLimiter("signIn").consume(ipHash, now)).ok;
+export async function allowIpAttempt(ipKey: string, now = Date.now()) {
+  return (await rateLimiter("signIn").consume(ipKey, now)).ok;
 }

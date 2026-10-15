@@ -3,25 +3,34 @@ import type { ComponentProps } from "react";
 import { Spinner } from "./spinner";
 
 /**
- * primary: the page's one main action (ultramarine). ghost: every other action. quiet: toolbar and
- * row actions. danger: the confirm button of a destructive dialog. danger-quiet: a row-level remove
- * that turns rose on hover and focus. link: a text button for secondary actions in running text.
+ * Pill buttons ("stems", like the website).
+ *
+ *   primary       the view's one main action: soot with white text (light), lime with soot text (dark)
+ *   secondary     every other action: an outline on the 3:1 boundary token
+ *   ghost         older name for secondary, kept for existing callers (same style)
+ *   quiet         borderless: toolbars, row actions, icon buttons
+ *   danger        the confirm button of a destructive dialog (rose fill)
+ *   danger-quiet  a row-level remove that turns rose on hover and focus
+ *   link          an underlined text button for secondary actions in running text
+ *
+ * Sizes: sm 32px (44px on phones), md 40px, lg 48px.
  */
-export type ButtonVariant = "primary" | "ghost" | "quiet" | "danger" | "danger-quiet" | "link";
-export type ButtonSize = "sm" | "md";
+export type ButtonVariant = "primary" | "secondary" | "ghost" | "quiet" | "danger" | "danger-quiet" | "link";
+export type ButtonSize = "sm" | "md" | "lg";
 
 const VARIANT: Record<ButtonVariant, string> = {
   primary: "btn-primary",
+  secondary: "btn-secondary",
   ghost: "btn-ghost",
   danger: "btn-danger",
   "danger-quiet": "btn-danger-quiet",
-  quiet: "text-ink-2 hover:bg-line hover:text-ink",
+  quiet: "btn-quiet",
   link: "btn-link max-sm:min-h-11",
 };
 
 export function buttonClass(variant: ButtonVariant = "primary", size: ButtonSize = "md", className = "") {
   // Small buttons grow to a 44px touch target on narrow screens. Text links size to their text.
-  const sized = variant !== "link" && size === "sm" ? "btn-sm max-sm:h-11" : "";
+  const sized = variant === "link" ? "" : size === "sm" ? "btn-sm max-sm:h-11" : size === "lg" ? "btn-lg" : "";
   return `btn ${VARIANT[variant]} ${sized} ${className}`.trim();
 }
 

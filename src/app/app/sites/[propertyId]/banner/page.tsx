@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import { BannerBuilder } from "@/components/app/banner-builder/banner-builder";
+import { LearnMore } from "@/components/app/configure/learn-more";
 import { PageHeader } from "@/components/app/shell/page-header";
 import { requireProperty } from "@/lib/auth/access";
 import { can } from "@/lib/auth/rbac";
 
-export const metadata: Metadata = { title: "Banner" };
+export const metadata: Metadata = { title: "Banner studio" };
 
 export default async function BannerPage(props: PageProps<"/app/sites/[propertyId]/banner">) {
   const { propertyId } = await props.params;
@@ -13,9 +14,12 @@ export default async function BannerPage(props: PageProps<"/app/sites/[propertyI
   return (
     <>
       <PageHeader
-        crumbs={[{ href: "/app", label: "Sites" }, { href: `/app/sites/${property.id}`, label: property.name }, { label: "Banner" }]}
-        title="Banner"
-        description="Five steps from design to a live, fair banner. Visitors only see what you publish."
+        title="Banner studio"
+        description={
+          <>
+            Design, word and publish your consent banner. Visitors only see what you publish. <LearnMore anchor="banner" topic="the banner" />
+          </>
+        }
       />
       <BannerBuilder
         key={property.config.version}

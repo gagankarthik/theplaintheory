@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { MfaPrompt } from "@/components/app/account/mfa-prompt";
 import { PageHeader } from "@/components/app/shell/page-header";
 import { AddSite } from "@/components/app/sites/add-site";
@@ -18,18 +19,41 @@ export const metadata: Metadata = { title: "Sites" };
 
 const plural = (n: number, word: string) => `${formatInt(n)} ${word}${n === 1 ? "" : "s"}`;
 
+/** The 30-day window is read once; the trend splits it into six 5-day buckets and two halves. */
+const WINDOW = 30;
+const BUCKETS = 6;
+const DAY_MS = 86_400_000;
+
 export default async function SitesPage() {
   const { org, role, user } = await requireUser();
   const store = await getStore();
   const properties = await store.listProperties(org.id);
-  const since = daysAgoIso(30);
+  const since = daysAgoIso(WINDOW);
   const leakSince = daysAgoIso(7);
-  // One parallel round per site: the table's 30-day decisions plus the 7-day leak count for the strip.
+  const sinceMs = new Date(since).getTime();
+  const halfMs = sinceMs + (WINDOW / 2) * DAY_MS;
+  // One parallel round per site: the 30-day decisions, the 7-day leak count and the latest scan.
   const sites = await Promise.all(
     properties.map(async (p) => {
-      const [receipts, leaks] = await Promise.all([store.listReceipts(p.id, { from: since }), store.listLeaks(p.id, leakSince)]);
+      const [receipts, leaks, [lastScan]] = await Promise.all([store.listReceipts(p.id, { from: since }), store.listLeaks(p.id, leakSince), store.listScans(p.id, 1)]);
       const decisions = receipts.filter((r) => outcomeOf(r.action));
       const accepted = decisions.filter((r) => r.action === "accept_all").length;
+      // trend: opt-in per 5-day bucket for the sparkline, and the last 15 days against the 15 before
+      const buckets = Array.from({ length: BUCKETS }, () => ({ n: 0, a: 0 }));
+      const halves = [
+        { n: 0, a: 0 },
+        { n: 0, a: 0 },
+      ];
+      for (const r of decisions) {
+        const t = new Date(r.timestamp).getTime();
+        const b = Math.min(BUCKETS - 1, Math.max(0, Math.floor((t - sinceMs) / ((WINDOW / BUCKETS) * DAY_MS))));
+        const h = t >= halfMs ? 1 : 0;
+        const yes = r.action === "accept_all" ? 1 : 0;
+        buckets[b].n++;
+        buckets[b].a += yes;
+        halves[h].n++;
+        halves[h].a += yes;
+      }
       return {
         accepted,
         leaks: leaks.length,
@@ -42,6 +66,10 @@ export default async function SitesPage() {
           trackers: heldTrackers(p.trackers).length,
           decisions: decisions.length,
           optIn: decisions.length ? accepted / decisions.length : null,
+          trend: buckets.map((b) => (b.n ? b.a / b.n : null)),
+          delta: halves[0].n && halves[1].n ? halves[1].a / halves[1].n - halves[0].a / halves[0].n : null,
+          lastScan: lastScan ? { status: lastScan.status, at: lastScan.finishedAt || lastScan.startedAt } : null,
+          leaks: leaks.length,
         },
       };
     }),
@@ -70,11 +98,22 @@ export default async function SitesPage() {
 
   return (
     <>
-      <PageHeader live title="Sites" description={`Every site in ${org.name}. Each has its own banner, trackers and consent log.`} actions={rows.length ? addSite : null} />
+      <PageHeader live title="Sites" description={`Every site in ${org.name}, with its banner status and consent.`} actions={rows.length ? addSite : null} />
       {mfaPrompt}
       {rows.length === 0 ? (
-        <EmptyState icon={<IconSites size={24} />} title="Add your first site" action={addSite}>
-          You&apos;ll get a script tag to paste into your site. Trackers stay held until visitors choose.
+        <EmptyState
+          icon={<IconSites size={24} />}
+          title="Add your first site"
+          action={
+            <div className="flex flex-col items-start gap-3 sm:items-center">
+              {addSite ?? <p className="text-sm text-ink-3">Ask an owner or admin of {org.name} to add a site.</p>}
+              <Link href="/docs#install" className="text-sm font-medium text-ink-2 underline underline-offset-4 hover:text-ink">
+                Learn how installing works
+              </Link>
+            </div>
+          }
+        >
+          You&apos;ll get one script tag to paste into your site. Trackers stay held until each visitor chooses.
         </EmptyState>
       ) : (
         <>
@@ -93,17 +132,17 @@ export default async function SitesPage() {
                 tone: live < rows.length ? "warn" : undefined,
               },
               {
-                label: "Decisions, last 30 days",
+                label: "Decisions, 30 days",
                 value: formatInt(decisions),
                 note: decisions ? `Across ${plural(rows.filter((r) => r.decisions > 0).length, "site")}` : "No visitor has chosen yet",
               },
               {
-                label: "Opt-in rate, last 30 days",
+                label: "Opt-in rate, 30 days",
                 value: decisions ? formatPct(accepted / decisions) : "—",
                 note: decisions ? `${formatInt(accepted)} accepted all` : "Shows once visitors choose",
               },
               {
-                label: "Leaks, last 7 days",
+                label: "Leaks, 7 days",
                 value: formatInt(leaks),
                 note: leaks ? `On ${plural(leaking.length, "site")}` : "Nothing fired after a refusal",
                 tone: leaks > 0 ? "bad" : undefined,

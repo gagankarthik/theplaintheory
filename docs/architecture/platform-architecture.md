@@ -348,7 +348,7 @@ This is the trust story enterprise buyers and SOC 2 auditors look for: least pri
   - KMS encrypt and decrypt via the data key.
 - **Regions:** set `"regions": ["bom1"]` in `vercel.json`, which is co-located with ap-south-1.
 - **Secrets:**
-  - App secrets (`SESSION_SECRET`, Stripe keys, `IP_HASH_SALT`, `INTERNAL_CRON_SECRET`) live in Vercel's encrypted env
+  - App secrets (`SESSION_SECRET`, Stripe keys, `IP_HASH_SECRET`, `INTERNAL_CRON_SECRET`) live in Vercel's encrypted env
     vars, per environment.
   - AWS has **no** long-lived keys.
 

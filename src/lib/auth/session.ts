@@ -1,6 +1,7 @@
 import "server-only";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { cache } from "react";
 import { id } from "../crypto";
 import { requestContext } from "../request-context";
 import { getStore } from "../store";
@@ -81,7 +82,7 @@ export function sessionProblem(rec: SessionRecord | null, now = Date.now()) {
  * The current session, validated against its server-side record: unknown, revoked, expired or idle
  * sessions return null. This is the authoritative check; the proxy only does a fast token check.
  */
-export async function getSession(): Promise<Session | null> {
+export const getSession = cache(async function getSession(): Promise<Session | null> {
   const claims = await verifySessionToken((await cookies()).get(SESSION_COOKIE)?.value);
   if (!claims) return null;
   const store = await getStore();
@@ -95,7 +96,8 @@ export async function getSession(): Promise<Session | null> {
     await store.updateUser(rec!.userId, { lastActiveAt: iso }).catch(() => undefined);
   }
   return { sid: claims.sid, userId: claims.userId, email: claims.email, orgId: claims.orgId };
-}
+});
+// cache(): the layout, page and helpers of one request share a single session lookup.
 
 /** Sign out this browser: revoke the record and clear the cookie. */
 export async function destroySession() {
@@ -112,6 +114,13 @@ export async function destroySession() {
  * from the account page and its actions).
  */
 export async function requireUser(opts: { allowWithoutMfa?: boolean } = {}) {
+  const ctx = await loadUserContext();
+  if (!opts.allowWithoutMfa && mfaRequirementState(ctx.org, ctx.user) === "required") redirect("/app/account?mfa=required");
+  return ctx;
+}
+
+/** Session, user, memberships and active org, read once per request (React cache) whatever the MFA option. */
+const loadUserContext = cache(async () => {
   const session = await getSession();
   if (!session) redirect("/login");
   const store = await getStore();
@@ -124,9 +133,8 @@ export async function requireUser(opts: { allowWithoutMfa?: boolean } = {}) {
   if (!org) redirect("/onboarding");
   // Suspended by Plain Theory staff: no dashboard access until it's lifted (the page explains why).
   if (org.suspendedAt) redirect("/suspended");
-  if (!opts.allowWithoutMfa && mfaRequirementState(org, user) === "required") redirect("/app/account?mfa=required");
   return { session, user, org, role: active.role, memberships };
-}
+});
 
 /** Session plus a user that still exists (a stale cookie after a data reset returns null). */
 export async function getSignedInUser() {

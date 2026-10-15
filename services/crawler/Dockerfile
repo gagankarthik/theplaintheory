@@ -30,7 +30,11 @@ RUN apt-get update \
 ENV NODE_ENV=production \
     PUPPETEER_SKIP_DOWNLOAD=true \
     PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium \
-    STORE_DRIVER=dynamodb
+    STORE_DRIVER=dynamodb \
+    TMPDIR=/tmp \
+    HOME=/tmp \
+    XDG_CONFIG_HOME=/tmp/.config \
+    XDG_CACHE_HOME=/tmp/.cache
 
 WORKDIR /app
 COPY --from=build /repo/services/crawler/package.json /repo/services/crawler/package-lock.json ./
@@ -38,6 +42,8 @@ COPY --from=build /repo/services/crawler/package.json /repo/services/crawler/pac
 RUN npm ci --omit=dev --no-audit --no-fund && npm cache clean --force
 COPY --from=build /repo/services/crawler/dist ./dist
 
+# Runs with a read-only root filesystem on ECS (crawler-stack.ts): /tmp is the only writable path, so
+# Chromium's profile, shared memory, caches and HOME all live there (see src/scanner/browser.ts).
 USER node
 ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["node", "--enable-source-maps", "dist/index.js"]

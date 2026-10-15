@@ -34,13 +34,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 function ToastCard({ item, onDone }: { item: ToastItem; onDone: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
 
-  // Springs in from below; slides out to the side before it's removed.
+  // Rises in from below; fades out to the side before it's removed.
   useLayoutEffect(() => {
-    if (ref.current && !reducedMotion()) gsap.fromTo(ref.current, { y: 20, scale: 0.96, autoAlpha: 0 }, { y: 0, scale: 1, autoAlpha: 1, duration: 0.5, ease: "back.out(1.6)" });
+    if (ref.current && !reducedMotion()) gsap.fromTo(ref.current, { y: 12, autoAlpha: 0 }, { y: 0, autoAlpha: 1, duration: 0.24, ease: "power2.out" });
   }, []);
   const dismiss = useCallback(() => {
     if (!ref.current || reducedMotion()) return onDone();
-    gsap.to(ref.current, { x: 48, autoAlpha: 0, duration: 0.3, ease: "power2.in", onComplete: onDone });
+    gsap.to(ref.current, { x: 32, autoAlpha: 0, duration: 0.2, ease: "power2.out", onComplete: onDone });
   }, [onDone]);
 
   useEffect(() => {
@@ -52,13 +52,13 @@ function ToastCard({ item, onDone }: { item: ToastItem; onDone: () => void }) {
     <div
       ref={ref}
       role={error ? "alert" : "status"}
-      className="pointer-events-auto flex w-full items-start gap-3 rounded-lg border border-line bg-surface px-3.5 py-3 text-sm shadow-[var(--shadow-float)]"
+      className="pointer-events-auto flex w-full items-start gap-3 rounded-md border border-line-strong bg-surface px-4 py-3 text-sm shadow-[var(--shadow-float)]"
     >
-      <span className={`mt-0.5 grid size-5 shrink-0 place-items-center rounded-full ${error ? "bg-rose text-on-inverse" : "bg-jade text-on-inverse"}`}>
+      <span className={`mt-0.5 grid size-5 shrink-0 place-items-center rounded-full ${error ? "bg-destructive text-surface" : "bg-success text-surface"}`}>
         {error ? <IconAlert size={14} /> : <IconCheck size={14} />}
       </span>
       <p className="min-w-0 flex-1 text-ink">{item.message}</p>
-      <button type="button" onClick={dismiss} className="-m-1 grid size-7 shrink-0 place-items-center rounded text-ink-3 hover:bg-paper hover:text-ink" aria-label="Dismiss notification">
+      <button type="button" onClick={dismiss} className="-my-1.5 -mr-2 grid size-8 shrink-0 place-items-center rounded-full text-ink-3 hover:bg-paper hover:text-ink" aria-label="Dismiss notification">
         <IconClose size={14} />
       </button>
     </div>
@@ -77,7 +77,7 @@ export function FormMessage({ state }: { state: { ok?: string; error?: string } 
       // focus target for useFocusOnError when no single field is at fault
       tabIndex={error ? -1 : undefined}
       data-form-summary={error ? "" : undefined}
-      className={`flex items-start gap-2 rounded-md px-3 py-2.5 text-sm ${error ? "bg-rose-wash text-rose" : "bg-jade-wash text-jade"}`}
+      className={`flex items-start gap-2 rounded-md px-3 py-2.5 text-sm ${error ? "bg-destructive-wash text-destructive" : "bg-success-wash text-success"}`}
     >
       {error ? <IconAlert size={18} className="mt-0.5 shrink-0" /> : <IconCheck size={18} className="mt-0.5 shrink-0" />}
       <span>{state.error ?? state.ok}</span>

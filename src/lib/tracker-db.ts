@@ -9,8 +9,8 @@ import type { CategoryId } from "./types";
  *   "host.com"        the host or any subdomain of it
  *   "host.com/path"   that host (or a subdomain) and a path starting with /path
  *   "/path"           any host, a path containing /path (first-party endpoints such as /_vercel/insights)
- * The first URL pattern is the one the SDK holds (it matches it as a substring of a script or iframe
- * address), so it must be specific to the vendor.
+ * The first URL pattern is the one the SDK holds (sdk/src/match.ts applies these same rules to the
+ * parsed script or iframe address), so it must be specific to the vendor.
  *
  * Cookie names: exact, or with "*" as a wildcard ("_ga_*", "_pk_id.*").
  * Inline signatures: substrings that only this vendor's snippet contains.

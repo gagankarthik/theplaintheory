@@ -6,10 +6,11 @@ import { Badge } from "@/components/app/ui/badge";
 import { DataTable, type Column } from "@/components/app/ui/data-table";
 import type { UserSummary } from "@/lib/platform/data";
 import { MfaBadge } from "./badges";
-import { FilterBar, FilterSelect } from "./filter-bar";
+import { ListFilters } from "./filter-bar";
 import { fmtDate } from "./format";
 
 const ALL = "all";
+const PAGE_SIZE = 50;
 
 export function UsersTable({ users }: { users: UserSummary[] }) {
   const [q, setQ] = useState("");
@@ -32,73 +33,85 @@ export function UsersTable({ users }: { users: UserSummary[] }) {
       header: "User",
       sortValue: (u) => u.name.toLowerCase(),
       cell: (u) => (
-        <>
-          <Link href={`/admin/users/${u.id}`} className="font-bold text-ink underline-offset-2 hover:underline">
+        <span className="block min-w-0 max-w-[34ch]">
+          <Link href={`/admin/users/${u.id}`} className="font-semibold text-ink underline-offset-4 hover:underline">
             {u.name}
           </Link>
           <span className="block truncate text-xs text-ink-3">{u.email}</span>
-        </>
+        </span>
       ),
     },
     {
       id: "orgs",
       header: "Organizations",
       sortValue: (u) => u.orgs.length,
-      cell: (u) => (u.orgs.length ? <span className="text-ink-2">{u.orgs.map((o) => o.name).join(", ")}</span> : <span className="text-ink-3">None</span>),
+      cell: (u) =>
+        u.orgs.length ? (
+          <span className="block max-w-[30ch] truncate text-ink-2" title={u.orgs.map((o) => o.name).join(", ")}>
+            {u.orgs.map((o) => o.name).join(", ")}
+          </span>
+        ) : (
+          <span className="text-ink-3">None</span>
+        ),
     },
     { id: "mfa", header: "Two-factor", sortValue: (u) => (u.mfa ? 1 : 0), cell: (u) => <MfaBadge on={u.mfa} /> },
-    { id: "active", header: "Last active", sortValue: (u) => u.lastActiveAt ?? "", cell: (u) => <span className="text-ink-2">{fmtDate(u.lastActiveAt)}</span> },
-    { id: "locked", header: "Sign-in", sortValue: (u) => (u.locked ? 1 : 0), cell: (u) => (u.locked ? <Badge tone="declined">Locked</Badge> : <span className="text-ink-3">OK</span>) },
-    { id: "created", header: "Joined", sortValue: (u) => u.createdAt, hideOnMobile: true, cell: (u) => <span className="text-ink-2">{fmtDate(u.createdAt)}</span> },
+    {
+      id: "locked",
+      header: "Sign-in",
+      sortValue: (u) => (u.locked ? 1 : 0),
+      cell: (u) => (u.locked ? <Badge tone="danger">Locked</Badge> : <span className="text-ink-3">Normal</span>),
+    },
+    { id: "active", header: "Last active", numeric: true, sortValue: (u) => u.lastActiveAt ?? "", cell: (u) => <span className="whitespace-nowrap text-ink-2">{fmtDate(u.lastActiveAt)}</span> },
+    { id: "created", header: "Joined", numeric: true, sortValue: (u) => u.createdAt, hideOnMobile: true, cell: (u) => <span className="whitespace-nowrap text-ink-2">{fmtDate(u.createdAt)}</span> },
   ];
 
   return (
     <>
-      <FilterBar
+      <ListFilters
         idBase="users"
+        label="Filter users"
         query={q}
         onQuery={setQ}
-        searchLabel="Search users"
+        searchLabel="Search"
         placeholder="Name, email or organization"
         count={rows.length}
         total={users.length}
         noun={["user", "users"]}
-        onReset={() => {
-          setQ("");
-          setMfa(ALL);
-          setFlag(ALL);
-        }}
-      >
-        <FilterSelect
-          id="users-mfa"
-          label="Two-factor"
-          value={mfa}
-          onChange={setMfa}
-          options={[
-            { value: ALL, label: "On or off" },
-            { value: "on", label: "On" },
-            { value: "off", label: "Off" },
-          ]}
-        />
-        <FilterSelect
-          id="users-flag"
-          label="Show"
-          value={flag}
-          onChange={setFlag}
-          options={[
-            { value: ALL, label: "Everyone" },
-            { value: "locked", label: "Locked out" },
-            { value: "no-org", label: "No organization" },
-          ]}
-        />
-      </FilterBar>
+        filters={[
+          {
+            id: "mfa",
+            label: "Two-factor",
+            value: mfa,
+            onChange: setMfa,
+            options: [
+              { value: ALL, label: "On or off" },
+              { value: "on", label: "On" },
+              { value: "off", label: "Off" },
+            ],
+          },
+          {
+            id: "flag",
+            label: "Show",
+            value: flag,
+            onChange: setFlag,
+            options: [
+              { value: ALL, label: "Everyone" },
+              { value: "locked", label: "Locked out" },
+              { value: "no-org", label: "No organization" },
+            ],
+          },
+        ]}
+      />
       <DataTable
         caption="Users"
         rows={rows}
         columns={columns}
         rowKey={(u) => u.id}
         initialSort={{ id: "created", dir: "descending" }}
-        minWidth={900}
+        minWidth={920}
+        maxHeight="72dvh"
+        pageSize={PAGE_SIZE}
+        noun={["user", "users"]}
         empty={users.length ? "No users match these filters." : "No users yet."}
       />
     </>

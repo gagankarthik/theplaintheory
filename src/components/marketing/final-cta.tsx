@@ -22,7 +22,7 @@ export function FinalCta({
             Start free
           </Link>
           <Link href="/contact?topic=sales" className="mk-stem mk-stem-white">
-            Talk to sales
+            Book a demo
           </Link>
         </div>
       </div>

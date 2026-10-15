@@ -28,7 +28,7 @@ export function AuthFrame({ staff = false, children }: { staff?: boolean; childr
     <div className={`auth ${switzer.variable} grid min-h-dvh bg-surface text-ink lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]`}>
       <ThemeScript />
       <ThemeScope />
-      <a href="#main" className="sr-only z-[100] rounded-full bg-brand-solid px-4 py-2 text-sm font-medium text-white focus:not-sr-only focus:fixed focus:left-4 focus:top-4">
+      <a href="#main" className="sr-only z-[100] rounded-full bg-brand-solid px-4 py-2 text-sm font-medium text-on-brand-solid focus:not-sr-only focus:fixed focus:left-4 focus:top-4">
         Skip to content
       </a>
       <div className="flex min-h-dvh flex-col px-5 py-6 sm:px-10">

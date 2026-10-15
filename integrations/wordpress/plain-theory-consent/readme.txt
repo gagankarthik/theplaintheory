@@ -46,7 +46,7 @@ It's the first argument the other plugin passed to `wp_enqueue_script()`. Many p
 
 = Will it slow my site down? =
 
-The script is under 10 KB gzipped and served from a CDN. It's loaded without `async` on purpose so it runs before trackers.
+The script is served from a CDN. It's loaded without `async` on purpose so it runs before trackers.
 
 == External services ==
 

@@ -1,5 +1,6 @@
+import { lookup as lookupCallback, type LookupAddress } from "node:dns";
 import { lookup } from "node:dns/promises";
-import { isIP } from "node:net";
+import { isIP, type LookupFunction } from "node:net";
 import { isPrivate } from "./app";
 
 /**
@@ -8,6 +9,15 @@ import { isPrivate } from "./app";
  * hosts that are, or resolve to, private, loopback, link-local or metadata addresses
  * (169.254.169.254, fd00:ec2::254) are aborted. The dashboard's fetch scanner applies the same rule
  * through lib/safe-fetch.ts (isPrivate is shared).
+ *
+ * Residual risk (no egress proxy by design): the browser guard resolves a host, then Chromium resolves it
+ * again, so a hostile DNS server with a near-zero TTL can answer "public" to us and "private" to Chromium
+ * (DNS rebinding). WebSockets and service workers bypass request interception; page-capture.ts disables
+ * service worker registration and makes WebSockets to literal private addresses throw, but a WebSocket to
+ * a name that resolves privately, or one opened from a web worker, is not caught. What limits the blast radius is the network: the task runs
+ * alone in a public-subnet VPC with no peering, and the ECS credentials endpoint (169.254.170.2) needs a
+ * per-task path the page cannot know. Node-side fetches (robots.txt) pin the check to the connection with
+ * guardedLookup, so they are not exposed to rebinding.
  *
  * Local development scans http://localhost:4000 (examples/demo-site), so CRAWLER_ALLOW_PRIVATE_NETWORK=true
  * turns the guard off. It is never set in AWS.
@@ -74,3 +84,20 @@ export async function isAllowedUrl(raw: string): Promise<boolean> {
   cache.set(host, { ok, at: Date.now() });
   return ok;
 }
+
+/**
+ * dns.lookup for http(s).request that refuses private addresses at connect time, so the address checked
+ * is the address used (no rebinding window). Off when CRAWLER_ALLOW_PRIVATE_NETWORK=true.
+ */
+export const guardedLookup: LookupFunction = (hostname, options, callback) => {
+  lookupCallback(hostname, { ...options, all: true }, (err, addresses: LookupAddress[]) => {
+    if (err) return callback(err, "", 4);
+    const refused = !privateNetworkAllowed() && (!addresses.length || addresses.some((a) => blocked(a.address)));
+    if (refused) {
+      const e = Object.assign(new Error(`${hostname} resolves to a private or internal address`), { code: "EPRIVATE" });
+      return callback(e, "", 4);
+    }
+    if (options.all) return callback(null, addresses);
+    return callback(null, addresses[0].address, addresses[0].family);
+  });
+};

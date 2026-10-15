@@ -4,6 +4,7 @@ import { useActionState, useRef } from "react";
 import { cancelStaffLogin, staffConfirmMfaSetup, staffLogin, staffNewPassword, staffVerifyMfa, type StaffAuthState } from "@/app/admin/login/actions";
 import { PasswordField } from "@/components/app/auth/auth-forms";
 import { Checkbox } from "@/components/app/ui/checkbox";
+import { ButtonAnchor } from "@/components/app/ui/button";
 import { CopyButton } from "@/components/app/ui/copy-button";
 import { TextField } from "@/components/app/ui/field";
 import { FormGuard, useFocusOnError } from "@/components/app/ui/form-guard";
@@ -19,7 +20,7 @@ const STACK = "space-y-5 short:space-y-4 shorter:space-y-3";
 function StartOver() {
   return (
     <form action={cancelStaffLogin}>
-      <button type="submit" className="flex min-h-11 w-full items-center justify-center text-sm text-ink-3 underline-offset-4 hover:text-ink hover:underline">
+      <button type="submit" className="flex min-h-11 w-full items-center justify-center text-sm font-medium text-ink-2 underline underline-offset-4 hover:text-ink">
         Start again with a different account
       </button>
     </form>
@@ -125,7 +126,7 @@ export function StaffMfaSetupForm({ secret, uri }: { secret: string; uri: string
   const grouped = secret.match(/.{1,4}/g)?.join(" ") ?? secret;
   return (
     <div className={STACK}>
-      <section aria-labelledby="mfa-step-1" className="rounded-lg border border-line bg-paper p-4 sm:p-5">
+      <section aria-labelledby="mfa-step-1" className="rounded-lg border border-line bg-canvas p-4 sm:p-5">
         <h2 id="mfa-step-1" className="text-sm font-semibold">
           1. Scan this QR code with your authenticator app
         </h2>
@@ -144,9 +145,9 @@ export function StaffMfaSetupForm({ secret, uri }: { secret: string; uri: string
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
           <CopyButton value={secret} label="Copy key" />
-          <a href={uri} className="inline-flex h-9 items-center rounded-md px-3 text-sm font-semibold text-brand-ink hover:bg-surface">
+          <ButtonAnchor href={uri} variant="quiet" size="sm">
             Open in authenticator app
-          </a>
+          </ButtonAnchor>
         </div>
         <p className="mt-3 text-xs text-ink-3">Type: time-based (TOTP) · 6 digits · 30 seconds · SHA-1</p>
       </section>

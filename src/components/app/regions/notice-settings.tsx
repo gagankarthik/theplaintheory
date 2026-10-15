@@ -1,13 +1,13 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { saveNoticeSettings, type NoticeState } from "@/app/app/sites/[propertyId]/actions";
 import type { BannerConfig } from "@/lib/types";
 import { TextField } from "@/components/app/ui/field";
 import { SettingsRow, SettingsSection } from "@/components/app/ui/settings";
 import { SubmitButton } from "@/components/app/ui/submit-button";
 import { Switch } from "@/components/app/ui/switch";
-import { FormMessage } from "@/components/app/ui/toast";
+import { FormMessage, useToast } from "@/components/app/ui/toast";
 
 /** Rights, grievance and behaviour settings shown in every notice (DPDPA Rule 3, s.6(4); re-ask suppression). */
 export function NoticeSettings({
@@ -23,17 +23,26 @@ export function NoticeSettings({
 }) {
   const [state, action] = useActionState<NoticeState, FormData>(saveNoticeSettings.bind(null, propertyId), null);
   const [leaks, setLeaks] = useState(config.leakDetection ?? true);
+  const toast = useToast();
   const fe = state?.fieldErrors ?? {};
+  // success is a toast; errors stay inline next to the form
+  useEffect(() => {
+    if (state?.ok) toast(state.ok);
+  }, [state, toast]);
   // After a failed save React resets the form, so fall back to what was submitted.
   const v = (k: string, saved: string | number | undefined) => state?.values?.[k] ?? String(saved ?? "");
 
   return (
-    <form id="notice" action={action} className="scroll-mt-24" noValidate>
+    <form id="notice" action={action} className="mt-10 scroll-mt-24" noValidate aria-labelledby="notice-h">
+      <h2 id="notice-h" className="mb-1 text-base font-semibold">
+        Notice details
+      </h2>
+      <p className="mb-4 text-sm text-ink-3">Shared by every notice on this site.</p>
       <fieldset disabled={!canWrite} className="min-w-0">
         <legend className="sr-only">Notice details</legend>
         <SettingsSection
           title="Rights and contacts"
-          description="Shown in the DPDPA notice and the preferences view so people know how to act on their data."
+          description="How people act on their data. Shown in the DPDPA notice and the preferences view."
         >
           <SettingsRow label="Exercise your rights" htmlFor="rightsUrl" description="Where people ask to access, correct or erase their data.">
             <TextField id="rightsUrl" name="rightsUrl" label="Rights page URL" hideLabel type="url" placeholder="https://example.com/privacy#rights" defaultValue={v("rightsUrl", config.rights?.rightsUrl)} error={fe.rightsUrl} />
@@ -54,11 +63,11 @@ export function NoticeSettings({
           </SettingsRow>
         </SettingsSection>
 
-        <SettingsSection title="Behaviour after a choice">
+        <SettingsSection title="After a choice">
           <SettingsRow
             label="After someone rejects"
             htmlFor="reaskAfterRejectDays"
-            description="Don't show the banner again for this long. 180 days matches the EU's proposed cookie rules and avoids consent fatigue."
+            description="How long to wait before showing the banner again. 180 days avoids consent fatigue."
           >
             <div className="flex items-center gap-3">
               <TextField
@@ -84,11 +93,11 @@ export function NoticeSettings({
         </SettingsSection>
       </fieldset>
       {canWrite ? (
-        <div className="flex flex-col items-end gap-3 pb-4">
-          <div className="w-full max-w-xl">
-            <FormMessage state={state?.fieldErrors ? { error: state.error } : state} />
+        <div className="-mt-2 flex flex-col items-end gap-3 pb-4">
+          <div className="w-full max-w-xl empty:hidden">
+            <FormMessage state={state?.error ? { error: state.error } : null} />
           </div>
-          <SubmitButton variant="ghost" pending="Saving">
+          <SubmitButton variant="secondary" pending="Saving">
             Save notice details
           </SubmitButton>
         </div>

@@ -12,7 +12,7 @@ export function randomId(): string {
 export function readStored(): Stored | null {
   try {
     const m = document.cookie.match(/(?:^|; )plain_consent=([^;]*)/);
-    const raw = m ? decodeURIComponent(m[1]) : localStorage.getItem(KEY);
+    const raw = (m && decodeURIComponent(m[1])) || localStorage.getItem(KEY);
     return raw ? (JSON.parse(raw) as Stored) : null;
   } catch {
     return null;
@@ -52,3 +52,21 @@ export function isFresh(s: Stored | null, cfg: PublicConfig, now = Date.now()): 
 
 export const NONE: Cats = { essential: true, functional: false, analytics: false, marketing: false };
 export const ALL: Cats = { essential: true, functional: true, analytics: true, marketing: true };
+
+/** Whether the last config this browser loaded had Google Consent Mode on; null when never seen. */
+const GCM_KEY = "plain_gcm";
+export function readGcmFlag(): boolean | null {
+  try {
+    const v = localStorage.getItem(GCM_KEY);
+    return v === null ? null : v === "1";
+  } catch {
+    return null;
+  }
+}
+export function writeGcmFlag(on: boolean): void {
+  try {
+    localStorage.setItem(GCM_KEY, on ? "1" : "0");
+  } catch {
+    /* storage unavailable */
+  }
+}

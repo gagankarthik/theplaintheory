@@ -13,7 +13,10 @@ import {
 import { TABLES, dynamo } from "../aws";
 import { AUDIT_GENESIS, hashAudit } from "../audit-chain";
 import { WINDOW_MS as LOCKOUT_WINDOW_MS } from "../auth/lockout";
+import { randomBytes } from "node:crypto";
 import { GENESIS_HASH, hashReceipt, id } from "../crypto";
+import { addFlat, emptyRollup, rollupIncrement } from "../rollups";
+import { withLogAfter } from "../scan-poll";
 import { PLATFORM_AUDIT_GENESIS, hashPlatformAudit } from "../platform/audit-chain";
 import type { PlatformAuditEvent } from "../platform/types";
 import { configVersionKey } from "../config-versions";
@@ -47,19 +50,22 @@ import { SITE_AUDIT_KEEP, type AuditDraft, type ReceiptDraft, type Store } from 
  *   ORG#<id>         MEMBER#<userId>    GSI1 USER#<userId> · ORG#<id>
  *   ORG#<id>         INVITE#<id>        GSI1 EMAIL#<email> · INVITE#<id>
  *   ORG#<id>         PROP#<id>          GSI1 SITEKEY#<key> · PROP          (the site: config, trackers, webhooks)
+ *                                       GSI2 SCHED#SCAN · <nextDueAt>#<id>  (only while a scan schedule is set: sparse)
  *   PROP#<id>        PROFILE            { orgId }                          (pointer: site by id)
  *   PROP#<id>        SITEAUDIT#<iso>#<id>                                  (live site check report; newest 10 kept) TTL 180 days
  *   PROP#<id>        SCAN#<iso>#<id>                                       (tracker scan report; newest 20 kept) TTL 180 days
+ *   PROP#<id>        SCANREF#<scanId>   { sk }                             (pointer: scan report by id, for polling) TTL 180 days
  *   PROP#<id>        CFGVER#<version:12>                                   (published config snapshot; write-once, no TTL)
  *   ORG#<id>         AUDIT#HEAD         { seq, hash }                      (org audit chain head)
  *   PLATFORM         AUDIT#HEAD         { seq, hash, firstMonth, lastMonth } (staff audit chain head)
  *
  * receipts
  *   PROP#<id>        RCPT#<seq:12>      GSI1 PROP#<id>#V#<visitorId> · RCPT#<seq:12>
- *   PROP#<id>        CHAIN#HEAD         { seq, hash }
+ *   PROP#<id>        CHAIN#HEAD         { seq, hash, rollupFromSeq }       (rollupFromSeq: first receipt counted in DAY# rollups)
  *
  * telemetry
  *   PROP#<id>        DAY#<yyyy-mm-dd>   atomic ADD views/bounces            TTL 25 months
+ *                                       + decision rollup counters "n:*", "g:*", "d:*" (lib/rollups.ts)
  *   PROP#<id>        LEAK#<ts>#<id>                                         TTL 90 days
  *   PROP#<id>        WHD#<ts>#<id>                                          TTL 30 days
  *
@@ -78,7 +84,9 @@ import { SITE_AUDIT_KEEP, type AuditDraft, type ReceiptDraft, type Store } from 
  *   LOCK#<userId>    LOCK               sign-in failures / lock              TTL = end of window or lock
  *   RATE#<name>#<key>#<window> RATE     atomic ADD (see rate-limit-dynamo)  TTL = window end + one window
  *   STRIPE#<eventId> STRIPE             webhook idempotency                  TTL 30 days
- *   LEADIP#<ipHash>  <createdAt>#<id>   contact-form abuse window            TTL 1 day
+ *   LEADIP#<ipKey>   <createdAt>#<id>   contact-form abuse window (keyed IP hash) TTL 1 day
+ *   WIN#<key>#<startMs> WIN             public API fixed-window counter (ADD hits) TTL = window end + one window
+ *   IPSALT#<yyyy-mm-dd> SALT            daily IP-hash salt (conditional put)  TTL = end of the next day
  */
 
 type Item = Record<string, unknown>;
@@ -382,7 +390,22 @@ const bySeqDesc = <T extends { seq: number }>(rows: T[]) => rows.sort((a, b) => 
 
 const propPointerKey = (pid: string): Key => ({ PK: `PROP#${pid}`, SK: "PROFILE" });
 const propKey = (orgId: string, pid: string): Key => ({ PK: `ORG#${orgId}`, SK: `PROP#${pid}` });
-const propItem = (p: Property): Item => ({ ...propKey(p.orgId, p.id), GSI1PK: `SITEKEY#${p.siteKey}`, GSI1SK: "PROP", ...p });
+/**
+ * Scheduled scans use core GSI2 as a sparse index: only a site with a schedule carries
+ * GSI2PK "SCHED#SCAN" and GSI2SK "<nextDueAt>#<id>", so finding due sites is one range query on a
+ * small partition, never a table scan. GSI2 projects keys only for these items; the sites are
+ * then read by key.
+ */
+const SCHED_PK = "SCHED#SCAN";
+const schedKeys = (pid: string, s: Property["scanSchedule"]): Item =>
+  s ? { GSI2PK: SCHED_PK, GSI2SK: `${s.nextDueAt}#${pid}` } : { GSI2PK: undefined, GSI2SK: undefined };
+const propItem = (p: Property): Item => ({
+  ...propKey(p.orgId, p.id),
+  GSI1PK: `SITEKEY#${p.siteKey}`,
+  GSI1SK: "PROP",
+  ...(p.scanSchedule ? schedKeys(p.id, p.scanSchedule) : {}),
+  ...p,
+});
 
 async function propertyOrg(pid: string): Promise<string | null> {
   const r = await db().send(new GetCommand({ TableName: TABLES.core, Key: propPointerKey(pid) }));
@@ -632,6 +655,12 @@ export const dynamoStore: Store = {
     );
     return o;
   },
+  async getOrgs(ids) {
+    const unique = [...new Set(ids)];
+    if (!unique.length) return [];
+    const items = await batchGet(TABLES.core, unique.map(orgKey));
+    return items.map((i) => strip<Organization>(i)!);
+  },
   async getOrg(oid) {
     const r = await db().send(new GetCommand({ TableName: TABLES.core, Key: orgKey(oid) }));
     return strip<Organization>(r.Item);
@@ -787,7 +816,27 @@ export const dynamoStore: Store = {
     if (!orgId) throw new Error("Property not found");
     const fields: Item = { ...omit(patch, ["id", "orgId"]), updatedAt: new Date().toISOString() };
     if (typeof fields.siteKey === "string") fields.GSI1PK = `SITEKEY#${fields.siteKey}`;
+    // keep the sparse schedule index in step (an undefined schedule removes the site from it)
+    if ("scanSchedule" in patch) Object.assign(fields, schedKeys(pid, patch.scanSchedule));
     return strip<Property>(await patchItem(TABLES.core, propKey(orgId, pid), fields, "Property not found"))!;
+  },
+  async listDueScanProperties(nowIso, limit) {
+    if (limit < 1) return [];
+    // "~" sorts after every "#<id>" suffix, so every site due at or before nowIso matches
+    const keys = await query(
+      {
+        TableName: TABLES.core,
+        IndexName: "GSI2",
+        KeyConditionExpression: "GSI2PK = :p AND GSI2SK <= :t",
+        ExpressionAttributeValues: { ":p": SCHED_PK, ":t": `${nowIso}~` },
+        ProjectionExpression: "PK, SK",
+      },
+      limit,
+    );
+    if (!keys.length) return [];
+    const items = await batchGet(TABLES.core, keysOf(keys));
+    const due = items.map((i) => strip<Property>(i)!).filter((p) => p.scanSchedule && p.scanSchedule.nextDueAt <= nowIso);
+    return due.sort((a, b) => a.scanSchedule!.nextDueAt.localeCompare(b.scanSchedule!.nextDueAt));
   },
   async deleteProperty(pid) {
     const orgId = await propertyOrg(pid);
@@ -818,7 +867,8 @@ export const dynamoStore: Store = {
     const trackerScans = query({
       TableName: TABLES.core,
       KeyConditionExpression: "PK = :p AND begins_with(SK, :s)",
-      ExpressionAttributeValues: { ":p": `PROP#${pid}`, ":s": "SCAN#" },
+      // "SCAN" covers the reports (SCAN#) and their id pointers (SCANREF#)
+      ExpressionAttributeValues: { ":p": `PROP#${pid}`, ":s": "SCAN" },
       ProjectionExpression: "PK, SK",
     });
     const [receipts, telemetry, siteAudits, versions, scans] = await Promise.all([keyOnly(TABLES.receipts), keyOnly(TABLES.telemetry), audits, cfgVersions, trackerScans]);
@@ -851,8 +901,26 @@ export const dynamoStore: Store = {
         GSI1SK: rcptKey(r.seq),
         ...r,
       }),
-      headExtra: (_head, r) => ({ updatedAt: r.timestamp }),
+      // The first receipt appended since rollups shipped marks where they start (read from the
+      // consistent head, and the transaction is conditional on it, so it's set exactly once).
+      headExtra: (head, r) => ({ updatedAt: r.timestamp, rollupFromSeq: typeof head?.rollupFromSeq === "number" ? head.rollupFromSeq : r.seq }),
+    }).then(async (receipt) => {
+      await addRollup(receipt).catch((e) => console.error("[store] rollup update failed", receipt.propertyId, receipt.seq, e));
+      return receipt;
     });
+  },
+  async listDecisionRollups(propertyId, fromDay, toDay) {
+    const [items, head] = await Promise.all([
+      query({
+        TableName: TABLES.telemetry,
+        KeyConditionExpression: "PK = :p AND SK BETWEEN :a AND :b",
+        ExpressionAttributeValues: { ":p": `PROP#${propertyId}`, ":a": `DAY#${fromDay}`, ":b": `DAY#${toDay}` },
+      }),
+      db().send(new GetCommand({ TableName: TABLES.receipts, Key: { PK: `PROP#${propertyId}`, SK: "CHAIN#HEAD" }, ProjectionExpression: "rollupFromSeq" })),
+    ]);
+    const rollups = items.map((i) => addFlat(emptyRollup(String(i.day ?? String(i.SK).slice(4))), i));
+    const fromSeq = head.Item?.rollupFromSeq;
+    return { rollups, fromSeq: typeof fromSeq === "number" ? fromSeq : null };
   },
   async listReceipts(propertyId, q = {}) {
     const upper = q.before ? rcptKey(q.before - 1) : "RCPT#~";
@@ -947,7 +1015,7 @@ export const dynamoStore: Store = {
 
   /* ---------- leads ---------- */
 
-  async createLead(l) {
+  async createLead(l, abuseKey) {
     const email = l.email.toLowerCase();
     await Promise.all([
       db().send(
@@ -972,13 +1040,13 @@ export const dynamoStore: Store = {
       db().send(
         new PutCommand({
           TableName: TABLES.ephemeral,
-          Item: { PK: `LEADIP#${l.ipHash}`, SK: `${l.createdAt}#${l.id}`, createdAt: l.createdAt, expiresAt: epochS(l.createdAt) + LEAD_IP_TTL_S },
+          Item: { PK: `LEADIP#${abuseKey ?? l.ipHash}`, SK: `${l.createdAt}#${l.id}`, createdAt: l.createdAt, expiresAt: epochS(l.createdAt) + LEAD_IP_TTL_S },
         }),
       ),
     ]);
     return l;
   },
-  async countRecentLeads(ipHash, sinceIso) {
+  async countRecentLeads(abuseKey, sinceIso) {
     let count = 0;
     let ExclusiveStartKey: Item | undefined;
     do {
@@ -986,7 +1054,7 @@ export const dynamoStore: Store = {
         new QueryCommand({
           TableName: TABLES.ephemeral,
           KeyConditionExpression: "PK = :k AND SK >= :s",
-          ExpressionAttributeValues: { ":k": `LEADIP#${ipHash}`, ":s": sinceIso },
+          ExpressionAttributeValues: { ":k": `LEADIP#${abuseKey}`, ":s": sinceIso },
           Select: "COUNT",
           ExclusiveStartKey,
         }),
@@ -1088,6 +1156,44 @@ export const dynamoStore: Store = {
 
   /* ---------- Stripe webhook idempotency (ephemeral) ---------- */
 
+  async hitWindow(key, windowStart, windowMs) {
+    const r = await db().send(
+      new UpdateCommand({
+        TableName: TABLES.ephemeral,
+        Key: { PK: `WIN#${key}#${windowStart}`, SK: "WIN" },
+        UpdateExpression: "ADD hits :one SET expiresAt = if_not_exists(expiresAt, :ttl)",
+        ExpressionAttributeValues: { ":one": 1, ":ttl": Math.ceil((windowStart + 2 * windowMs) / 1000) },
+        ReturnValues: "UPDATED_NEW",
+      }),
+    );
+    return Number(r.Attributes?.hits ?? 1);
+  },
+
+  async dailySalt(day) {
+    const Key = { PK: `IPSALT#${day}`, SK: "SALT" };
+    const read = async () => (await db().send(new GetCommand({ TableName: TABLES.ephemeral, Key, ConsistentRead: true }))).Item?.salt as string | undefined;
+    const existing = await read();
+    if (existing) return existing;
+    const salt = randomBytes(32).toString("base64url");
+    try {
+      await db().send(
+        new PutCommand({
+          TableName: TABLES.ephemeral,
+          // Expires at the end of the following day, after which that day's hashes can't be recomputed.
+          Item: { ...Key, salt, expiresAt: epochS(`${day}T00:00:00Z`) + 2 * DAY_S },
+          ConditionExpression: "attribute_not_exists(PK)",
+        }),
+      );
+      return salt;
+    } catch (e) {
+      // Another instance created it first: everyone uses that one.
+      if (!isConditionFailure(e)) throw e;
+      const winner = await read();
+      if (!winner) throw new Error("Daily salt vanished after a conditional put failed");
+      return winner;
+    }
+  },
+
   async claimStripeEvent(eventId) {
     try {
       await db().send(
@@ -1188,12 +1294,12 @@ export const dynamoStore: Store = {
 
   async saveScan(report) {
     const at = report.finishedAt || new Date().toISOString();
-    await db().send(
-      new PutCommand({
-        TableName: TABLES.core,
-        Item: { PK: `PROP#${report.propertyId}`, SK: `SCAN#${at}#${report.id}`, ...report, expiresAt: epochS(at) + SCAN_TTL_S },
-      }),
-    );
+    const sk = `SCAN#${at}#${report.id}`;
+    const expiresAt = epochS(at) + SCAN_TTL_S;
+    await db().send(new PutCommand({ TableName: TABLES.core, Item: { PK: `PROP#${report.propertyId}`, SK: sk, ...report, expiresAt } }));
+    // Pointer by id, so polling and worker updates get the report directly instead of querying every scan.
+    await db().send(new PutCommand({ TableName: TABLES.core, Item: { PK: `PROP#${report.propertyId}`, SK: `SCANREF#${report.id}`, sk, expiresAt } }));
+    rememberScanSk(report.propertyId, report.id, sk);
     // Keep the newest SCAN_KEEP; older reports also expire by TTL.
     const keys = await query({
       TableName: TABLES.core,
@@ -1202,7 +1308,11 @@ export const dynamoStore: Store = {
       ScanIndexForward: false,
       ProjectionExpression: "PK, SK",
     });
-    if (keys.length > SCAN_KEEP) await batchDelete(TABLES.core, keysOf(keys.slice(SCAN_KEEP)));
+    if (keys.length > SCAN_KEEP) {
+      const old = keysOf(keys.slice(SCAN_KEEP));
+      const refs = old.map((k) => ({ PK: k.PK, SK: `SCANREF#${k.SK.slice(k.SK.lastIndexOf("#") + 1)}` }));
+      await batchDelete(TABLES.core, [...old, ...refs]);
+    }
   },
   async listScans(propertyId, limit) {
     if (limit < 1) return [];
@@ -1220,6 +1330,10 @@ export const dynamoStore: Store = {
   },
   async getScan(propertyId, scanId) {
     return strip<ScanReport>(await scanItem(propertyId, scanId));
+  },
+  async pollScan(propertyId, scanId, logAfter) {
+    const report = strip<ScanReport>(await scanItem(propertyId, scanId));
+    return report ? withLogAfter(report, logAfter) : null;
   },
   async updateScan(propertyId, scanId, patch, opts) {
     // Optimistic concurrency: read, merge, write back only if the status hasn't moved meanwhile.
@@ -1253,14 +1367,64 @@ export const dynamoStore: Store = {
   },
 };
 
-/** The raw scan item (with its PK/SK). A site keeps at most SCAN_KEEP reports, so one small query finds it. */
+/** Scan sort keys already resolved by this instance (scan id → SK); the SK never changes. */
+const scanSks = new Map<string, string>();
+function rememberScanSk(propertyId: string, scanId: string, sk: string) {
+  if (scanSks.size > 2000) scanSks.clear();
+  scanSks.set(`${propertyId}#${scanId}`, sk);
+}
+
+/**
+ * The raw scan item (with its PK/SK), by key: the SK comes from this instance's cache or the
+ * SCANREF pointer, so a poll is one or two small GetItems. Scans saved before pointers existed fall
+ * back to querying the site's scans (at most SCAN_KEEP).
+ */
 async function scanItem(propertyId: string, scanId: string): Promise<Item | null> {
+  const PK = `PROP#${propertyId}`;
+  const cacheKey = `${propertyId}#${scanId}`;
+  let sk = scanSks.get(cacheKey);
+  if (!sk) {
+    const ref = await db().send(new GetCommand({ TableName: TABLES.core, Key: { PK, SK: `SCANREF#${scanId}` }, ConsistentRead: true }));
+    sk = typeof ref.Item?.sk === "string" ? ref.Item.sk : undefined;
+  }
+  if (sk) {
+    const r = await db().send(new GetCommand({ TableName: TABLES.core, Key: { PK, SK: sk }, ConsistentRead: true }));
+    if (r.Item && r.Item.id === scanId) {
+      rememberScanSk(propertyId, scanId, sk);
+      return r.Item;
+    }
+    scanSks.delete(cacheKey);
+  }
   const items = await query({
     TableName: TABLES.core,
     KeyConditionExpression: "PK = :p AND begins_with(SK, :s)",
     FilterExpression: "id = :id",
-    ExpressionAttributeValues: { ":p": `PROP#${propertyId}`, ":s": "SCAN#", ":id": scanId },
+    ExpressionAttributeValues: { ":p": PK, ":s": "SCAN#", ":id": scanId },
     ConsistentRead: true,
   });
+  if (items[0]) rememberScanSk(propertyId, scanId, String(items[0].SK));
   return items[0] ?? null;
+}
+
+/** Add a stored receipt to its day's decision rollup (telemetry DAY# item, shared with pageview counters). */
+async function addRollup(r: ConsentReceipt) {
+  const { day, fields } = rollupIncrement(r);
+  const entries = Object.entries(fields);
+  if (!entries.length) return;
+  const names: Record<string, string> = { "#d": "day" };
+  const values: Item = { ":p": r.propertyId, ":d": day, ":ttl": epochS(`${day}T00:00:00Z`) + COUNTER_TTL_S };
+  const adds = entries.map(([k, v], i) => {
+    names[`#r${i}`] = k;
+    values[`:r${i}`] = v;
+    return `#r${i} :r${i}`;
+  });
+  await db().send(
+    new UpdateCommand({
+      TableName: TABLES.telemetry,
+      Key: { PK: `PROP#${r.propertyId}`, SK: `DAY#${day}` },
+      UpdateExpression: `ADD ${adds.join(", ")} SET propertyId = :p, #d = :d, expiresAt = if_not_exists(expiresAt, :ttl)`,
+      ExpressionAttributeNames: names,
+      ExpressionAttributeValues: values,
+    }),
+  );
 }

@@ -46,6 +46,7 @@ test site.
 | `CRAWLER_ALLOW_PRIVATE_NETWORK` | `false` | Allows private and loopback addresses. Local development only. |
 | `CRAWLER_CONCURRENCY` | `1` | Crawls one worker runs at once (each runs its own Chromium). |
 | `CRAWLER_PAGE_TIMEOUT_MS` / `CRAWLER_SETTLE_MS` / `CRAWLER_PAGE_DELAY_MS` | `30000` / `1500` / `500` | Per-page timing. |
+| `CRAWLER_SCAN_DEADLINE_MS` | `600000` | Wall-clock limit per scan. When reached, no new page is started and the scan finishes `ok` with the pages crawled so far and a warning in its log. |
 | `CRAWLER_PROGRESS_INTERVAL_MS` | `1500` | Minimum gap between progress writes. |
 | `CRAWLER_VISIBILITY_TIMEOUT_SEC` / `CRAWLER_HEARTBEAT_MS` | `180` / `60000` | SQS message lease while a crawl runs. |
 | `CRAWLER_SHUTDOWN_GRACE_MS` | `25000` | Time allowed after SIGTERM to hand the scan back before exiting. |

@@ -2,11 +2,11 @@
 
 import { useEffect, useId, useRef, type ReactNode } from "react";
 import { IconClose } from "@/components/icons";
-import { EASE, gsap, reducedMotion } from "@/lib/motion";
+import { gsap, reducedMotion } from "@/lib/motion";
 
 /**
- * Modal built on native <dialog>: the browser traps focus, Esc closes, and the page behind is inert.
- * Focus returns to whatever opened it.
+ * Modal built on native <dialog>: the browser traps focus, Esc closes, the page behind is inert under
+ * a soot scrim, and focus returns to whatever opened it. 22px radius; rises in over 240ms.
  */
 export function Dialog({
   open,
@@ -33,8 +33,8 @@ export function Dialog({
     if (open && !d.open) {
       opener.current = document.activeElement;
       d.showModal();
-      // Springs up into place; the native backdrop fades in with it.
-      if (!reducedMotion()) gsap.fromTo(d, { y: 16, scale: 0.97, opacity: 0 }, { y: 0, scale: 1, opacity: 1, duration: 0.45, ease: EASE, clearProps: "transform,opacity" });
+      // Rises into place; the native backdrop fades in with it.
+      if (!reducedMotion()) gsap.fromTo(d, { y: 12, opacity: 0 }, { y: 0, opacity: 1, duration: 0.24, ease: "power2.out", clearProps: "transform,opacity" });
     } else if (!open && d.open) {
       d.close();
     }
@@ -50,14 +50,14 @@ export function Dialog({
         (opener.current as HTMLElement | null)?.focus?.();
       }}
       onClick={(e) => e.target === ref.current && onClose()}
-      className="scroll-thin m-auto rounded-xl border border-line bg-surface p-0 text-ink shadow-float backdrop:bg-[#05070d]/45"
+      className="scroll-thin m-auto max-h-[calc(100dvh-2rem)] rounded-xl border border-line bg-surface p-0 text-ink shadow-float backdrop:bg-[rgb(15_15_15/0.55)]"
       style={{ width: `min(${width}px, calc(100vw - 2rem))` }}
     >
       {open ? (
         <>
-          <div className="flex items-start justify-between gap-4 border-b border-line px-6 py-4">
+          <div className="flex items-start justify-between gap-4 border-b border-line px-6 py-5">
             <div>
-              <h2 id={`${id}-t`} className="text-lg font-semibold">
+              <h2 id={`${id}-t`} className="text-lg font-semibold leading-snug">
                 {title}
               </h2>
               {description ? (
@@ -66,7 +66,7 @@ export function Dialog({
                 </p>
               ) : null}
             </div>
-            <button type="button" onClick={onClose} className="-mr-2 grid size-9 shrink-0 place-items-center rounded-md text-ink-3 hover:bg-paper hover:text-ink" aria-label="Close dialog">
+            <button type="button" onClick={onClose} className="-mr-2 -mt-1 grid size-10 shrink-0 place-items-center rounded-full text-ink-3 transition-colors duration-150 hover:bg-paper hover:text-ink" aria-label="Close dialog">
               <IconClose size={18} />
             </button>
           </div>

@@ -1,8 +1,9 @@
 "use client";
 
 import { useId, useMemo, useState } from "react";
-import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import dynamic from "next/dynamic";
 import {
+  CATEGORY_RATES,
   METRICS,
   OUTCOMES,
   formatInt,
@@ -13,19 +14,22 @@ import {
   type MetricId,
   type Summary,
 } from "@/lib/analytics";
-import { KpiTile } from "@/components/app/ui/kpi-tile";
+import Link from "next/link";
+import { Card, CardBody, CardHeader } from "@/components/app/ui/card";
+import { DeltaText, KpiTile } from "@/components/app/ui/kpi-tile";
+import { Skeleton } from "@/components/app/ui/skeleton";
 import { Segmented } from "@/components/app/ui/tabs";
 
 const fmtDay = (d: string) => new Date(d + "T00:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
-const AXIS = { fill: "var(--color-ink-3)", fontSize: 12 };
-const GRID = "var(--color-line)";
 
-interface TipEntry {
-  value?: unknown;
-  dataKey?: unknown;
+/** Same size as the plot it stands in for, so the panel doesn't jump when Recharts arrives. */
+function PlotSkeleton() {
+  return <Skeleton className="h-full w-full !rounded-md" />;
 }
-/** Narrow Recharts' tooltip props to what our tooltips read. */
-const tip = (p: { active?: boolean; payload?: ReadonlyArray<TipEntry>; label?: unknown }) => ({ active: p.active, payload: p.payload, label: p.label });
+
+// Recharts is loaded on the client only, after the page's own JavaScript (plots.tsx).
+const MetricLinePlot = dynamic(() => import("./plots").then((m) => m.MetricLinePlot), { ssr: false, loading: PlotSkeleton });
+const DecisionBarsPlot = dynamic(() => import("./plots").then((m) => m.DecisionBarsPlot), { ssr: false, loading: PlotSkeleton });
 
 function ViewToggle({ value, onChange }: { value: "chart" | "table"; onChange: (v: "chart" | "table") => void }) {
   return (
@@ -36,7 +40,7 @@ function ViewToggle({ value, onChange }: { value: "chart" | "table"; onChange: (
       onChange={onChange}
       options={[
         { value: "chart", label: "Chart" },
-        { value: "table", label: "View as table" },
+        { value: "table", label: "Table" },
       ]}
     />
   );
@@ -71,9 +75,9 @@ export function MetricOverview({ current, previous, range }: { current: Summary;
   const last = valid[valid.length - 1];
 
   return (
-    <section aria-labelledby={`${chartId}-h`} className="panel overflow-hidden">
+    <Card aria-labelledby={`${chartId}-h`} className="overflow-hidden">
       <h2 id={`${chartId}-h`} className="sr-only">
-        Key metrics
+        Consent trend
       </h2>
       <div className="grid grid-cols-2 gap-px border-b border-line bg-line xl:grid-cols-4">
         {(Object.keys(METRICS) as MetricId[]).map((id) => {
@@ -98,11 +102,16 @@ export function MetricOverview({ current, previous, range }: { current: Summary;
         })}
       </div>
 
-      <div id={chartId} className="p-5 sm:p-6">
+      <div id={chartId} className="px-5 py-5 sm:px-6">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
+          <div className="min-w-0">
             <h3 className="text-base font-semibold">{m.label} by day</h3>
-            <p className="text-sm text-ink-3">{m.describe}. Pick a figure above to change the chart.</p>
+            <p className="mt-1 text-sm text-ink-3">
+              {m.describe}, by UTC day.{" "}
+              <Link href="/docs#analytics" className="text-ink-2 underline underline-offset-4 hover:text-ink">
+                How it&apos;s counted
+              </Link>
+            </p>
           </div>
           <ViewToggle value={view} onChange={setView} />
         </div>
@@ -114,51 +123,7 @@ export function MetricOverview({ current, previous, range }: { current: Summary;
 
         {view === "chart" ? (
           <div className="h-64 w-full" aria-hidden={valid.length === 0}>
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={points} margin={{ top: 8, right: 56, bottom: 0, left: -8 }} accessibilityLayer>
-                <CartesianGrid vertical={false} stroke={GRID} />
-                <XAxis dataKey="day" tickFormatter={fmtDay} tick={AXIS} tickLine={false} axisLine={{ stroke: "var(--color-line-strong)" }} minTickGap={28} />
-                <YAxis tick={AXIS} tickLine={false} axisLine={false} domain={[0, 1]} ticks={[0, 0.25, 0.5, 0.75, 1]} tickFormatter={(v) => `${Math.round(Number(v) * 100)}%`} width={48} />
-                <Tooltip
-                  cursor={{ stroke: "var(--color-ink)", strokeOpacity: 0.25, strokeWidth: 1 }}
-                  content={(p) => {
-                    const { active, payload, label } = tip(p);
-                    if (!active || !payload?.length) return null;
-                    const v = payload[0].value as number | null;
-                    return (
-                      <div className="rounded-lg border border-line bg-surface px-3 py-2 text-xs shadow-lift">
-                        <p className="text-ink-3">{fmtDay(String(label))}</p>
-                        <p className="mt-0.5 flex items-center gap-2">
-                          <span className="h-[2px] w-3 rounded" style={{ background: m.color }} aria-hidden />
-                          <span className="font-semibold tabular-nums text-ink">{v === null ? "No data" : formatPct(v)}</span>
-                          <span className="text-ink-3">{m.label}</span>
-                        </p>
-                      </div>
-                    );
-                  }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="value"
-                  stroke={m.color}
-                  strokeWidth={2}
-                  strokeLinecap="round"
-                  dot={false}
-                  activeDot={{ r: 5, stroke: "var(--color-surface)", strokeWidth: 2, fill: m.color }}
-                  connectNulls
-                  isAnimationActive={false}
-                  label={(props: { x?: number | string; y?: number | string; index?: number }) =>
-                    last && props.index === points.findIndex((p) => p.day === last.day) ? (
-                      <text key="end" x={Number(props.x) + 8} y={Number(props.y) + 4} fontSize={12} fontWeight={700} fill="var(--color-ink)">
-                        {formatPct(last.value)}
-                      </text>
-                    ) : (
-                      <g key={props.index} />
-                    )
-                  }
-                />
-              </LineChart>
-            </ResponsiveContainer>
+            <MetricLinePlot points={points} color={m.color} label={m.label} last={last ?? null} />
           </div>
         ) : (
           <DayTable
@@ -168,7 +133,7 @@ export function MetricOverview({ current, previous, range }: { current: Summary;
           />
         )}
       </div>
-    </section>
+    </Card>
   );
 }
 
@@ -179,7 +144,7 @@ function OutcomeLegend() {
     <ul className="flex flex-wrap gap-x-5 gap-y-1.5 text-xs text-ink-2" aria-label="Legend">
       {OUTCOMES.map((o) => (
         <li key={o.id} className="flex items-center gap-2">
-          <span className="size-2.5 rounded-[3px]" style={{ background: o.color }} aria-hidden />
+          <span className="size-2.5 rounded-full" style={{ background: o.color }} aria-hidden />
           {o.label}
         </li>
       ))}
@@ -189,10 +154,10 @@ function OutcomeLegend() {
 
 function DayTable({ caption, headers, rows }: { caption: string; headers: string[]; rows: { day: string; cells: string[] }[] }) {
   return (
-    <div className="max-h-72 overflow-auto rounded-md border border-line" tabIndex={0} role="region" aria-label={caption}>
+    <div className="scroll-thin max-h-72 overflow-auto rounded-md border border-line" tabIndex={0} role="region" aria-label={caption}>
       <table className="w-full text-sm">
         <caption className="sr-only">{caption}</caption>
-        <thead className="sticky top-0 bg-paper text-xs text-ink-3">
+        <thead className="sticky top-0 bg-raised text-xs text-ink-3">
           <tr>
             <th scope="col" className="px-3 py-2 text-left font-semibold">
               Day
@@ -206,7 +171,7 @@ function DayTable({ caption, headers, rows }: { caption: string; headers: string
         </thead>
         <tbody className="divide-y divide-line">
           {[...rows].reverse().map((r) => (
-            <tr key={r.day} className="hover:bg-paper">
+            <tr key={r.day} className="hover:bg-raised">
               <th scope="row" className="px-3 py-1.5 text-left font-normal">
                 {fmtDay(r.day)}
               </th>
@@ -229,75 +194,21 @@ export function DecisionsChart({ series }: { series: DayPoint[] }) {
   const total = series.reduce((s, d) => s + d.accepted + d.partial + d.rejected, 0);
   const busiest = series.reduce((a, d) => (d.accepted + d.partial + d.rejected > a.accepted + a.partial + a.rejected ? d : a), series[0]);
   return (
-    <section className="panel p-5 sm:p-6" aria-labelledby={`${id}-h`}>
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h2 id={`${id}-h`} className="text-base font-semibold">
-            Decisions per day
-          </h2>
-          <div className="mt-2">
-            <OutcomeLegend />
-          </div>
-        </div>
-        <ViewToggle value={view} onChange={setView} />
-      </div>
+    <Card aria-labelledby={`${id}-h`}>
+      <CardHeader titleId={`${id}-h`} title="Decisions per day" description={<OutcomeLegend />} actions={<ViewToggle value={view} onChange={setView} />} />
+      <CardBody>
       <p className="sr-only">
         {formatInt(total)} decisions in total. Busiest day {busiest ? fmtDay(busiest.day) : "none"}.
       </p>
       {view === "chart" ? (
         <div className="h-64 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={series} margin={{ top: 4, right: 4, bottom: 0, left: -12 }} barCategoryGap={series.length > 31 ? 1 : "22%"} accessibilityLayer>
-              <CartesianGrid vertical={false} stroke={GRID} />
-              <XAxis dataKey="day" tickFormatter={fmtDay} tick={AXIS} tickLine={false} axisLine={{ stroke: "var(--color-line-strong)" }} minTickGap={28} />
-              <YAxis tick={AXIS} tickLine={false} axisLine={false} allowDecimals={false} tickFormatter={(v) => formatInt(Number(v))} />
-              <Tooltip
-                cursor={{ fill: "var(--color-ink)", fillOpacity: 0.04 }}
-                content={(p) => {
-                  const { active, payload, label } = tip(p);
-                  if (!active || !payload?.length) return null;
-                  const sum = payload.reduce((s, x) => s + Number(x.value ?? 0), 0);
-                  return (
-                    <div className="min-w-44 rounded-lg border border-line bg-surface px-3 py-2.5 text-xs shadow-lift">
-                      <p className="mb-1.5 text-ink-3">{fmtDay(String(label))}</p>
-                      {[...payload].reverse().map((x) => {
-                        const o = OUTCOMES.find((oo) => oo.id === x.dataKey)!;
-                        return (
-                          <p key={o.id} className="flex items-center gap-2 py-0.5">
-                            <span className="h-[2px] w-3 rounded" style={{ background: o.color }} aria-hidden />
-                            <span className="font-semibold tabular-nums text-ink">{formatInt(Number(x.value))}</span>
-                            <span className="text-ink-3">{o.label}</span>
-                          </p>
-                        );
-                      })}
-                      <p className="mt-1.5 border-t border-line pt-1.5 text-ink-2">
-                        <span className="font-semibold tabular-nums text-ink">{formatInt(sum)}</span> decisions
-                      </p>
-                    </div>
-                  );
-                }}
-              />
-              {OUTCOMES.map((o, i) => (
-                <Bar
-                  key={o.id}
-                  dataKey={o.id}
-                  name={o.label}
-                  stackId="d"
-                  fill={o.color}
-                  maxBarSize={24}
-                  stroke="var(--color-surface)"
-                  strokeWidth={series.length > 60 ? 0 : 2}
-                  radius={i === OUTCOMES.length - 1 ? [4, 4, 0, 0] : 0}
-                  isAnimationActive={false}
-                />
-              ))}
-            </BarChart>
-          </ResponsiveContainer>
+          <DecisionBarsPlot series={series} />
         </div>
       ) : (
         <DayTable caption="Decisions per day" headers={OUTCOMES.map((o) => o.label)} rows={series.map((d) => ({ day: d.day, cells: OUTCOMES.map((o) => formatInt(d[o.id])) }))} />
       )}
-    </section>
+      </CardBody>
+    </Card>
   );
 }
 
@@ -310,8 +221,8 @@ export function Breakdown({ title, rows, labelFor }: { title: string; rows: Brea
   return (
     <section aria-label={title} className="min-w-0">
       <div className="mb-3 flex items-baseline justify-between gap-3">
-        <h3 className="text-base font-semibold">{title}</h3>
-        <span className="text-xs text-ink-3">Opt-in, decisions</span>
+        <h3 className="text-sm font-semibold">{title}</h3>
+        <span className="text-xs text-ink-3">Opt-in · decisions</span>
       </div>
       {rows.length === 0 ? (
         <p className="py-6 text-sm text-ink-3">No decisions in this range yet.</p>
@@ -322,7 +233,7 @@ export function Breakdown({ title, rows, labelFor }: { title: string; rows: Brea
             return (
               <li key={r.key}>
                 <div className="mb-1 flex items-baseline justify-between gap-3 text-sm">
-                  <span className="truncate capitalize text-ink">{label}</span>
+                  <span className="truncate capitalize text-ink-2">{label}</span>
                   <span className="shrink-0 tabular-nums text-ink-2">
                     <span className="font-semibold text-ink">{formatPct(r.total ? r.accepted / r.total : 0)}</span>
                     <span className="inline-block w-16 text-right text-ink-3">{formatInt(r.total)}</span>
@@ -345,11 +256,11 @@ export function Breakdown({ title, rows, labelFor }: { title: string; rows: Brea
                         onFocus={() => setHover(key)}
                         onBlur={() => setHover(null)}
                         aria-label={`${label}: ${formatInt(v)} ${o.label.toLowerCase()}, ${formatPct(v / r.total)}`}
-                        className={`relative h-full outline-none hover:brightness-110 focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-1 ${isFirst ? "rounded-l-[3px]" : ""} ${isLast ? "rounded-r-[3px]" : ""}`}
+                        className={`relative h-full outline-none transition-[filter] duration-150 hover:brightness-110 focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 ${isFirst ? "rounded-l-full" : ""} ${isLast ? "rounded-r-full" : ""}`}
                         style={{ width: `${(v / r.total) * 100}%`, background: o.color }}
                       >
                         {hover === key ? (
-                          <span role="tooltip" className="absolute bottom-[calc(100%+8px)] left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-ink-2 shadow-lift">
+                          <span role="tooltip" className="absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-ink-2 shadow-lift">
                             <span className="font-semibold tabular-nums text-ink">{formatInt(v)}</span> {o.label.toLowerCase()} ({formatPct(v / r.total)})
                           </span>
                         ) : null}
@@ -368,18 +279,97 @@ export function Breakdown({ title, rows, labelFor }: { title: string; rows: Brea
 
 export function Breakdowns({ groups }: { groups: { title: string; rows: BreakdownRow[]; labelFor?: Record<string, string> }[] }) {
   return (
-    <section aria-labelledby="breakdowns-h" className="panel p-5 sm:p-6">
-      <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <h2 id="breakdowns-h" className="text-base font-semibold">
-          Where decisions come from
-        </h2>
-        <OutcomeLegend />
-      </div>
-      <div className="grid gap-x-12 gap-y-8 lg:grid-cols-2">
-        {groups.map((g) => (
-          <Breakdown key={g.title} {...g} />
-        ))}
-      </div>
-    </section>
+    <Card aria-labelledby="breakdowns-h">
+      <CardHeader titleId="breakdowns-h" title="Where decisions come from" actions={<OutcomeLegend />} />
+      <CardBody>
+        <div className="grid gap-x-12 gap-y-8 lg:grid-cols-2">
+          {groups.map((g) => (
+            <Breakdown key={g.title} {...g} />
+          ))}
+        </div>
+      </CardBody>
+    </Card>
+  );
+}
+
+/* ---------------- consent by category ---------------- */
+
+/** Granted rate per optional category, as labelled bars or a table. The numbers are text; the bar only reinforces them. */
+export function CategoryConsent({ granted, decisions, previous, range }: { granted: Summary["granted"]; decisions: number; previous: Summary["granted"] | null; range: number }) {
+  const [view, setView] = useState<"chart" | "table">("chart");
+  const id = useId();
+  const rows = CATEGORY_RATES.map((c) => ({ ...c, count: granted[c.id], rate: decisions ? granted[c.id] / decisions : 0, prev: previous?.[c.id] ?? null }));
+  return (
+    <Card aria-labelledby={`${id}-h`} className="h-full">
+      <CardHeader
+        titleId={`${id}-h`}
+        title="Consent by category"
+        description={`Share of ${formatInt(decisions)} decisions in ${range} days that allowed each.`}
+        actions={<ViewToggle value={view} onChange={setView} />}
+      />
+      <CardBody>
+      {decisions === 0 ? (
+        <p className="py-6 text-sm text-ink-3">No decisions in this range yet.</p>
+      ) : view === "chart" ? (
+        <ul className="space-y-4">
+          {rows.map((r) => (
+            <li key={r.id}>
+              <div className="mb-1 flex items-baseline justify-between gap-3 text-sm">
+                <span className="min-w-0">
+                  <span className="text-ink">{r.label}</span> <span className="text-ink-3 max-sm:block max-sm:text-xs">{r.describe}</span>
+                </span>
+                <span className="shrink-0 tabular-nums text-ink-2">
+                  <span className="font-semibold text-ink">{formatPct(r.rate)}</span>
+                  <span className="inline-block w-16 text-right text-ink-3">{formatInt(r.count)}</span>
+                </span>
+              </div>
+              <div className="h-2 rounded-full bg-line" aria-hidden>
+                <div className="h-full rounded-full bg-success transition-[width] duration-300 ease-out" style={{ width: `${r.rate * 100}%` }} />
+              </div>
+              {r.prev !== null ? (
+                <p className="mt-1">
+                  <DeltaText d={{ change: r.rate - r.prev, goodWhen: "neutral", period: `vs previous ${range} days`, format: formatPts }} />
+                </p>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div className="scroll-thin overflow-auto rounded-md border border-line" tabIndex={0} role="region" aria-label="Consent by category table">
+          <table className="w-full text-sm">
+            <caption className="sr-only">Decisions that allowed each optional category, last {range} days</caption>
+            <thead className="bg-raised text-xs text-ink-3">
+              <tr>
+                <th scope="col" className="px-3 py-2 text-left font-semibold">
+                  Category
+                </th>
+                <th scope="col" className="px-3 py-2 text-right font-semibold">
+                  Allowed
+                </th>
+                <th scope="col" className="px-3 py-2 text-right font-semibold">
+                  Granted rate
+                </th>
+                <th scope="col" className="px-3 py-2 text-right font-semibold">
+                  Previous {range} days
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-line">
+              {rows.map((r) => (
+                <tr key={r.id}>
+                  <th scope="row" className="px-3 py-1.5 text-left font-normal">
+                    {r.label}
+                  </th>
+                  <td className="px-3 py-1.5 text-right tabular-nums">{formatInt(r.count)}</td>
+                  <td className="px-3 py-1.5 text-right tabular-nums">{formatPct(r.rate)}</td>
+                  <td className="px-3 py-1.5 text-right tabular-nums">{r.prev === null ? "No data" : formatPct(r.prev)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      </CardBody>
+    </Card>
   );
 }

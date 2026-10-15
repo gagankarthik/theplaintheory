@@ -1,3 +1,12 @@
+/**
+ * The bare domain 308-redirects to www, so www is the only origin that serves pages. Canonical tags,
+ * og:url, the sitemap and robots must name that origin: pointing them at a redirect leaves search
+ * engines holding the old index of the bare domain. Normalise here so an env value can't undo it.
+ */
+function canonicalOrigin(url: string) {
+  return url.replace(/\/+$/, "").replace(/^https?:\/\/theplaintheory\.in$/i, "https://www.theplaintheory.in");
+}
+
 export const site = {
   /** Display name used in the UI, titles and the wordmark. */
   name: "Plain Theory",
@@ -5,10 +14,10 @@ export const site = {
   legalName: "The Plain Theory",
   shortName: "Plain Theory",
   /** Canonical origin: NEXT_PUBLIC_SITE_URL when set, else the live domain in production builds. */
-  url: process.env.NEXT_PUBLIC_SITE_URL || (process.env.NODE_ENV === "production" ? "https://www.theplaintheory.in" : "http://localhost:3000"),
+  url: canonicalOrigin(process.env.NEXT_PUBLIC_SITE_URL || (process.env.NODE_ENV === "production" ? "https://www.theplaintheory.in" : "http://localhost:3000")),
   tagline: "Consent management for GDPR, CCPA and DPDPA",
   description:
-    "Plain Theory is a consent management platform for GDPR, CCPA/CPRA and India's DPDPA. A consent script under 10 KB, tracker blocking, notices in 22 Indian languages and a tamper-evident consent log.",
+    "Plain Theory is a consent management platform for GDPR, CCPA/CPRA and DPDPA, with real tracker blocking, notices in 22 languages and a tamper-evident consent log.",
   keywords: [
     "consent management platform",
     "cookie consent",

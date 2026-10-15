@@ -1,5 +1,6 @@
 import type { BrowserContext, CDPSession, HTTPRequest, HTTPResponse, Page } from "puppeteer";
 import type { Protocol } from "puppeteer";
+import { privateNetworkAllowed } from "../net-guard";
 import { getSetCookieHeader, parseSetCookieHeader } from "./set-cookie";
 import type { CookieSource, StorageKind } from "./types";
 
@@ -105,6 +106,52 @@ const SCROLL_SCRIPT = `(async () => {
   window.scrollTo(0, 0);
 })()`;
 
+/** Makes navigator.serviceWorker.register reject in every frame before page scripts run (plain JS, see above). */
+const NO_SERVICE_WORKER_SCRIPT = `(() => {
+  try {
+    if (typeof ServiceWorkerContainer !== "undefined") {
+      Object.defineProperty(ServiceWorkerContainer.prototype, "register", {
+        configurable: false,
+        writable: false,
+        value: function () { return Promise.reject(new DOMException("Service workers are disabled", "SecurityError")); },
+      });
+    }
+  } catch (e) {}
+})()`;
+
+/**
+ * Wraps the WebSocket constructor so handshakes to literal loopback, private, link-local and internal
+ * hosts throw before connecting. Chromium's request interception and CDP URL blocking both miss
+ * WebSockets, so this runs in every frame before page scripts (plain JS, see above). Not covered: a host
+ * name that resolves privately, and sockets opened from workers (see net-guard.ts, residual risk).
+ */
+const NO_PRIVATE_WEBSOCKET_SCRIPT = String.raw`(() => {
+  try {
+    var Native = window.WebSocket;
+    if (!Native) return;
+    var isPrivateHost = function (host) {
+      var h = String(host).toLowerCase().replace(/^\[|\]$/g, "").replace(/\.$/, "");
+      if (h === "localhost" || /\.(localhost|internal)$/.test(h)) return true;
+      var m = h.match(/^(?:::ffff:)?(\d+)\.(\d+)\.\d+\.\d+$/);
+      if (m) {
+        var a = +m[1], b = +m[2];
+        return a === 0 || a === 10 || a === 127 || a >= 224 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) ||
+          (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127);
+      }
+      return h.indexOf(":") !== -1 && (h === "::" || h === "::1" || /^(fc|fd|fe80|::ffff:)/.test(h));
+    };
+    var Guarded = function WebSocket(url, protocols) {
+      var parsed = null;
+      try { parsed = new URL(String(url), location.href); } catch (e) {}
+      if (parsed && isPrivateHost(parsed.hostname)) throw new DOMException("WebSockets to private addresses are blocked", "SecurityError");
+      return arguments.length > 1 ? new Native(url, protocols) : new Native(url);
+    };
+    Guarded.prototype = Native.prototype;
+    ["CONNECTING", "OPEN", "CLOSING", "CLOSED"].forEach(function (k) { Object.defineProperty(Guarded, k, { value: Native[k] }); });
+    Object.defineProperty(window, "WebSocket", { value: Guarded, configurable: false, writable: false });
+  } catch (e) {}
+})()`;
+
 const MAX_REQUESTS_PER_PAGE = 2000;
 
 function hostOf(url: string): string {
@@ -191,15 +238,26 @@ export async function capturePage(context: BrowserContext, url: string, opts: Ca
     // SSRF guard: every request (including redirects and subresources) is decided before it is sent.
     const guard = opts.guard;
     if (guard) {
+      // Service workers fetch outside request interception, so pages may not register one, and any
+      // request a worker would answer goes to the network (and through the guard) instead.
+      await page.evaluateOnNewDocument(NO_SERVICE_WORKER_SCRIPT);
+      await page.setBypassServiceWorker(true);
+      // WebSocket handshakes are not interceptable either; refuse literal private addresses outright.
+      if (!privateNetworkAllowed()) await page.evaluateOnNewDocument(NO_PRIVATE_WEBSOCKET_SCRIPT);
       await page.setRequestInterception(true);
       page.on("request", (req: HTTPRequest) => {
         if (req.isInterceptResolutionHandled()) return;
+        // Every intercepted request is resolved exactly once: continued when the guard says yes,
+        // aborted when it says no or throws. A request left unresolved would hang until the page timeout.
         void guard(req.url())
+          .catch(() => false)
           .then((ok) => {
+            if (req.isInterceptResolutionHandled()) return;
             if (ok) return req.continue();
             if (blocked.length < 100) blocked.push(req.url().slice(0, 300));
             return req.abort("blockedbyclient");
           })
+          // Only fails when the page or request is already gone; nothing is left to resolve.
           .catch(() => undefined);
       });
     }

@@ -36,4 +36,4 @@ export function OgCard({ title, kicker }: { title: string; kicker: string }) {
   );
 }
 
-export const DEFAULT_KICKER = "GDPR, CCPA/CPRA and DPDPA from one script under 10 KB.";
+export const DEFAULT_KICKER = "GDPR, CCPA/CPRA and DPDPA from one script.";

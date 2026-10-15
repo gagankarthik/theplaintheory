@@ -23,15 +23,14 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
   const { plan } = await searchParams;
 
   return (
-    <div className="relative min-h-dvh overflow-hidden bg-paper">
-      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-80 bg-[linear-gradient(180deg,var(--color-brand-wash),transparent)]" />
-      <header className="container-page relative flex h-16 items-center justify-between">
+    <div className="pt-app min-h-dvh bg-canvas text-ink">
+      <header className="container-page flex h-16 items-center justify-between border-b border-line">
         <Link href="/" aria-label="Plain Theory home" className="flex min-h-11 items-center">
           <Logo />
         </Link>
         <p className="truncate pl-4 text-sm text-ink-3">{session.email}</p>
       </header>
-      <main className="container-page relative max-w-4xl py-8 sm:py-14">
+      <main className="container-page max-w-4xl py-8 sm:py-12">
         <h1 className="sr-only">Set up your organization</h1>
         <OnboardingForm userName={user?.name} initialPlan={asPlan(plan)} plans={(await getLivePlans()).filter((p) => p.id !== "enterprise")} />
       </main>

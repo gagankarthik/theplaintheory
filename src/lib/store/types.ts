@@ -19,6 +19,7 @@ import type {
 import type { SiteAuditReport } from "../site-audit/types";
 import type { ScanReport } from "../trackers";
 import type { PlatformAuditDraft, PlatformAuditEvent, PlatformAuditQuery } from "../platform/types";
+import type { RollupRange } from "../rollups";
 
 export type ReceiptDraft = Omit<ConsentReceipt, "id" | "seq" | "prevHash" | "hash">;
 export type AuditDraft = Omit<AuditEvent, "id" | "seq" | "prevHash" | "hash" | "createdAt"> & { createdAt?: string };
@@ -80,6 +81,8 @@ export interface Store {
   // organizations & membership (RBAC)
   createOrg(o: Organization, owner: string): Promise<Organization>;
   getOrg(id: string): Promise<Organization | null>;
+  /** several organizations in one round trip (missing ones are left out; order not guaranteed) */
+  getOrgs(ids: string[]): Promise<Organization[]>;
   /** every organization; for scheduled jobs such as retention, never request paths */
   listOrgs(): Promise<Organization[]>;
   updateOrg(id: string, patch: Partial<Organization>): Promise<Organization>;
@@ -101,9 +104,17 @@ export interface Store {
   listProperties(orgId: string): Promise<Property[]>;
   updateProperty(id: string, patch: Partial<Property>): Promise<Property>;
   deleteProperty(id: string): Promise<void>;
+  /**
+   * Sites with a scan schedule due at or before `nowIso`, longest-overdue first, at most `limit`.
+   * For the scheduled-scans cron only. DynamoDB reads a sparse index, never the whole table.
+   */
+  listDueScanProperties(nowIso: string, limit: number): Promise<Property[]>;
 
   // consent receipts: append-only, hash-chained per property
+  /** also adds the decision to its day's rollup (lib/rollups.ts); a failed rollup write is logged, never fails the receipt */
   appendReceipt(draft: ReceiptDraft): Promise<ConsentReceipt>;
+  /** daily decision rollups for the inclusive day range, and the first receipt seq they cover */
+  listDecisionRollups(propertyId: string, fromDay: string, toDay: string): Promise<RollupRange>;
   listReceipts(propertyId: string, q?: ReceiptQuery): Promise<ConsentReceipt[]>;
   /** retention: remove receipts with seq <= `seq`; returns how many were removed */
   deleteReceiptsThrough(propertyId: string, seq: number): Promise<number>;
@@ -119,8 +130,9 @@ export interface Store {
   pruneWebhookDeliveries(propertyId: string, beforeIso: string): Promise<number>;
 
   // contact requests (sales, support, partner, enterprise)
-  createLead(l: Lead): Promise<Lead>;
-  countRecentLeads(ipHash: string, sinceIso: string): Promise<number>;
+  /** `abuseKey` (a stable keyed IP hash) indexes the per-network abuse window; defaults to l.ipHash */
+  createLead(l: Lead, abuseKey?: string): Promise<Lead>;
+  countRecentLeads(abuseKey: string, sinceIso: string): Promise<number>;
   /** staff inbox, newest first; leads without a topic are sales, without a status are new */
   listLeads(q?: LeadQuery): Promise<Lead[]>;
   getLead(id: string): Promise<Lead | null>;
@@ -131,6 +143,17 @@ export interface Store {
   /** "view" when the banner is shown, "bounce" when the visitor leaves without choosing */
   recordPageview(propertyId: string, day: string, kind: "view" | "bounce"): Promise<void>;
   listCounters(propertyId: string, fromDay: string, toDay: string): Promise<PageviewCounter[]>;
+
+  // shared fixed-window counters (public API rate limits)
+  /**
+   * Add one hit to `key`'s counter for the window starting at `windowStart` (epoch ms) and return
+   * the count including this hit. Counters expire shortly after the window closes.
+   */
+  hitWindow(key: string, windowStart: number, windowMs: number): Promise<number>;
+
+  // IP hashing: one random salt per UTC day, the same on every instance, gone ~2 days later
+  /** the salt for `day` (YYYY-MM-DD), created on first use; concurrent callers get the same one */
+  dailySalt(day: string): Promise<string>;
 
   // Stripe webhook idempotency (kept 30 days)
   /** true the first time an event id is claimed; false when it was already claimed (a redelivery) */
@@ -158,6 +181,16 @@ export interface Store {
   listScans(propertyId: string, limit: number): Promise<ScanReport[]>;
   /** one scan report by id, or null (also null for another site's scan) */
   getScan(propertyId: string, scanId: string): Promise<ScanReport | null>;
+  /**
+   * For polling a running scan: the report with only the log lines after the `logAfter` line the
+   * caller already has (matched by time and message). `logMode` "append" means `log` holds just the
+   * new lines; "replace" means the cursor wasn't found and `log` is the whole log.
+   */
+  pollScan(
+    propertyId: string,
+    scanId: string,
+    logAfter?: { at: string; message: string } | null,
+  ): Promise<(ScanReport & { logMode: "append" | "replace" }) | null>;
   /**
    * Patch a scan report in place (its storage key never changes). With `ifStatus`, the patch only
    * applies while the report's status is one of those; otherwise nothing changes and null is

@@ -1,80 +1,88 @@
-/** Loading skeletons for the staff console, matching each page's real rhythm so nothing jumps. */
+import { Skeleton, SkeletonChart, SkeletonHeader, SkeletonStats, SkeletonTable } from "@/components/app/ui/skeleton";
 
-function Shell({ label, children }: { label: string; children: React.ReactNode }) {
+/** Loading placeholders for the staff console, built from the kit's pieces in each page's real rhythm. */
+
+function Frame({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div aria-busy="true" aria-live="polite">
+    <div role="status" aria-label={label} className="pb-10">
+      {children}
       <span className="sr-only">{label}</span>
-      <div aria-hidden className="animate-pulse motion-reduce:animate-none">
-        <div className="mb-8 py-8 sm:py-10">
-          <div className="mb-3 h-8 w-56 rounded bg-line" />
-          <div className="h-4 w-full max-w-md rounded bg-line" />
-        </div>
-        {children}
+    </div>
+  );
+}
+
+/** Search field, a couple of selects and the count line. */
+function FiltersSkeleton() {
+  return (
+    <div aria-hidden className="mb-3">
+      <div className="grid items-end gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(16rem,1.6fr)_repeat(2,minmax(10rem,1fr))]">
+        <Skeleton className="h-10 sm:col-span-2 lg:col-span-1" />
+        <Skeleton className="h-10" />
+        <Skeleton className="h-10" />
       </div>
+      <Skeleton className="mt-4 h-3.5 w-40" />
     </div>
   );
 }
 
-export function KpiSkeleton({ tiles = 4 }: { tiles?: number }) {
+function CardSkeleton({ rows = 4 }: { rows?: number }) {
   return (
-    <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-line bg-line xl:grid-cols-4">
-      {Array.from({ length: tiles }, (_, i) => (
-        <div key={i} className="h-28 bg-surface p-5">
-          <div className="h-3 w-24 rounded bg-line" />
-          <div className="mt-3 h-7 w-16 rounded bg-line" />
-        </div>
-      ))}
-    </div>
-  );
-}
-
-export function TableSkeleton({ rows = 8 }: { rows?: number }) {
-  return (
-    <div className="overflow-hidden rounded-lg border border-line bg-surface">
-      <div className="h-11 border-b border-line bg-paper" />
-      {Array.from({ length: rows }, (_, i) => (
-        <div key={i} className="flex items-center gap-4 border-b border-line px-5 py-4 last:border-0">
-          <div className="h-4 w-1/3 rounded bg-line" />
-          <div className="h-4 w-16 rounded bg-line" />
-          <div className="ml-auto h-4 w-20 rounded bg-line" />
-        </div>
-      ))}
+    <div aria-hidden className="rounded-lg border border-line bg-surface">
+      <div className="border-b border-line px-5 py-4 sm:px-6">
+        <Skeleton className="h-4 w-36" />
+      </div>
+      <div className="divide-y divide-line">
+        {Array.from({ length: rows }, (_, i) => (
+          <div key={i} className="flex items-center gap-4 px-5 py-3.5 sm:px-6">
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-3.5 w-2/5" />
+              <Skeleton className="h-3 w-1/4" />
+            </div>
+            <Skeleton className="h-[22px] w-16 !rounded-full" />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
 
 export function OverviewSkeleton() {
   return (
-    <Shell label="Loading platform overview">
-      <KpiSkeleton tiles={8} />
-      <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-        <div className="h-80 rounded-lg border border-line bg-surface" />
-        <div className="h-80 rounded-lg border border-line bg-surface" />
+    <Frame label="Loading platform overview">
+      <SkeletonHeader actions={false} />
+      <SkeletonStats />
+      <SkeletonStats />
+      <div className="mb-6 grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <SkeletonChart height={240} />
+        <CardSkeleton rows={4} />
       </div>
-    </Shell>
+      <SkeletonTable rows={5} cols={4} />
+    </Frame>
   );
 }
 
 export function ListSkeleton({ label }: { label: string }) {
   return (
-    <Shell label={label}>
-      <div className="mb-4 flex flex-wrap gap-3">
-        <div className="h-11 w-full max-w-sm rounded-md bg-line" />
-        <div className="h-11 w-36 rounded-md bg-line" />
-      </div>
-      <TableSkeleton />
-    </Shell>
+    <Frame label={label}>
+      <SkeletonHeader actions={false} />
+      <FiltersSkeleton />
+      <SkeletonTable rows={10} cols={6} />
+    </Frame>
   );
 }
 
 export function DetailSkeleton({ label }: { label: string }) {
   return (
-    <Shell label={label}>
-      <KpiSkeleton />
-      <div className="mt-8 h-6 w-40 rounded bg-line" />
-      <div className="mt-4">
-        <TableSkeleton rows={4} />
+    <Frame label={label}>
+      <SkeletonHeader />
+      <SkeletonStats />
+      <div className="mb-6">
+        <CardSkeleton rows={2} />
       </div>
-    </Shell>
+      <div className="grid gap-6 xl:grid-cols-2">
+        <CardSkeleton />
+        <CardSkeleton />
+      </div>
+    </Frame>
   );
 }

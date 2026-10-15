@@ -1,17 +1,24 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
+import Link from "next/link";
+import { useActionState, useEffect, useState, useTransition } from "react";
 import { createWebhook, deleteWebhook, setWebhookActive, testWebhook, type CreateWebhookState } from "@/app/app/sites/[propertyId]/webhooks/actions";
-import { IconAlert, IconCheck, IconPlug, IconPlus } from "@/components/icons";
+import { IconPlug, IconPlus } from "@/components/icons";
+import { Alert } from "@/components/app/ui/alert";
 import { Badge } from "@/components/app/ui/badge";
 import { Button } from "@/components/app/ui/button";
+import { Card, CardBody, CardHeader } from "@/components/app/ui/card";
+import { Checkbox } from "@/components/app/ui/checkbox";
+import { ConfirmDialog } from "@/components/app/ui/confirm-dialog";
 import { CopyButton } from "@/components/app/ui/copy-button";
 import { DataTable, type Column } from "@/components/app/ui/data-table";
+import { DateText } from "@/components/app/ui/date-text";
 import { Dialog } from "@/components/app/ui/dialog";
 import { EmptyState } from "@/components/app/ui/empty-state";
 import { TextField } from "@/components/app/ui/field";
+import { ResourceList } from "@/components/app/ui/resource-list";
 import { SubmitButton } from "@/components/app/ui/submit-button";
-import { useToast } from "@/components/app/ui/toast";
+import { FormMessage, useToast } from "@/components/app/ui/toast";
 import type { WebhookDelivery, WebhookEvent } from "@/lib/types";
 
 export interface WebhookRow {
@@ -27,29 +34,33 @@ const EVENTS: { id: WebhookEvent; label: string; description: string }[] = [
   { id: "consent.created", label: "Consent recorded", description: "Every new decision, with the receipt hash." },
   { id: "leak.detected", label: "Leak detected", description: "A tracker fired after a visitor declined its category." },
 ];
+const EVENT_LABEL = Object.fromEntries(EVENTS.map((e) => [e.id, e.label])) as Record<WebhookEvent, string>;
 
 function CreateForm({ propertyId, onDone }: { propertyId: string; onDone: () => void }) {
   const [state, action] = useActionState<CreateWebhookState, FormData>(createWebhook.bind(null, propertyId), null);
   const fe = state?.fieldErrors ?? {};
+  const toast = useToast();
+  const secret = state?.secret;
+  useEffect(() => {
+    if (secret) toast("Webhook added.");
+  }, [secret, toast]);
 
-  if (state?.secret) {
+  if (secret) {
     return (
-      <div className="space-y-4">
-        <p className="flex items-start gap-2 rounded-md bg-jade-wash px-3 py-2.5 text-sm text-jade">
-          <IconCheck size={16} className="mt-0.5 shrink-0" />
-          {state.ok}
-        </p>
+      <div className="space-y-5">
+        <Alert tone="warning" title="Copy the signing secret now">
+          It won&apos;t be shown again. Keep it in your server&apos;s secrets and use it to check the X-Plain-Signature header.
+        </Alert>
         <div>
           <p className="label" id="secret-label">
             Signing secret
           </p>
-          <div className="flex items-center gap-2">
-            <code aria-labelledby="secret-label" className="min-w-0 flex-1 break-all rounded-md bg-paper px-3 py-2.5 font-mono text-xs">
-              {state.secret}
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
+            <code aria-labelledby="secret-label" className="min-w-0 flex-1 break-all rounded-md border border-line bg-canvas px-3 py-2.5 font-mono text-xs text-ink">
+              {secret}
             </code>
-            <CopyButton value={state.secret} />
+            <CopyButton value={secret} label="Copy" describedBy="secret-label" />
           </div>
-          <p className="mt-1.5 text-xs text-ink-3">Store it in your server&apos;s secrets. Use it to verify the X-Plain-Signature header on every request.</p>
         </div>
         <div className="flex justify-end">
           <Button onClick={onDone}>Done</Button>
@@ -60,29 +71,35 @@ function CreateForm({ propertyId, onDone }: { propertyId: string; onDone: () => 
 
   return (
     <form action={action} noValidate className="space-y-5">
-      <TextField id="wh-url" name="url" type="url" label="Endpoint URL" placeholder="https://example.com/hooks/consent" defaultValue={state?.url} error={fe.url} required hint="Must be https. We sign every request and retry up to 3 times." />
-      <fieldset aria-describedby={fe.events ? "wh-events-error" : undefined}>
+      <TextField
+        id="wh-url"
+        name="url"
+        type="url"
+        label="Endpoint URL"
+        placeholder="https://example.com/hooks/consent"
+        defaultValue={state?.url}
+        error={fe.url}
+        required
+        spellCheck={false}
+        controlClassName="font-mono"
+        hint="Must be https. Every request is signed and retried up to 3 times."
+      />
+      <fieldset aria-describedby={fe.events ? "wh-events-error" : undefined} aria-invalid={fe.events ? true : undefined}>
         <legend className="label">Events</legend>
-        <div className="space-y-2">
+        <div className="space-y-3">
           {EVENTS.map((e) => (
-            <label key={e.id} className="flex cursor-pointer gap-3 rounded-md border border-line p-3 hover:border-line-strong has-[:checked]:border-brand has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-brand">
-              <input type="checkbox" name="events" value={e.id} defaultChecked={e.id === "consent.withdrawn"} className="mt-0.5 size-4 accent-[var(--color-brand)]" />
-              <span>
-                <span className="block text-sm font-medium">{e.label}</span>
-                <span className="block text-xs text-ink-3">{e.description}</span>
-              </span>
-            </label>
+            <Checkbox key={e.id} id={`wh-ev-${e.id}`} name="events" value={e.id} defaultChecked={e.id === "consent.withdrawn"} label={e.label} description={e.description} />
           ))}
         </div>
         {fe.events ? (
-          <p id="wh-events-error" className="mt-1.5 text-xs font-semibold text-rose">
+          <p id="wh-events-error" className="mt-2 text-xs font-medium text-destructive">
             {fe.events[0]}
           </p>
         ) : null}
       </fieldset>
-      {state?.error && !state.fieldErrors ? <p role="alert" className="rounded-md bg-rose-wash px-3 py-2.5 text-sm text-rose">{state.error}</p> : null}
-      <div className="flex justify-end gap-2">
-        <Button variant="ghost" onClick={onDone}>
+      {state?.error && !state.fieldErrors ? <FormMessage state={{ error: state.error }} /> : null}
+      <div className="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end">
+        <Button variant="secondary" onClick={onDone}>
           Cancel
         </Button>
         <SubmitButton pending="Adding">Add webhook</SubmitButton>
@@ -108,19 +125,18 @@ export function WebhooksManager({ propertyId, webhooks, deliveries, canWrite }: 
   const [confirmDelete, setConfirmDelete] = useState<WebhookRow | null>(null);
   const [pending, start] = useTransition();
   const [testing, setTesting] = useState<string | null>(null);
+  /** the last row action that failed, shown inline above the list */
+  const [rowError, setRowError] = useState<{ id: string; message: string } | null>(null);
   const toast = useToast();
   const urlOf = (id: string) => webhooks.find((w) => w.id === id)?.url ?? "Deleted webhook";
+  const failedUrl = rowError ? urlOf(rowError.id) : "";
+
   const deliveryColumns: Column<WebhookDelivery>[] = [
-    {
-      id: "time",
-      header: "Time (UTC)",
-      cell: (d) => <span className="whitespace-nowrap tabular-nums text-ink-2 max-sm:font-medium max-sm:text-ink">{d.createdAt.replace("T", " ").slice(0, 19)}</span>,
-    },
-    { id: "event", header: "Event", cell: (d) => <span className="font-mono text-xs">{d.event}</span> },
+    { id: "event", header: "Event", cell: (d) => <span className="font-mono text-xs text-ink">{d.event}</span> },
     {
       id: "endpoint",
       header: "Endpoint",
-      className: "max-w-[240px]",
+      className: "max-w-[260px]",
       cell: (d) => (
         <span className="block truncate font-mono text-xs text-ink-2" title={urlOf(d.webhookId)}>
           {urlOf(d.webhookId)}
@@ -130,171 +146,183 @@ export function WebhooksManager({ propertyId, webhooks, deliveries, canWrite }: 
     {
       id: "result",
       header: "Result",
+      sortValue: (d) => d.status,
       cell: (d) =>
         d.status === "delivered" ? (
-          <Badge tone="released">{d.httpStatus ?? 200} delivered</Badge>
+          <Badge tone="success">{d.httpStatus ?? 200} delivered</Badge>
         ) : (
-          <Badge tone="declined">{d.httpStatus ? `${d.httpStatus} failed` : "No response"}</Badge>
+          <Badge tone="danger">{d.httpStatus ? `${d.httpStatus} failed` : "No response"}</Badge>
         ),
     },
-    { id: "attempt", header: "Attempt", align: "right", cell: (d) => d.attempt },
-    { id: "duration", header: "Duration", align: "right", cell: (d) => `${d.durationMs} ms` },
+    { id: "attempt", header: "Attempt", numeric: true, cell: (d) => d.attempt },
+    { id: "duration", header: "Duration", numeric: true, sortValue: (d) => d.durationMs, cell: (d) => `${d.durationMs} ms` },
+    { id: "time", header: "Sent", numeric: true, sortValue: (d) => d.createdAt, cell: (d) => <DateText iso={d.createdAt} mode="datetime" className="whitespace-nowrap text-ink-2" /> },
   ];
 
+  const addButton = canWrite ? (
+    <Button size="sm" onClick={() => setCreating(true)}>
+      <IconPlus size={16} aria-hidden /> Add webhook
+    </Button>
+  ) : null;
+
   return (
-    <div className="space-y-10">
-      <section aria-labelledby="hooks-h">
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <h2 id="hooks-h" className="text-lg font-semibold">
-            Endpoints
-          </h2>
-          {canWrite && webhooks.length ? (
-            <Button size="sm" onClick={() => setCreating(true)}>
-              <IconPlus size={14} /> Add webhook
-            </Button>
-          ) : null}
-        </div>
-        {webhooks.length === 0 ? (
-          <EmptyState
-            icon={<IconPlug size={24} />}
-            title="Send consent changes to your systems"
-            action={
-              canWrite ? (
-                <Button onClick={() => setCreating(true)}>
-                  <IconPlus size={16} /> Add webhook
-                </Button>
-              ) : undefined
-            }
-          >
-            When someone withdraws consent, your CRM, CDP or data warehouse should stop processing too. Webhooks tell them, signed so they can trust it.
-          </EmptyState>
-        ) : (
-          <ul className="panel divide-y divide-line">
-            {webhooks.map((w) => (
-              <li key={w.id} className="grid gap-3 px-5 py-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
-                <div className="min-w-0">
-                  <p className="flex items-center gap-2">
-                    <span className="truncate font-mono text-sm">{w.url}</span>
-                    {w.active ? <Badge tone="released">Active</Badge> : <Badge tone="neutral">Paused</Badge>}
-                  </p>
-                  <p className="mt-1 text-xs text-ink-3">
-                    {w.events.join(", ")}. Added {new Date(w.createdAt).toLocaleDateString("en-GB", { dateStyle: "medium" })}.
-                  </p>
-                </div>
-                {canWrite ? (
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      loading={testing === w.id}
-                      loadingLabel="Sending"
-                      disabled={pending || !w.active}
-                      onClick={() => {
-                        setTesting(w.id);
-                        start(async () => {
-                          const r = await testWebhook(propertyId, w.id);
-                          setTesting(null);
-                          if (r.error) toast(r.error, "error");
-                          else if (r.ok) toast(`Test delivered (HTTP ${r.delivery?.httpStatus}) in ${r.delivery?.durationMs} ms.`);
-                          else toast(`Test failed${r.delivery?.httpStatus ? ` with HTTP ${r.delivery.httpStatus}` : ": the endpoint didn't respond"}. Check the URL and that it returns 2xx.`, "error");
+    <div className="space-y-8">
+      <section aria-label="Endpoints" className="space-y-3">
+        {rowError ? (
+          <Alert tone="danger" title={failedUrl}>
+            {rowError.message}
+          </Alert>
+        ) : null}
+        <ResourceList
+          title="Endpoints"
+          titleId="hooks-h"
+          label="Webhook endpoints"
+          actions={webhooks.length ? addButton : null}
+          empty={
+            <EmptyState
+              bare
+              headingLevel={3}
+              icon={<IconPlug size={24} />}
+              title="Send consent changes to your systems"
+              action={
+                canWrite ? (
+                  <Button onClick={() => setCreating(true)}>
+                    <IconPlus size={16} aria-hidden /> Add webhook
+                  </Button>
+                ) : undefined
+              }
+            >
+              When someone withdraws consent, your CRM, CDP or warehouse hears about it, signed so it can trust the message.
+            </EmptyState>
+          }
+          rows={webhooks.map((w) => ({
+            id: w.id,
+            title: (
+              <span className="flex min-w-0 items-center gap-2">
+                <span className="truncate font-mono text-xs" title={w.url}>
+                  {w.url}
+                </span>
+                {w.active ? <Badge tone="success">Active</Badge> : <Badge tone="neutral">Paused</Badge>}
+              </span>
+            ),
+            meta: (
+              <>
+                {w.events.map((e) => EVENT_LABEL[e] ?? e).join(", ")} · Added <DateText iso={w.createdAt} />
+              </>
+            ),
+            trailing: canWrite ? (
+              <div className="flex flex-wrap justify-end gap-2">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  loading={testing === w.id}
+                  loadingLabel="Sending"
+                  disabled={pending || !w.active}
+                  title={w.active ? undefined : "Resume the webhook to send a test"}
+                  onClick={() => {
+                    setTesting(w.id);
+                    setRowError(null);
+                    start(async () => {
+                      const r = await testWebhook(propertyId, w.id);
+                      setTesting(null);
+                      if (r.error) setRowError({ id: w.id, message: r.error });
+                      else if (r.ok) toast(`Test delivered (HTTP ${r.delivery?.httpStatus}) in ${r.delivery?.durationMs} ms.`);
+                      else
+                        setRowError({
+                          id: w.id,
+                          message: `Test failed${r.delivery?.httpStatus ? ` with HTTP ${r.delivery.httpStatus}` : ": the endpoint didn't respond"}. Check the URL and that it returns 2xx.`,
                         });
-                      }}
-                    >
-                      Send test
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      disabled={pending}
-                      onClick={() =>
-                        start(async () => {
-                          const r = await setWebhookActive(propertyId, w.id, !w.active);
-                          if (r?.error) toast(r.error, "error");
-                          else if (r?.ok) toast(r.ok);
-                        })
-                      }
-                    >
-                      {w.active ? "Pause" : "Resume"}
-                    </Button>
-                    <Button size="sm" variant="quiet" disabled={pending} onClick={() => setConfirmDelete(w)} aria-label={`Delete webhook ${w.url}`}>
-                      Delete
-                    </Button>
-                  </div>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        )}
+                    });
+                  }}
+                >
+                  Send test
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={pending}
+                  onClick={() => {
+                    setRowError(null);
+                    start(async () => {
+                      const r = await setWebhookActive(propertyId, w.id, !w.active);
+                      if (r?.error) setRowError({ id: w.id, message: r.error });
+                      else if (r?.ok) toast(r.ok);
+                    });
+                  }}
+                >
+                  {w.active ? "Pause" : "Resume"}
+                </Button>
+                <Button size="sm" variant="danger-quiet" disabled={pending} onClick={() => setConfirmDelete(w)} aria-label={`Delete webhook ${w.url}`}>
+                  Delete
+                </Button>
+              </div>
+            ) : undefined,
+          }))}
+        />
       </section>
 
       <section aria-labelledby="deliveries-h">
-        <h2 id="deliveries-h" className="mb-1 text-lg font-semibold">
-          Recent deliveries
-        </h2>
-        <p className="mb-4 text-sm text-ink-3">The newest 50 attempts, including retries. Kept for 30 days.</p>
+        <div className="mb-3">
+          <h2 id="deliveries-h" className="text-base font-semibold">
+            Recent deliveries
+          </h2>
+          <p className="mt-0.5 text-sm text-ink-3">The newest 50 attempts, including retries. Kept 30 days.</p>
+        </div>
         {deliveries.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-line-strong px-5 py-6 text-sm text-ink-3">No deliveries yet. Send a test to see one here.</p>
+          <EmptyState headingLevel={3} title="No deliveries yet">
+            {webhooks.length ? "Send a test from an endpoint above to see one here." : "Deliveries appear here once an endpoint is added."}
+          </EmptyState>
         ) : (
-          <DataTable
-            caption="Recent webhook deliveries"
-            rows={deliveries}
-            rowKey={(d) => d.id}
-            columns={deliveryColumns}
-          />
+          <DataTable caption="Recent webhook deliveries" rows={deliveries} rowKey={(d) => d.id} columns={deliveryColumns} minWidth={760} maxHeight="min(60dvh, 560px)" />
         )}
       </section>
 
-      <section aria-labelledby="verify-h">
-        <h2 id="verify-h" className="mb-1 text-lg font-semibold">
-          Verify signatures
-        </h2>
-        <p className="mb-4 max-w-[70ch] text-sm text-ink-3">
-          Each request carries <code className="font-mono">X-Plain-Signature: t=&lt;unix seconds&gt;,v1=&lt;hex&gt;</code>, an HMAC-SHA256 of <code className="font-mono">t.body</code> with your secret.
-          Reject requests older than five minutes and dedupe on <code className="font-mono">X-Plain-Delivery</code>.
-        </p>
-        <div className="overflow-hidden rounded-lg bg-ink">
-          <div className="flex items-center justify-between border-b border-white/10 px-4 py-2 text-xs text-white/70">
-            <span className="font-mono">verify-plain-signature.js</span>
-            <span className="[&_button]:border-white/20 [&_button]:text-white">
-              <CopyButton value={VERIFY_SNIPPET} />
-            </span>
-          </div>
-          <pre className="overflow-x-auto p-4 font-mono text-xs leading-relaxed text-white/90">
+      <Card aria-labelledby="verify-h">
+        <CardHeader
+          titleId="verify-h"
+          title="Verify signatures"
+          description={
+            <>
+              Each request carries <code className="font-mono text-xs text-ink-2">X-Plain-Signature</code>, an HMAC-SHA256 of <code className="font-mono text-xs text-ink-2">t.body</code>. Reject
+              requests older than five minutes and dedupe on <code className="font-mono text-xs text-ink-2">X-Plain-Delivery</code>.{" "}
+              <Link href="/docs#api" className="font-medium text-ink underline underline-offset-2 hover:no-underline">
+                API docs
+              </Link>
+            </>
+          }
+          actions={<CopyButton value={VERIFY_SNIPPET} label="Copy code" />}
+        />
+        <CardBody flush>
+          <pre tabIndex={0} aria-label="verify-plain-signature.js" className="scroll-thin overflow-x-auto rounded-b-lg bg-canvas px-5 py-4 font-mono text-xs leading-relaxed text-ink sm:px-6">
             <code>{VERIFY_SNIPPET}</code>
           </pre>
-        </div>
-      </section>
+        </CardBody>
+      </Card>
 
-      <Dialog open={creating} onClose={() => setCreating(false)} title="Add webhook" description="We'll POST signed JSON to this URL when the events you choose happen." width={560}>
+      <Dialog open={creating} onClose={() => setCreating(false)} title="Add webhook" description="Signed JSON is sent to this URL when the events you choose happen." width={560}>
         {creating ? <CreateForm propertyId={propertyId} onDone={() => setCreating(false)} /> : null}
       </Dialog>
 
-      <Dialog open={Boolean(confirmDelete)} onClose={() => setConfirmDelete(null)} title="Delete this webhook?" description={confirmDelete?.url} width={480}>
-        <p className="flex items-start gap-2 text-sm text-ink-2">
-          <IconAlert size={16} className="mt-0.5 shrink-0 text-rose" />
-          Events stop immediately. Systems that rely on withdrawal notices won&apos;t hear about new ones.
-        </p>
-        <div className="mt-6 flex justify-end gap-2">
-          <Button variant="ghost" onClick={() => setConfirmDelete(null)}>
-            Keep it
-          </Button>
-          <Button
-            variant="danger"
-            loading={pending}
-            loadingLabel="Deleting"
-            onClick={() =>
-              start(async () => {
-                const r = await deleteWebhook(propertyId, confirmDelete!.id);
-                if (r?.error) toast(r.error, "error");
-                else if (r?.ok) toast(r.ok);
-                setConfirmDelete(null);
-              })
-            }
-          >
-            Delete webhook
-          </Button>
-        </div>
-      </Dialog>
+      <ConfirmDialog
+        open={Boolean(confirmDelete)}
+        onClose={() => setConfirmDelete(null)}
+        title="Delete this webhook?"
+        description={
+          <>
+            <span className="block break-all font-mono text-xs text-ink">{confirmDelete?.url}</span>
+            <span className="mt-2 block">Events stop immediately. Systems that rely on withdrawal notices won&apos;t hear about new ones.</span>
+          </>
+        }
+        confirmLabel="Delete webhook"
+        pendingLabel="Deleting"
+        destructive
+        onConfirm={async () => {
+          if (!confirmDelete) return;
+          const r = await deleteWebhook(propertyId, confirmDelete.id);
+          if (r?.error) return { error: r.error };
+          if (r?.ok) toast(r.ok);
+        }}
+      />
     </div>
   );
 }

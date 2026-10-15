@@ -50,7 +50,7 @@ export default async function AccountPage() {
   return (
     <>
       <PageHeader title="Account" description={`Sign-in security for ${user.email}.`} />
-      <div className="max-w-5xl">
+      <div className="max-w-4xl">
         <MfaSection
           enabled={Boolean(user.mfa)}
           enabledAt={user.mfa?.enabledAt}

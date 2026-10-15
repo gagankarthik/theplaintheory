@@ -20,7 +20,7 @@ export function Progress({
   size?: "sm" | "md";
   className?: string;
 }) {
-  const fill = { brand: "bg-brand", ok: "bg-jade-bright", warn: "bg-amber-bright", bad: "bg-rose" }[tone];
+  const fill = { brand: "bg-interactive", ok: "bg-jade-bright", warn: "bg-amber-bright", bad: "bg-rose" }[tone];
   const pct = value === undefined ? null : Math.max(0, Math.min(100, (value / Math.max(max, 1)) * 100));
   return (
     <div
@@ -30,12 +30,12 @@ export function Progress({
       aria-valuemax={max}
       aria-valuenow={value}
       aria-valuetext={valueText}
-      className={`relative w-full overflow-hidden rounded-full bg-line ${size === "sm" ? "h-1" : "h-1.5"} ${className}`}
+      className={`relative w-full overflow-hidden rounded-full bg-line-strong/60 ${size === "sm" ? "h-1" : "h-2"} ${className}`}
     >
       {pct === null ? (
         <span className="skeleton absolute inset-0 !rounded-full !bg-[length:40%_100%] opacity-80" />
       ) : (
-        <span className={`absolute inset-y-0 left-0 rounded-full ${fill} transition-[width] duration-500 ease-[var(--ease-spring)]`} style={{ width: `${pct}%` }} />
+        <span className={`absolute inset-y-0 left-0 rounded-full ${fill} transition-[width] duration-300 ease-out`} style={{ width: `${pct}%` }} />
       )}
     </div>
   );

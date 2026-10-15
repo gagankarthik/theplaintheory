@@ -12,17 +12,17 @@ export default function AdminError({ error, retry }: { error: Error & { digest?:
   }, [error]);
   const forbidden = /staff role doesn't allow/i.test(error.message);
   return (
-    <div role="alert" className="max-w-xl py-10">
-      <h1 ref={heading} tabIndex={-1} className="text-xl font-bold outline-none">
+    <div role="alert" className="mx-auto max-w-xl py-16 sm:text-center">
+      <h1 ref={heading} tabIndex={-1} className="text-xl font-semibold tracking-[-0.025em] outline-none sm:text-2xl">
         {forbidden ? "Your staff role can't open this" : "This console page didn't load"}
       </h1>
-      <p className="mt-2 text-base text-ink-2">
+      <p className="mt-2 text-sm text-ink-2">
         {forbidden ? error.message : "Something failed while loading platform data. Nothing was changed. Try again, and if it keeps failing, send the reference below to engineering."}
       </p>
       {error.digest ? <p className="mt-3 font-mono text-xs text-ink-3">Reference {error.digest}</p> : null}
-      <div className="mt-6 flex flex-wrap gap-2">
+      <div className="mt-6 flex flex-wrap gap-2 sm:justify-center">
         {forbidden ? null : <Button onClick={() => retry()}>Try again</Button>}
-        <ButtonLink variant="ghost" href="/admin">
+        <ButtonLink variant={forbidden ? "primary" : "secondary"} href="/admin">
           Console overview
         </ButtonLink>
       </div>

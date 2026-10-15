@@ -59,7 +59,7 @@ export function PlanPicker({
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h2 id="plans-h" className="text-lg font-semibold">
+        <h2 id="plans-h" className="text-lg font-semibold tracking-[-0.01em]">
           Plans
         </h2>
         <div className="flex flex-wrap gap-2">
@@ -77,27 +77,27 @@ export function PlanPicker({
         </div>
       </div>
 
-      <ul className="grid overflow-hidden rounded-lg border border-line bg-line md:grid-cols-2 xl:grid-cols-4" style={{ gap: 1 }}>
+      <ul className="grid gap-px overflow-hidden rounded-lg border border-line bg-line md:grid-cols-2 xl:grid-cols-4">
         {plans.map((p) => {
           const isCurrent = p.id === current;
           const upgrade = rank(p.id) > rank(current);
-          // one primary action on the page: the next plan up; every other choice is ghost
+          // one primary action on the page: the next plan up; every other choice is secondary
           const next = rank(p.id) === rank(current) + 1;
           const canBuy = purchasable[p.id]?.[interval];
           return (
-            <li key={p.id} className={`flex flex-col p-6 ${isCurrent ? "bg-brand-wash/30 ring-2 ring-inset ring-brand" : "bg-surface"}`}>
+            <li key={p.id} aria-current={isCurrent ? "true" : undefined} className={`relative flex flex-col bg-surface p-5 sm:p-6 ${isCurrent ? "ring-2 ring-inset ring-marker" : ""}`}>
               <div className="flex items-center justify-between gap-2">
                 <h3 className="text-base font-semibold">{p.name}</h3>
-                {isCurrent ? <Badge tone="brand">Current</Badge> : null}
+                {isCurrent ? <Badge tone="brand">Current plan</Badge> : null}
               </div>
               <p className="mt-1 min-h-10 text-sm text-ink-3">{p.summary}</p>
               <div className="mt-4 min-h-16">
                 <Price plan={p} currency={currency} interval={interval} />
               </div>
-              <ul className="mt-5 flex-1 space-y-2 text-sm">
+              <ul className="mt-5 flex-1 space-y-2 text-sm text-ink-2">
                 {p.features.map((f) => (
                   <li key={f} className="flex gap-2">
-                    <IconCheck size={16} className="mt-0.5 shrink-0 text-brand" />
+                    <IconCheck size={16} aria-hidden className="mt-0.5 shrink-0 text-ink-3" />
                     {f}
                   </li>
                 ))}
@@ -110,7 +110,7 @@ export function PlanPicker({
                 ) : p.id === "free" ? (
                   hasCustomer ? (
                     <form action="/api/stripe/portal" method="post">
-                      <button className={buttonClass("ghost", "md", "w-full")}>Downgrade in one click</button>
+                      <button className={buttonClass("secondary", "md", "w-full")}>Downgrade to Free</button>
                     </form>
                   ) : null
                 ) : (
@@ -118,7 +118,7 @@ export function PlanPicker({
                     <input type="hidden" name="plan" value={p.id} />
                     <input type="hidden" name="interval" value={interval} />
                     <input type="hidden" name="currency" value={currency} />
-                    <button className={buttonClass(next ? "primary" : "ghost", "md", "w-full")} disabled={!canBuy} aria-describedby={canBuy ? undefined : `buy-${p.id}`}>
+                    <button className={buttonClass(next ? "primary" : "secondary", "md", "w-full")} disabled={!canBuy} aria-describedby={canBuy ? undefined : `buy-${p.id}`}>
                       {upgrade ? `Upgrade to ${p.name}` : `Switch to ${p.name}`}
                     </button>
                     {!canBuy ? (
