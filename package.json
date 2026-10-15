@@ -16,22 +16,22 @@
     "staff:invite": "node --env-file=.env.local --disable-warning=ExperimentalWarning scripts/staff-invite.ts"
   },
   "dependencies": {
-    "@aws-sdk/client-cloudfront": "^3.1146.0",
-    "@aws-sdk/client-cognito-identity-provider": "^3.1146.0",
-    "@aws-sdk/client-dynamodb": "^3.1146.0",
-    "@aws-sdk/client-s3": "^3.1146.0",
-    "@aws-sdk/client-sesv2": "^3.1147.0",
+    "@aws-sdk/client-cloudfront": "^3.1152.0",
+    "@aws-sdk/client-cognito-identity-provider": "^3.1152.0",
+    "@aws-sdk/client-dynamodb": "^3.1152.0",
+    "@aws-sdk/client-s3": "^3.1152.0",
+    "@aws-sdk/client-sesv2": "^3.1152.0",
     "@aws-sdk/client-sqs": "^3.1152.0",
-    "@aws-sdk/lib-dynamodb": "^3.1146.0",
+    "@aws-sdk/lib-dynamodb": "^3.1152.0",
     "@simplewebauthn/browser": "^14.0.0",
     "@simplewebauthn/server": "^14.0.3",
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",
-    "amazon-cognito-identity-js": "^6.3.20",
+    "amazon-cognito-identity-js": "^6.3.22",
     "esbuild": "^0.28.2",
     "gsap": "^3.15.0",
     "jose": "^6.2.12",
-    "next": "16.3.8",
+    "next": "^16.4.0",
     "qrcode": "^1.5.4",
     "react": "19.3.0",
     "react-dom": "19.3.0",
@@ -39,7 +39,7 @@
     "server-only": "^0.0.1",
     "simple-icons": "^15.22.0",
     "stripe": "^23.0.0",
-    "zod": "^4.6.5"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -48,11 +48,11 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.3.8",
+    "eslint-config-next": "^16.4.0",
     "happy-dom": "20.14.5",
     "tailwindcss": "^4",
     "typescript": "^5",
-    "vite": "^7.3.7",
+    "vite": "^8.3.4",
     "vitest": "^5.0.3"
   }
 }

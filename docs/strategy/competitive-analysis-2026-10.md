@@ -49,7 +49,7 @@ Three differentiators:
 
 1. **Provable compliance.** SHA-256 hash-chained receipts that record the signals honoured (GPC, automated browsers, language), field leak alerts after a decline, public daily chain anchors, and a hashed Evidence Pack.
 2. **DPDP-native and global.** Notices in all 22 Eighth Schedule languages with human review status, itemised data per purpose, rights, grievance and Board links, India residency, and Consent Manager interoperability on the roadmap.
-3. **Fast and fair by default.** A build-enforced 15 KB budget, equal-weight buttons, a fairness check that blocks publishing dark patterns, and 180-day re-ask suppression after a reject.
+3. **Fast and fair by default.** Equal-weight buttons, a fairness check that blocks publishing dark patterns, and 180-day re-ask suppression after a reject.
 
 ## What we built from this (October 2026)
 

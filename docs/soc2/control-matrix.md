@@ -51,7 +51,7 @@ Owners are roles. Assign names in [information-security-policy.md](information-s
 | ID | Criterion | Control | Type | Implementation | Evidence | Owner | Frequency |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | CHG-01 | CC8.1 | Every change goes through a pull request with at least one approving review; `main` is protected | Org + Product | GitHub branch protection, [change-management-policy.md](change-management-policy.md) | PR history | Eng lead | Every change |
-| CHG-02 | CC8.1 | CI must pass before merge: lint, types, tests, SDK budget, build, dependency audit, secret scan | Product | `.github/workflows/ci.yml` | CI runs | Eng lead | Every change |
+| CHG-02 | CC8.1 | CI must pass before merge: lint, types, tests, SDK build, build, dependency audit, secret scan | Product | `.github/workflows/ci.yml` | CI runs | Eng lead | Every change |
 | CHG-03 | CC8.1 | Infrastructure as code; production deploys only from `main` | Product | `infra/` (CDK) | Deploy logs | Eng lead | Every deploy |
 | CHG-04 | CC8.1 | Emergency changes reviewed within 1 business day | Org | [change-management-policy.md](change-management-policy.md) | Retroactive PR review | Eng lead | Per emergency |
 
