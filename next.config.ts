@@ -41,6 +41,15 @@ const nextConfig: NextConfig = {
   // Keep the dev badge clear of the "Privacy choices" button (bottom right on our own site).
   devIndicators: { position: "bottom-left" },
   poweredByHeader: false,
+  // The contact forms used to live on their own pages; they are now topics of one /contact page.
+  async redirects() {
+    return [
+      { source: "/contact-sales", destination: "/contact?topic=sales", permanent: true },
+      { source: "/contact/support", destination: "/contact?topic=support", permanent: true },
+      { source: "/contact/enterprise", destination: "/contact?topic=enterprise", permanent: true },
+      { source: "/contact/partners", destination: "/contact?topic=partners", permanent: true },
+    ];
+  },
   async headers() {
     return [
       // Everything except the demo store, the public consent API and the SDK bundle

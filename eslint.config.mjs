@@ -24,6 +24,9 @@ const eslintConfig = defineConfig([
     // Built SDK bundle and the separately-managed CDK app
     "public/sdk/**",
     "infra/**",
+    // Separately-managed crawler service (own package.json) and static test fixtures
+    "services/**",
+    "examples/**",
   ]),
 ]);
 

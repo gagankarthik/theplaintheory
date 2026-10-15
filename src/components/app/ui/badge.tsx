@@ -35,7 +35,7 @@ const DOT: Partial<Record<BadgeTone, string>> = {
 /** Status pill. Meaning is always carried by the text; the colour and dot reinforce it. */
 export function Badge({ tone = "neutral", children, icon, className = "" }: { tone?: BadgeTone; children: ReactNode; icon?: ReactNode; className?: string }) {
   return (
-    <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium ${TONE[tone]} ${className}`}>
+    <span className={`inline-flex h-[22px] items-center gap-1.5 whitespace-nowrap rounded-[6px] px-2 text-[0.75rem] font-medium leading-none ${TONE[tone]} ${className}`}>
       {icon ?? (DOT[tone] ? <span className={`size-1.5 rounded-full ${DOT[tone]}`} aria-hidden /> : null)}
       {children}
     </span>

@@ -50,7 +50,7 @@ export function Dialog({
         (opener.current as HTMLElement | null)?.focus?.();
       }}
       onClick={(e) => e.target === ref.current && onClose()}
-      className="scroll-thin m-auto rounded-xl border border-line bg-surface p-0 text-ink shadow-float backdrop:bg-ink/45"
+      className="scroll-thin m-auto rounded-xl border border-line bg-surface p-0 text-ink shadow-float backdrop:bg-[#05070d]/45"
       style={{ width: `min(${width}px, calc(100vw - 2rem))` }}
     >
       {open ? (

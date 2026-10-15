@@ -1,2 +1,5 @@
 node_modules/
 cdk.out/
+
+# Deploy outputs (local, environment-specific)
+cdk-outputs-*.json

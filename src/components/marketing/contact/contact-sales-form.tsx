@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useRef } from "react";
-import { contactSales, type ContactState } from "@/app/(marketing)/contact-sales/actions";
+import { contactSales, type ContactState } from "@/app/(marketing)/contact/actions";
 import { SelectField, TextAreaField, TextField } from "@/components/app/ui/field";
 import { FormGuard, useFocusOnError } from "@/components/app/ui/form-guard";
 import { SubmitButton } from "@/components/app/ui/submit-button";

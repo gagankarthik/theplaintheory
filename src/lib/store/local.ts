@@ -550,6 +550,27 @@ export const localStore: Store = {
       db.scans = [...(db.scans ?? []).filter((s) => !drop.has(s.id)), structuredClone(report)];
     });
   },
+  async getScan(propertyId, scanId) {
+    const s = ((await load()).scans ?? []).find((x) => x.propertyId === propertyId && x.id === scanId);
+    return s ? structuredClone(s) : null;
+  },
+  async updateScan(propertyId, scanId, patch, opts) {
+    return mutate((db) => {
+      const s = (db.scans ?? []).find((x) => x.propertyId === propertyId && x.id === scanId);
+      if (!s) return null;
+      if (opts?.ifStatus && !opts.ifStatus.includes(s.status)) return null;
+      Object.assign(s, structuredClone(patch), { id: s.id, propertyId: s.propertyId, startedAt: s.startedAt });
+      return structuredClone(s);
+    });
+  },
+  async listQueuedScans(limit) {
+    if (limit < 1) return [];
+    return ((await load()).scans ?? [])
+      .filter((s) => s.status === "queued")
+      .sort((a, b) => a.startedAt.localeCompare(b.startedAt))
+      .slice(0, limit)
+      .map((s) => structuredClone(s));
+  },
   async listScans(propertyId, limit) {
     if (limit < 1) return [];
     return ((await load()).scans ?? [])

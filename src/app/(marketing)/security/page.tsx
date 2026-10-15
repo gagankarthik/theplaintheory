@@ -1,5 +1,6 @@
 import { pageMetadata } from "@/lib/seo";
-import { ARCHIVE_SCENE, IsoScene } from "@/components/illustrations/iso-scene";
+import Image from "next/image";
+import { PICTURES } from "@/components/marketing/picture-credits";
 import { FinalCta } from "@/components/marketing/final-cta";
 import { PageHero } from "@/components/marketing/page-hero";
 import { Section } from "@/components/marketing/primitives";
@@ -111,16 +112,21 @@ export default function SecurityPage() {
         title="Security built for the records you'll be asked to show"
         lead="Consent data is evidence. We keep as little of it as possible, keep it where you choose, and make it impossible to alter without anyone noticing."
         figure={
-          <div className="mx-auto grid aspect-[4/3] max-w-[420px] place-items-center rounded-[var(--radius-xl)] bg-white">
-            <IsoScene items={ARCHIVE_SCENE} label="An archive of stacked drawers, one pulled out" className="h-[62%] w-auto" />
-          </div>
+          <figure className="flex items-center gap-5">
+            <div className="mk-ring-mask relative aspect-square w-[min(46vw,260px)] shrink-0">
+              <Image src={PICTURES.bombayDocks.src} alt={PICTURES.bombayDocks.alt} fill sizes="260px" className="object-cover object-[60%_50%]" />
+            </div>
+            <figcaption className="text-[1rem] leading-[1.5] text-white/85">
+              Consent records are stored in Mumbai, in AWS ap-south-1. EU or US residency is available on Enterprise.
+            </figcaption>
+          </figure>
         }
       />
 
       {GROUPS.map((g, i) => (
         <Section key={g.id} id={g.id} tone={i % 2 === 0 ? "white" : "paper"} labelledBy={`${g.id}-h`}>
           <div className="grid gap-10 lg:grid-cols-12">
-            <div className="lg:col-span-4 lg:sticky lg:top-28 lg:self-start">
+            <div className="lg:col-span-4">
               <h2 id={`${g.id}-h`} className="display text-[2rem] sm:text-[2.25rem]">
                 {g.title}
               </h2>

@@ -2,6 +2,7 @@
 import { App } from "aws-cdk-lib";
 import { AccessStack } from "../lib/access-stack";
 import { IdentityStack } from "../lib/auth-stack";
+import { CrawlerImagesStack, CrawlerStack } from "../lib/crawler-stack";
 import { DataStack } from "../lib/data-stack";
 import { DeliveryStack } from "../lib/delivery-stack";
 import { MailStack } from "../lib/mail-stack";
@@ -45,6 +46,22 @@ const delivery = new DeliveryStack(app, naming.stack("delivery"), {
   certificateArn: ctx("certificateArn"),
 });
 
+// Headless tracker crawler (services/crawler). Build the image without local Docker:
+//   deploy CrawlerImages → aws codebuild start-build → deploy Crawler with -c crawlerImage=<uri>:<tag>
+// (docs/architecture/crawler.md). -c crawler=false leaves both stacks out.
+const crawlerEnabled = ctx("crawler") !== "false";
+if (crawlerEnabled) new CrawlerImagesStack(app, naming.stack("crawlerImages"), { env, naming });
+const crawler = crawlerEnabled
+  ? new CrawlerStack(app, naming.stack("crawler"), {
+      env,
+      naming,
+      tables: data.tables,
+      key: data.key,
+      imageRef: ctx("crawlerImage"),
+      maxTasks: Number(ctx("crawlerMaxTasks") ?? (stage === "prod" ? 6 : 2)),
+    })
+  : undefined;
+
 const vercelTeam = ctx("vercelTeam");
 new AccessStack(app, naming.stack("access"), {
   env,
@@ -56,6 +73,7 @@ new AccessStack(app, naming.stack("access"), {
   customerPool: identity.customers,
   staffPool: identity.staff,
   mailIdentity: mail?.identity,
+  crawlQueue: crawler?.queue,
   // With a Vercel team slug: keyless OIDC roles. Without: one least-privilege IAM user for the app.
   vercel: vercelTeam
     ? {

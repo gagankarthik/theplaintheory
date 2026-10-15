@@ -91,7 +91,7 @@ function ChoiceCard({
       <input type="radio" name={name} checked={checked} onChange={onSelect} className="sr-only" />
       <span
         aria-hidden
-        className={`absolute right-4 top-4 grid size-5 place-items-center rounded-full transition-colors ${checked ? "bg-brand text-white" : "ring-1 ring-inset ring-line-strong"}`}
+        className={`absolute right-4 top-4 grid size-5 place-items-center rounded-full transition-colors ${checked ? "bg-brand-solid text-white" : "ring-1 ring-inset ring-line-strong"}`}
       >
         {checked ? <IconCheck size={12} className="pt-pop" /> : null}
       </span>
@@ -121,7 +121,7 @@ function StepRail({ step, maxReached, onJump }: { step: number; maxReached: numb
           const dot = (
             <span
               className={`grid size-7 shrink-0 place-items-center rounded-full text-xs font-semibold transition-colors duration-300 ${
-                done ? "bg-brand-wash text-brand ring-1 ring-inset ring-brand/25" : current ? "bg-brand text-white shadow-[0_6px_16px_-6px_rgba(46,43,214,0.7)]" : "bg-surface text-ink-3 ring-1 ring-inset ring-line-strong"
+                done ? "bg-brand-wash text-brand ring-1 ring-inset ring-brand/25" : current ? "bg-brand-solid text-white shadow-[0_6px_16px_-6px_rgba(46,43,214,0.7)]" : "bg-surface text-ink-3 ring-1 ring-inset ring-line-strong"
               }`}
             >
               {done ? <IconCheck size={14} className="pt-pop" /> : i + 1}
@@ -388,7 +388,7 @@ export function OnboardingForm({
                   <ChoiceCard key={o.value} name={`${uid}-kind`} checked={kind === o.value} onSelect={() => setKind(o.value)} className="min-h-40 flex-col">
                     <span
                       id={i === 0 ? fieldId("kind") : undefined}
-                      className={`grid size-12 place-items-center rounded-[12px] ring-1 ring-inset transition-colors ${kind === o.value ? "bg-brand text-white ring-brand" : "bg-paper text-ink-2 ring-line"}`}
+                      className={`grid size-12 place-items-center rounded-[12px] ring-1 ring-inset transition-colors ${kind === o.value ? "bg-brand-solid text-white ring-brand" : "bg-paper text-ink-2 ring-line"}`}
                     >
                       <o.Glyph />
                     </span>
@@ -433,7 +433,7 @@ export function OnboardingForm({
                         <label
                           key={s}
                           className={`inline-flex h-11 min-w-16 cursor-pointer items-center justify-center rounded-full px-4 text-sm font-medium ring-1 ring-inset transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand ${
-                            teamSize === s ? "bg-brand text-white ring-brand" : "bg-surface text-ink-2 ring-line-strong hover:bg-paper"
+                            teamSize === s ? "bg-brand-solid text-white ring-brand" : "bg-surface text-ink-2 ring-line-strong hover:bg-paper"
                           }`}
                         >
                           <input
@@ -540,7 +540,7 @@ export function OnboardingForm({
                         <span className="min-w-0">
                           <span className="flex flex-wrap items-center gap-2">
                             <span className="text-base font-semibold text-ink">{p.name}</span>
-                            {recommended ? <span className="rounded-full bg-brand px-2 py-0.5 text-[11px] font-semibold text-white">Recommended</span> : null}
+                            {recommended ? <span className="rounded-full bg-brand-solid px-2 py-0.5 text-[11px] font-semibold text-white">Recommended</span> : null}
                             {initialPlan === p.id && !recommended ? <span className="rounded-full bg-ink/[0.06] px-2 py-0.5 text-[11px] font-semibold text-ink-2">Your pick</span> : null}
                           </span>
                           <span className="mt-1 block text-[13px] leading-snug text-ink-3">{p.summary}</span>
@@ -580,7 +580,7 @@ export function OnboardingForm({
                     <span className="block text-base font-semibold text-ink">Enterprise</span>
                     <span className="mt-1 block text-[13px] leading-snug text-ink-3">Custom volume, SSO on request, EU or US residency by arrangement and an uptime SLA in your contract.</span>
                   </span>
-                  <Link href="/contact-sales" className="btn btn-pill btn-ghost shrink-0">
+                  <Link href="/contact?topic=sales" className="btn btn-pill btn-ghost shrink-0">
                     Talk to sales
                   </Link>
                 </div>

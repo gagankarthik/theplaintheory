@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { SignupForm } from "@/components/app/auth/auth-forms";
-import { AuthTrust } from "@/components/app/auth/auth-trust";
 import { SetupSteps } from "@/components/app/auth/setup-steps";
 import { IconCheck } from "@/components/icons";
 import { passwordHint } from "@/lib/auth/provider";
@@ -34,7 +33,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Promi
 
       {plan ? (
         <div className="mt-5 flex items-center gap-3 rounded-[14px] bg-brand-wash/60 px-4 py-3 ring-1 ring-inset ring-brand/20">
-          <span className="grid size-8 shrink-0 place-items-center rounded-full bg-brand text-white">
+          <span className="grid size-8 shrink-0 place-items-center rounded-full bg-brand-solid text-white">
             <IconCheck size={16} />
           </span>
           <p className="min-w-0 flex-1 text-sm text-ink-2">
@@ -49,8 +48,6 @@ export default async function SignupPage({ searchParams }: { searchParams: Promi
       <div className="mt-8 short:mt-5">
         <SignupForm formToken={issueFormToken("signup")} plan={plan?.id} passwordHint={passwordHint()} email={email} />
       </div>
-
-      <AuthTrust className="mt-10 border-t border-line pt-8 sm:grid-cols-3 sm:gap-6" />
     </>
   );
 }

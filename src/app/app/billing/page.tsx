@@ -303,7 +303,7 @@ export default async function BillingPage(props: PageProps<"/app/billing">) {
             <p className="text-sm text-ink-2">
               <span className="font-semibold text-ink">Enterprise{org.plan === "enterprise" ? " (your plan)" : ""}.</span> Custom volume, EU or US data residency, SSO on request and an uptime SLA in your contract.
             </p>
-            <ButtonLink variant="ghost" size="sm" className="shrink-0" href={`/contact-sales?org=${encodeURIComponent(org.name)}`}>
+            <ButtonLink variant="ghost" size="sm" className="shrink-0" href="/contact?topic=sales">
               Talk to sales
             </ButtonLink>
           </CardBody>

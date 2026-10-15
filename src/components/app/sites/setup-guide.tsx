@@ -119,7 +119,7 @@ export function SetupGuide(state: SetupState) {
               <span
                 aria-hidden
                 className={`mt-0.5 grid size-7 shrink-0 place-items-center rounded-full text-xs font-semibold ${
-                  x.done ? "bg-brand text-white" : current ? "bg-surface text-brand ring-2 ring-brand" : "bg-paper text-ink-3 ring-1 ring-inset ring-line"
+                  x.done ? "bg-brand-solid text-white" : current ? "bg-surface text-brand ring-2 ring-brand" : "bg-paper text-ink-3 ring-1 ring-inset ring-line"
                 }`}
               >
                 {x.done ? <IconCheck size={14} /> : i + 1}

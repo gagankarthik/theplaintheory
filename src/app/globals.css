@@ -3,51 +3,78 @@
 /* Short viewports (small laptops, landscape phones): layouts compress vertically. */
 @custom-variant short (@media (max-height: 880px));
 @custom-variant shorter (@media (max-height: 740px));
+/* Dark theme, scoped by the attribute the dashboard sets on <html> (marketing stays light). */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 /*
- * Plain Theory design tokens.
- * Ultramarine is the brand. Ink carries text and primary actions. Jade, amber and rose are reserved for
- * consent states: released, held and declined.
+ * Plain Theory design system, "Instrument".
  *
- * Proportion (documented on /brand): 60% white and paper surfaces, 30% ink (text, dark sections,
- * marketing primary buttons), 10% ultramarine (links, selection, focus, one highlight per section).
+ * The product measures and proves consent, so the interface reads like a precise instrument:
+ * graphite neutrals, hairline structure, tabular figures, and one ultramarine signal (the brand,
+ * from the I/O mark) used for focus, selection and the single primary action per view.
+ * Jade, amber and rose are reserved for consent and health states: released, held, declined.
+ *
+ * Every colour is a variable so the dashboard can switch to the dark theme on [data-theme="dark"]
+ * without a single component knowing about it. Utilities read the variables (bg-ink, text-ink-3…).
  */
 @theme {
-  /* Neutrals */
-  --color-ink: #0b1020;
-  --color-ink-2: #3b4256;
-  --color-ink-3: #646b80;
+  /* Neutrals (light) */
+  --color-ink: #10131f;
+  --color-ink-2: #414860;
+  --color-ink-3: #686f86;
   /* Raised surface on ink: dark panels, cards and hover fills that sit on an ink background. */
-  --color-ink-raised: #151c34;
-  --color-paper: #f4f5f8;
+  --color-ink-raised: #181d33;
+  --color-paper: #f4f5f7;
   --color-surface: #ffffff;
-  --color-line: #e5e7ee;
-  --color-line-strong: #d0d4de;
+  --color-raised: #fafbfc;
+  --color-line: #e5e7ed;
+  --color-line-strong: #d1d5df;
   /* edges of inputs and selects: 3.2:1 on white (WCAG 1.4.11 non-text contrast) */
-  --color-line-input: #8a90a2;
+  --color-line-input: #8a90a3;
+  /* Inverse surfaces (tooltips, kbd chips, the "on" side of toggles) flip with the theme. */
+  --color-inverse: #10131f;
+  --color-on-inverse: #ffffff;
 
-  /* Brand */
+  /* Brand: ultramarine, from the mark */
   --color-brand: #2e2bd6;
-  --color-brand-ink: #211eb0;
-  --color-brand-deep: #15127a;
+  --color-brand-ink: #2421b4;
+  --color-brand-deep: #16137c;
   --color-brand-bright: #4b48f2;
-  --color-brand-wash: #eeedff;
-  --color-brand-on-ink: #8e8cff;
+  --color-brand-wash: #efeeff;
+  --color-brand-on-ink: #9a98ff;
+  /* Solid fill for primary buttons: keeps white text at AA in both themes. */
+  --color-brand-solid: #2e2bd6;
 
-  /* Consent states */
-  --color-jade: #08765a;
-  --color-jade-bright: #19b989;
-  --color-jade-wash: #e3f6ef;
-  --color-amber: #9a5c06;
-  --color-amber-bright: #f2a93b;
-  --color-amber-wash: #fff3dd;
-  --color-rose: #c2283b;
-  --color-rose-wash: #fdeaec;
+  /* Consent and health states */
+  --color-jade: #077556;
+  --color-jade-bright: #16b585;
+  --color-jade-wash: #e2f5ee;
+  --color-amber: #935806;
+  --color-amber-bright: #eda43a;
+  --color-amber-wash: #fdf2dc;
+  --color-rose: #c1283b;
+  --color-rose-wash: #fde9ec;
+  /* Marketing site ("One motif": soot, white and lime, from the I/O mark). Never themed. */
+  --color-soot: #0f0f0f;
+  --color-soot-2: #1a1a1a;
+  --color-soot-3: #262626;
+  --color-chalk: #f2f2ef;
+  --color-mute: #8f8f8f;
+  --color-mute-ink: #555555;
+  --color-lime: #dafa9c;
+  --color-lime-deep: #c6ee72;
 
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  /* Risk scale for the cookie catalogue: low → critical */
+  --color-risk-low: #16b585;
+  --color-risk-medium: #eda43a;
+  --color-risk-high: #e2622f;
+  --color-risk-critical: #c1283b;
 
-  /* Type scale: 16px body, display sizes for marketing */
+  --font-sans: var(--font-ui), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-data), ui-monospace, SFMono-Regular, Menlo, monospace;
+  /* Marketing display face (set by the marketing layout; falls back to the UI face). */
+  --font-display: var(--font-display-face, var(--font-ui)), ui-sans-serif, system-ui, sans-serif;
+
   /* type scale: 2xs 11 · xs 12.5 · sm 14 · base 16 · lg 18 · xl 24 */
   --text-2xs: 0.6875rem;
   --text-2xs--line-height: 1.35;
@@ -68,17 +95,20 @@
   --text-4xl: 4.5rem;
   --text-4xl--line-height: 1;
 
-  --tracking-display: -0.04em;
-  --tracking-heading: -0.025em;
+  --tracking-display: -0.035em;
+  --tracking-heading: -0.02em;
 
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 16px;
-  --radius-xl: 22px;
+  /* Precise, small radii: the instrument is machined, not pillowy. */
+  --radius-sm: 5px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 18px;
 
-  --shadow-lift: 0 1px 2px rgb(11 16 32 / 0.04), 0 8px 24px -12px rgb(11 16 32 / 0.16);
-  --shadow-float: 0 1px 2px rgb(11 16 32 / 0.06), 0 40px 80px -32px rgb(11 16 32 / 0.35);
-  --shadow-window: 0 0 0 1px rgb(11 16 32 / 0.06), 0 2px 4px rgb(11 16 32 / 0.04), 0 48px 96px -40px rgb(11 16 32 / 0.45);
+  --shadow-lift: 0 1px 2px rgb(16 19 31 / 0.05), 0 6px 18px -10px rgb(16 19 31 / 0.18);
+  --shadow-float: 0 1px 2px rgb(16 19 31 / 0.06), 0 28px 64px -28px rgb(16 19 31 / 0.38);
+  --shadow-window: 0 0 0 1px rgb(16 19 31 / 0.06), 0 2px 4px rgb(16 19 31 / 0.04), 0 48px 96px -40px rgb(16 19 31 / 0.45);
+  /* 1px top highlight that makes a surface read as a physical, lit edge */
+  --shadow-edge: inset 0 1px 0 rgb(255 255 255 / 0.7);
 
   --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
   /* weighty, spring-like settle for interactive surfaces */
@@ -90,6 +120,79 @@
       stroke-dashoffset: -16;
     }
   }
+  --animate-pulse-ring: pulse-ring 2.4s var(--ease-out) infinite;
+  @keyframes pulse-ring {
+    0% {
+      transform: scale(0.85);
+      opacity: 0.55;
+    }
+    80%,
+    100% {
+      transform: scale(1.9);
+      opacity: 0;
+    }
+  }
+  --animate-breathe: breathe 2.2s ease-in-out infinite;
+  @keyframes breathe {
+    50% {
+      opacity: 0.35;
+    }
+  }
+  --animate-shimmer: shimmer 1.6s linear infinite;
+  @keyframes shimmer {
+    from {
+      background-position: 200% 0;
+    }
+    to {
+      background-position: -200% 0;
+    }
+  }
+}
+
+/*
+ * Dark theme for the dashboard, staff console and onboarding. Same names, re-tuned values: graphite
+ * surfaces (never pure black), lifted text contrast, and brighter state colours so they read on dark.
+ */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-ink: #e8eaf2;
+  --color-ink-2: #aab0c3;
+  --color-ink-3: #7d849a;
+  --color-ink-raised: #1d2232;
+  --color-paper: #0b0d14;
+  --color-surface: #12151f;
+  --color-raised: #171b27;
+  --color-line: #232838;
+  --color-line-strong: #30364a;
+  --color-line-input: #555c72;
+  --color-inverse: #e8eaf2;
+  --color-on-inverse: #0b0d14;
+
+  --color-brand: #8b89ff;
+  --color-brand-ink: #a9a7ff;
+  --color-brand-deep: #d2d1ff;
+  --color-brand-bright: #9d9bff;
+  --color-brand-wash: #1c1b45;
+  --color-brand-on-ink: #a9a7ff;
+  --color-brand-solid: #4e4bf0;
+
+  --color-jade: #45d6a6;
+  --color-jade-bright: #22c08f;
+  --color-jade-wash: #0f2a22;
+  --color-amber: #f3b65e;
+  --color-amber-bright: #f0a53a;
+  --color-amber-wash: #2d2211;
+  --color-rose: #ff7184;
+  --color-rose-wash: #35151c;
+  --color-risk-low: #22c08f;
+  --color-risk-medium: #f0a53a;
+  --color-risk-high: #f27a45;
+  --color-risk-critical: #ff5d72;
+
+  --shadow-lift: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 24px -12px rgb(0 0 0 / 0.6);
+  --shadow-float: 0 1px 2px rgb(0 0 0 / 0.35), 0 32px 72px -28px rgb(0 0 0 / 0.75);
+  --shadow-window: 0 0 0 1px rgb(255 255 255 / 0.06), 0 48px 96px -40px rgb(0 0 0 / 0.8);
+  --shadow-edge: inset 0 1px 0 rgb(255 255 255 / 0.04);
 }
 
 @layer base {
@@ -105,7 +208,6 @@
     font-family: var(--font-sans);
     font-size: var(--text-base);
     line-height: var(--text-base--line-height);
-    font-feature-settings: "ss01", "cv11";
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -120,14 +222,20 @@
   p {
     text-wrap: pretty;
   }
+  /* Figures line up in every table, counter and timestamp. */
+  table,
+  time,
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
   ::selection {
-    background: var(--color-brand);
+    background: var(--color-brand-solid);
     color: white;
   }
   :focus-visible {
     outline: 2px solid var(--color-brand);
     outline-offset: 2px;
-    border-radius: 6px;
+    border-radius: 5px;
   }
 }
 
@@ -144,28 +252,30 @@
     color: var(--color-jade);
   }
 
-  /* Buttons. Dashboard uses the default radius; marketing adds .btn-pill. */
+  /* Buttons: 36px default, 8px radius, a lit top edge on filled variants, 1px press. */
   .btn {
+    position: relative;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
-    height: 2.5rem;
-    padding: 0 1rem;
+    height: 2.25rem;
+    padding: 0 0.875rem;
     border-radius: var(--radius-md);
-    font-weight: 500;
+    font-weight: 550;
     font-size: var(--text-sm);
-    letter-spacing: -0.01em;
+    letter-spacing: -0.005em;
     white-space: nowrap;
+    user-select: none;
     transition:
       background-color 0.15s var(--ease-out),
       color 0.15s var(--ease-out),
       border-color 0.15s var(--ease-out),
       box-shadow 0.15s var(--ease-out),
-      transform 0.15s var(--ease-out);
+      transform 0.12s var(--ease-out);
   }
   .btn:active {
-    transform: translateY(1px);
+    transform: translateY(1px) scale(0.985);
   }
   .btn:disabled {
     opacity: 0.5;
@@ -175,36 +285,48 @@
     border-radius: 999px;
   }
   .btn-lg {
-    height: 3rem;
-    padding: 0 1.375rem;
+    height: 2.875rem;
+    padding: 0 1.25rem;
     font-size: var(--text-base);
   }
   .btn-sm {
-    height: 2.125rem;
-    padding: 0 0.75rem;
+    height: 1.875rem;
+    padding: 0 0.625rem;
     font-size: var(--text-xs);
+    border-radius: var(--radius-sm);
   }
   .btn-primary {
-    background: var(--color-brand);
+    background: var(--color-brand-solid);
     color: white;
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.18),
+      0 1px 2px rgb(16 19 31 / 0.18),
+      0 0 0 1px color-mix(in srgb, var(--color-brand-solid) 80%, black);
   }
   .btn-primary:hover {
-    background: var(--color-brand-ink);
+    background: color-mix(in srgb, var(--color-brand-solid) 88%, black);
   }
   .btn-white {
     background: white;
-    color: var(--color-ink);
+    color: #10131f;
   }
   .btn-white:hover {
-    background: #e9e9ff;
+    background: #ececff;
   }
   .btn-ghost {
-    background: transparent;
+    background: var(--color-surface);
     color: var(--color-ink);
-    box-shadow: inset 0 0 0 1px var(--color-line-strong);
+    box-shadow:
+      var(--shadow-edge),
+      0 1px 1px rgb(16 19 31 / 0.04),
+      inset 0 0 0 1px var(--color-line-strong);
   }
   .btn-ghost:hover {
-    box-shadow: inset 0 0 0 1px var(--color-ink);
+    background: var(--color-raised);
+    box-shadow:
+      var(--shadow-edge),
+      0 1px 1px rgb(16 19 31 / 0.04),
+      inset 0 0 0 1px var(--color-ink-3);
   }
   .btn-outline-light {
     background: transparent;
@@ -216,11 +338,14 @@
     background: rgb(255 255 255 / 0.06);
   }
   .btn-danger {
-    background: var(--color-rose);
+    background: #c1283b;
     color: white;
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.16),
+      0 0 0 1px #9e1f30;
   }
   .btn-danger:hover {
-    background: color-mix(in srgb, var(--color-rose) 86%, black);
+    background: #a8212f;
   }
   /* Row-level remove: as quiet as a text button until hovered or focused, then rose. */
   .btn-danger-quiet {
@@ -261,7 +386,7 @@
 
   .field {
     width: 100%;
-    height: 2.5rem;
+    height: 2.25rem;
     padding: 0 0.75rem;
     border-radius: var(--radius-md);
     border: 1px solid var(--color-line-input);
@@ -272,13 +397,19 @@
       border-color 0.15s,
       box-shadow 0.15s;
   }
+  .field::placeholder {
+    color: var(--color-ink-3);
+  }
   .field:hover {
     border-color: var(--color-ink-3);
   }
   .field:focus {
     outline: none;
     border-color: var(--color-brand);
-    box-shadow: 0 0 0 3px var(--color-brand-wash);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-brand) 22%, transparent);
+  }
+  .field[aria-invalid="true"] {
+    border-color: var(--color-rose);
   }
   textarea.field {
     height: auto;
@@ -288,16 +419,70 @@
   .label {
     display: block;
     font-size: var(--text-sm);
-    font-weight: 500;
+    font-weight: 550;
     color: var(--color-ink);
     margin-bottom: 0.375rem;
   }
 
+  /* The one surface: hairline border, lit top edge, no drop shadow. */
   .panel {
     background: var(--color-surface);
     border: 1px solid var(--color-line);
     border-radius: var(--radius-lg);
-    box-shadow: 0 1px 2px rgb(11 16 32 / 0.04);
+    box-shadow: var(--shadow-edge);
+  }
+
+  /* Small uppercase section label used across the dashboard ("CONFIGURE", "LAST 30 DAYS") */
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-ink-3);
+  }
+
+  /* Keyboard key */
+  .kbd {
+    display: inline-grid;
+    place-items: center;
+    min-width: 1.25rem;
+    height: 1.25rem;
+    padding: 0 0.3rem;
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    line-height: 1;
+    color: var(--color-ink-2);
+    background: var(--color-paper);
+    box-shadow:
+      inset 0 0 0 1px var(--color-line-strong),
+      inset 0 -1px 0 var(--color-line-strong);
+  }
+
+  /* Measuring-grid texture for empty states, hero bands and the scanner stage */
+  .grid-texture {
+    background-image:
+      linear-gradient(to right, color-mix(in srgb, var(--color-line) 70%, transparent) 1px, transparent 1px),
+      linear-gradient(to bottom, color-mix(in srgb, var(--color-line) 70%, transparent) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+  .dot-texture {
+    background-image: radial-gradient(color-mix(in srgb, var(--color-ink-3) 35%, transparent) 1px, transparent 1px);
+    background-size: 16px 16px;
+  }
+
+  /* Skeleton placeholder with a soft travelling sheen */
+  .skeleton {
+    border-radius: var(--radius-sm);
+    background: linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--color-line) 60%, transparent) 0%,
+        color-mix(in srgb, var(--color-line) 100%, transparent) 50%,
+        color-mix(in srgb, var(--color-line) 60%, transparent) 100%
+      )
+      0 0 / 200% 100%;
+    animation: var(--animate-shimmer);
   }
 
   .container-page {
@@ -314,6 +499,7 @@
 
   /* Display type for marketing headlines */
   .display {
+    font-family: var(--font-display);
     font-weight: 600;
     letter-spacing: var(--tracking-display);
     line-height: 1;
@@ -327,6 +513,11 @@
   }
   .pt-enter-up {
     animation: pt-enter-up 0.36s var(--ease-out) both;
+  }
+  /* Staggered list reveal: set --i on each child */
+  .pt-stagger > * {
+    animation: pt-enter-up 0.42s var(--ease-spring) both;
+    animation-delay: calc(var(--i, 0) * 45ms);
   }
   @keyframes pt-enter {
     from {
@@ -342,7 +533,7 @@
   @keyframes pt-enter-up {
     from {
       opacity: 0;
-      transform: translateY(20px);
+      transform: translateY(12px);
     }
   }
 }
@@ -359,61 +550,21 @@
   }
 }
 
-/* Motion & texture from the redesign pass. Everything here is skipped for reduced-motion users. */
+/* Motion & texture. Everything here is skipped for reduced-motion users. */
 @layer components {
-  /* Hero entrance: each element rises and sharpens in sequence (delays set inline) */
-  .pt-hero-in {
-    animation: pt-hero-in 0.9s var(--ease-spring) both;
-  }
-  @keyframes pt-hero-in {
-    from {
-      opacity: 0;
-      transform: translateY(18px);
-      filter: blur(8px);
-    }
-  }
   /* Menu panels settle in from slightly above */
   .pt-menu {
-    animation: pt-menu 0.45s var(--ease-spring) both;
+    animation: pt-menu 0.32s var(--ease-spring) both;
   }
   @keyframes pt-menu {
     from {
       opacity: 0;
-      transform: translateY(-6px);
+      transform: translateY(-4px) scale(0.985);
     }
   }
 
-  /*
-   * Scroll reveal with CSS scroll-driven animations: content is fully visible by default (no JS, no
-   * flash of hidden content) and only animates where the browser supports view timelines.
-   */
-  /* GSAP (components/marketing/motion.tsx) takes over reveals when it's running: html.gsap-on */
-  @supports (animation-timeline: view()) {
-    html:not(.gsap-on) .pt-reveal {
-      animation: pt-reveal linear both;
-      animation-timeline: view();
-      animation-range: entry 0% entry 40%;
-    }
-  }
-  @keyframes pt-reveal {
-    from {
-      opacity: 0;
-      transform: translateY(28px);
-      filter: blur(6px);
-    }
-  }
 }
 
-/* Paper grain: a fixed, non-interactive noise layer that breaks digital flatness. */
-.pt-grain {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 40;
-  opacity: 0.045;
-  mix-blend-mode: multiply;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-}
 /* A completed step's check pops in */
 .pt-pop {
   animation: pt-pop 0.45s var(--ease-spring) both;
@@ -426,10 +577,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pt-reveal,
   .pt-menu,
-  .pt-hero-in,
-  .pt-pop {
+  .pt-pop,
+  .pt-stagger > *,
+  .skeleton {
     animation: none !important;
   }
 }

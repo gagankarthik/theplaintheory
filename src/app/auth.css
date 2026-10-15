@@ -1,0 +1,21 @@
+/*
+ * Sign-in, sign-up and staff sign-in pages: the website's typeface and the brand pair, on the dashboard's
+ * light and dark tokens. The primary action is soot on light and lime on dark; links follow it.
+ */
+.auth {
+  font-family: var(--font-switzer-face), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-switzer-face), ui-sans-serif, system-ui, sans-serif;
+  --color-brand: #0f0f0f;
+  --color-brand-solid: #0f0f0f;
+  --color-brand-wash: #eef8d6;
+  --radius-md: 12px;
+  letter-spacing: -0.005em;
+}
+:root[data-theme="dark"] .auth {
+  --color-brand: #dafa9c;
+  --color-brand-solid: #dafa9c;
+  --color-brand-wash: rgb(218 250 156 / 0.12);
+}
+:root[data-theme="dark"] .auth .btn-primary {
+  color: #0f0f0f;
+}

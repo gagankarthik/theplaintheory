@@ -42,7 +42,7 @@ const GROUPS: { name: string; rows: Row[] }[] = [
       { feature: "All 22 Indian languages, with review status", value: (p) => p.limits.indianLanguages },
       { feature: "Itemised data per purpose (DPDP Rule 3)", value: () => true },
       { feature: "Fairness check before publishing", value: () => true },
-      { feature: "Headless mode and JavaScript API", value: () => true },
+      { feature: "Your own banner design via the JavaScript API", value: () => true },
     ],
   },
   {

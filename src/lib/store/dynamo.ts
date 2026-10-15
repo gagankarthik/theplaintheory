@@ -1218,4 +1218,49 @@ export const dynamoStore: Store = {
     );
     return items.map((i) => strip<ScanReport>(i)!);
   },
+  async getScan(propertyId, scanId) {
+    return strip<ScanReport>(await scanItem(propertyId, scanId));
+  },
+  async updateScan(propertyId, scanId, patch, opts) {
+    // Optimistic concurrency: read, merge, write back only if the status hasn't moved meanwhile.
+    // A few retries cover a progress write racing a cancel.
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const item = await scanItem(propertyId, scanId);
+      if (!item) return null;
+      const current = item.status as ScanReport["status"];
+      if (opts?.ifStatus && !opts.ifStatus.includes(current)) return null;
+      const next: Item = { ...item, ...patch, id: item.id, propertyId: item.propertyId, startedAt: item.startedAt };
+      try {
+        await db().send(
+          new PutCommand({
+            TableName: TABLES.core,
+            Item: next,
+            ConditionExpression: "attribute_exists(PK) AND #status = :current",
+            ExpressionAttributeNames: { "#status": "status" },
+            ExpressionAttributeValues: { ":current": current },
+          }),
+        );
+        return strip<ScanReport>(next);
+      } catch (e) {
+        if (!isConditionFailure(e)) throw e;
+      }
+    }
+    return null;
+  },
+  async listQueuedScans() {
+    // In AWS the crawl queue is SQS (lib/crawler); there is no index of queued scans to poll.
+    return [];
+  },
 };
+
+/** The raw scan item (with its PK/SK). A site keeps at most SCAN_KEEP reports, so one small query finds it. */
+async function scanItem(propertyId: string, scanId: string): Promise<Item | null> {
+  const items = await query({
+    TableName: TABLES.core,
+    KeyConditionExpression: "PK = :p AND begins_with(SK, :s)",
+    FilterExpression: "id = :id",
+    ExpressionAttributeValues: { ":p": `PROP#${propertyId}`, ":s": "SCAN#", ":id": scanId },
+    ConsistentRead: true,
+  });
+  return items[0] ?? null;
+}

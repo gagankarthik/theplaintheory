@@ -7,6 +7,7 @@ import { staffSignOut, staffSignOutEverywhere } from "@/app/admin/login/actions"
 import { BrandMark } from "@/components/brand/logo";
 import { Dropdown, menuItemClass } from "@/components/app/shell/dropdown";
 import { ToastProvider } from "@/components/app/ui/toast";
+import { ThemeScope, ThemeToggle } from "@/components/theme/theme";
 import { IconChain, IconMail, IconOverview, IconShieldCheck, IconSignOut, IconSites, IconTeam, type IconProps } from "@/components/icons";
 
 export type AdminNavId = "overview" | "orgs" | "users" | "requests" | "staff" | "audit";
@@ -50,32 +51,33 @@ export function AdminShell({
 
   return (
     <ToastProvider>
+      <ThemeScope />
       <div className="min-h-dvh bg-paper">
         <a
           href="#main"
-          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-full focus:bg-brand focus:px-4 focus:py-2 focus:text-sm focus:text-white"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-full focus:bg-brand-solid focus:px-4 focus:py-2 focus:text-sm focus:text-white"
         >
           Skip to content
         </a>
-        <header className="sticky top-0 z-40 bg-ink text-white">
-          <div className="flex h-14 items-center gap-2 px-3 sm:px-4">
-            <Link href="/admin" aria-label="Staff console home" className="grid size-11 shrink-0 place-items-center rounded-[8px] hover:bg-ink-raised sm:size-9">
-              <BrandMark size={24} variant="reverse" />
+        <header className="sticky top-0 z-40 border-b border-white/10 bg-[#0a0c13] text-white">
+          <div className="flex h-12 items-center gap-2 px-3 sm:px-4">
+            <Link href="/admin" aria-label="Staff console home" className="grid size-11 shrink-0 place-items-center rounded-[8px] hover:bg-white/10 sm:size-8">
+              <BrandMark size={20} variant="lime" />
             </Link>
-            <span className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full bg-amber-bright px-2.5 text-xs font-bold text-ink">
-              <IconShieldCheck size={14} />
+            <span className="inline-flex h-6 shrink-0 items-center gap-1.5 rounded-[5px] bg-[#eda43a] px-2 font-mono text-[0.6875rem] font-bold uppercase tracking-[0.08em] text-[#10131f]">
+              <IconShieldCheck size={13} />
               Staff console
             </span>
-            <span className="ml-1 hidden truncate text-sm text-white/70 md:inline">All customer data. Every change is audited.</span>
+            <span className="ml-2 hidden truncate font-mono text-[0.6875rem] uppercase tracking-[0.06em] text-white/55 md:inline">All customer data · every change audited</span>
             <div className="ml-auto flex shrink-0 items-center gap-1">
               <Dropdown
                 label="Staff account menu"
                 align="right"
                 width="w-64"
-                triggerClassName="flex h-11 items-center gap-2 rounded-full pl-1 pr-1 transition-colors hover:bg-ink-raised aria-expanded:bg-ink-raised sm:h-9 sm:pr-3"
+                triggerClassName="flex h-11 items-center gap-2 rounded-full pl-1 pr-1 transition-colors hover:bg-white/10 aria-expanded:bg-white/10 sm:h-8 sm:pr-3"
                 trigger={
                   <>
-                    <span aria-hidden className="grid size-8 place-items-center rounded-full bg-brand text-xs font-bold text-white sm:size-7">
+                    <span aria-hidden className="grid size-8 place-items-center rounded-full bg-[#4e4bf0] text-[0.6875rem] font-bold text-white sm:size-6">
                       {user.name
                         .split(/\s+/)
                         .map((w) => w[0])
@@ -99,6 +101,9 @@ export function AdminShell({
                         </p>
                       ) : null}
                     </div>
+                    <div className="px-2.5 pb-2">
+                      <ThemeToggle className="w-full" />
+                    </div>
                     <div className="my-1 h-px bg-line" />
                     <form action={staffSignOut}>
                       <button type="submit" role="menuitem" tabIndex={-1} className={menuItemClass}>
@@ -120,7 +125,7 @@ export function AdminShell({
         </header>
 
         {/* small screens: sections as scrollable tabs */}
-        <div className="sticky top-14 z-30 border-b border-line bg-surface lg:hidden">
+        <div className="sticky top-12 z-30 border-b border-line bg-surface lg:hidden">
           <nav ref={tabsRef} aria-label="Staff console sections" className="-mb-px flex gap-1 overflow-x-auto px-3 [scrollbar-width:none] sm:px-4 [&::-webkit-scrollbar]:hidden">
             {items.map((t) => {
               const on = active(t.href, t.exact, pathname);
@@ -132,7 +137,7 @@ export function AdminShell({
                   className={`group relative flex h-12 shrink-0 items-center px-0.5 text-sm transition-colors ${on ? "text-ink" : "text-ink-3 hover:text-ink"}`}
                 >
                   <span className="rounded-[6px] px-2.5 py-1.5 transition-colors group-hover:bg-paper">{t.label}</span>
-                  <span aria-hidden className={`absolute inset-x-2 bottom-0 h-0.5 rounded-full bg-ink ${on ? "opacity-100" : "opacity-0"}`} />
+                  <span aria-hidden className={`absolute inset-x-2 bottom-0 h-0.5 rounded-full bg-amber-bright ${on ? "opacity-100" : "opacity-0"}`} />
                 </Link>
               );
             })}
@@ -140,10 +145,10 @@ export function AdminShell({
         </div>
 
         <div className="flex">
-          <aside aria-label="Staff console" className="sticky top-14 hidden h-[calc(100dvh-3.5rem)] w-[232px] shrink-0 flex-col border-r border-line bg-surface lg:flex">
-            <nav aria-label="Staff console sections" className="flex-1 overflow-y-auto px-2.5 py-4">
-              <p className="mb-1.5 px-2.5 text-xs text-ink-3">Platform</p>
-              <ul className="space-y-0.5">
+          <aside aria-label="Staff console" className="sticky top-12 hidden h-[calc(100dvh-3rem)] w-[220px] shrink-0 flex-col border-r border-line bg-surface lg:flex">
+            <nav aria-label="Staff console sections" className="flex-1 overflow-y-auto px-3 py-4">
+              <p className="eyebrow mb-1.5 px-2">Platform</p>
+              <ul className="space-y-px">
                 {items.map((t) => {
                   const on = active(t.href, t.exact, pathname);
                   const Icon = t.icon;
@@ -152,9 +157,10 @@ export function AdminShell({
                       <Link
                         href={t.href}
                         aria-current={on ? "page" : undefined}
-                        className={`group/item flex h-9 items-center gap-3 rounded-[8px] px-2.5 text-sm transition-colors ${on ? "bg-paper font-medium text-ink" : "text-ink-2 hover:bg-paper hover:text-ink"}`}
+                        className={`group/item relative flex h-8 items-center gap-2.5 rounded-[7px] px-2 text-[0.8125rem] transition-colors ${on ? "bg-paper font-medium text-ink shadow-[inset_0_0_0_1px_var(--color-line)]" : "text-ink-2 hover:bg-paper/70 hover:text-ink"}`}
                       >
-                        <Icon size={18} className={`shrink-0 ${on ? "text-ink" : "text-ink-3 group-hover/item:text-ink-2"}`} />
+                        {on ? <span aria-hidden className="absolute -left-3 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-amber-bright" /> : null}
+                        <Icon size={16} className={`shrink-0 ${on ? "text-amber" : "text-ink-3 group-hover/item:text-ink-2"}`} />
                         <span className="truncate">{t.label}</span>
                       </Link>
                     </li>
@@ -162,7 +168,7 @@ export function AdminShell({
                 })}
               </ul>
             </nav>
-            <p className="border-t border-line px-5 py-4 text-xs leading-5 text-ink-3">
+            <p className="border-t border-line px-5 py-3.5 text-[0.75rem] leading-5 text-ink-3">
               Signed in with your staff account. Sessions end after 1 hour idle or 8 hours.
             </p>
           </aside>

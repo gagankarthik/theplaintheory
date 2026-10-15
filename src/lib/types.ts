@@ -487,8 +487,8 @@ export type LeadTopic = "sales" | "support" | "partner" | "enterprise";
 export type LeadStatus = "new" | "open" | "closed";
 
 /**
- * A request from a public contact form: /contact-sales (topic "sales", the original shape) or one of
- * /contact/support, /contact/partners and /contact/enterprise. Leads stored before topics existed have
+ * A request from the public contact form at /contact: topic "sales" (the original shape) or one of
+ * the support, partner and enterprise topics. Leads stored before topics existed have
  * no `topic` and are sales enquiries; ones without `status` are new.
  */
 export interface Lead {

@@ -47,7 +47,7 @@ export function Tabs<T extends string>({
 }) {
   const { refs, onKeyDown } = useRoving(items, value, onChange);
   return (
-    <div role="tablist" aria-label={label} onKeyDown={onKeyDown} className="flex gap-1 overflow-x-auto border-b border-line px-3 pt-2">
+    <div role="tablist" aria-label={label} onKeyDown={onKeyDown} className="flex gap-0.5 overflow-x-auto border-b border-line px-3 pt-1.5">
       {items.map((t, i) => {
         const active = t.value === value;
         return (
@@ -63,10 +63,10 @@ export function Tabs<T extends string>({
             aria-controls={`${idBase}-panel-${t.value}`}
             tabIndex={active ? 0 : -1}
             onClick={() => onChange(t.value)}
-            className={`relative h-11 shrink-0 rounded-t-md px-3 text-sm font-semibold transition-colors ${active ? "text-ink" : "text-ink-3 hover:bg-paper hover:text-ink"}`}
+            className={`relative h-10 shrink-0 rounded-t-md px-3 text-[0.8125rem] font-medium transition-colors ${active ? "text-ink" : "text-ink-3 hover:text-ink"}`}
           >
             {t.label}
-            <span aria-hidden className={`absolute inset-x-2 bottom-0 h-[2.5px] rounded-t-full bg-brand transition-opacity ${active ? "opacity-100" : "opacity-0"}`} />
+            <span aria-hidden className={`absolute inset-x-2 -bottom-px h-[2px] rounded-full bg-brand transition-opacity ${active ? "opacity-100" : "opacity-0"}`} />
           </button>
         );
       })}
@@ -99,7 +99,7 @@ export function Segmented<T extends string>({
   const { refs, onKeyDown } = useRoving(options, value, onChange);
   const gid = useId();
   return (
-    <div role="radiogroup" aria-label={label} id={gid} onKeyDown={onKeyDown} className="inline-flex max-w-full overflow-x-auto rounded-md border border-line bg-paper p-0.5">
+    <div role="radiogroup" aria-label={label} id={gid} onKeyDown={onKeyDown} className="inline-flex max-w-full overflow-x-auto rounded-[9px] bg-paper p-[3px] ring-1 ring-inset ring-line">
       {options.map((o, i) => {
         const active = o.value === value;
         return (
@@ -114,8 +114,8 @@ export function Segmented<T extends string>({
             tabIndex={active ? 0 : -1}
             title={o.title}
             onClick={() => onChange(o.value)}
-            className={`inline-flex min-w-7 shrink-0 items-center justify-center gap-1.5 rounded-[7px] font-semibold transition-colors ${size === "sm" ? "h-7 px-2.5 text-xs" : "h-8 px-3 text-xs"} ${
-              active ? "bg-surface text-ink shadow-[0_1px_2px_rgb(11_16_32/.14)]" : "text-ink-3 hover:bg-line hover:text-ink"
+            className={`inline-flex min-w-7 shrink-0 items-center justify-center gap-1.5 rounded-[6px] font-medium transition-colors ${size === "sm" ? "h-7 px-2.5 text-xs" : "h-8 px-3 text-xs"} ${
+              active ? "bg-surface text-ink shadow-[0_1px_2px_rgb(16_19_31/.14)] ring-1 ring-inset ring-line" : "text-ink-3 hover:text-ink"
             }`}
           >
             {o.label}

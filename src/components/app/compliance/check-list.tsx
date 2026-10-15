@@ -16,7 +16,7 @@ export interface CheckRow {
 }
 
 const ICON: Record<Severity, { el: ReactNode; cls: string; sr: string }> = {
-  fail: { el: <IconClose size={14} />, cls: "bg-rose text-white", sr: "Fails" },
+  fail: { el: <IconClose size={14} />, cls: "bg-rose text-on-inverse", sr: "Fails" },
   warn: { el: <IconAlert size={14} />, cls: "bg-amber-wash text-amber ring-1 ring-inset ring-amber-bright", sr: "Needs attention" },
   pass: { el: <IconCheck size={14} />, cls: "bg-jade-wash text-jade", sr: "Passes" },
 };

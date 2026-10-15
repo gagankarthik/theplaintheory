@@ -56,7 +56,7 @@ export function KpiTile({
 }) {
   const body = (
     <>
-      <span className="block text-xs font-medium text-ink-3">{label}</span>
+      <span className="block text-[0.8125rem] text-ink-3">{label}</span>
       <span className="mt-2 block text-[1.75rem] font-semibold leading-none tracking-[-0.03em] tabular-nums text-ink">{value}</span>
       {delta ? (
         <span className="mt-2 block">
@@ -74,10 +74,10 @@ export function KpiTile({
       aria-pressed={selected}
       aria-controls={controls}
       onClick={onSelect}
-      className={`relative block h-full w-full px-5 py-5 text-left transition-colors bg-surface ${selected ? "" : "hover:bg-paper"}`}
+      className={`relative block h-full w-full px-5 py-5 text-left transition-colors ${selected ? "bg-raised" : "bg-surface hover:bg-raised"}`}
     >
       {body}
-      <span aria-hidden className={`absolute inset-x-5 bottom-0 h-[2px] rounded-full bg-brand transition-opacity ${selected ? "opacity-100" : "opacity-0"}`} />
+      <span aria-hidden className={`absolute inset-x-0 top-0 h-[2px] bg-brand transition-opacity ${selected ? "opacity-100" : "opacity-0"}`} />
     </button>
   );
 }

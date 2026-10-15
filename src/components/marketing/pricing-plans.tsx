@@ -8,7 +8,7 @@ const CTA: Record<Plan["id"], { label: string; href: string }> = {
   starter: { label: "Choose Starter", href: "/signup?plan=starter" },
   growth: { label: "Choose Growth", href: "/signup?plan=growth" },
   business: { label: "Choose Business", href: "/signup?plan=business" },
-  enterprise: { label: "Talk to sales", href: "/contact-sales" },
+  enterprise: { label: "Talk to sales", href: "/contact?topic=sales" },
 };
 
 function Price({ plan, currency, period, featured }: { plan: Plan; currency: Currency; period: Period; featured: boolean }) {

@@ -120,7 +120,7 @@ export function SavingsCalculator({ plans }: { plans: Plan[] }) {
         </div>
 
         {plan.id === "enterprise" ? (
-          <Link href="/contact-sales" className="btn btn-pill btn-primary">
+          <Link href="/contact?topic=sales" className="btn btn-pill btn-primary">
             Talk to sales about {compactNumber(pageviews)} banner views
           </Link>
         ) : (

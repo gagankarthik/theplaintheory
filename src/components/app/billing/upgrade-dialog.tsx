@@ -68,7 +68,7 @@ export function LockedAction({
         {!offer.plans.length ? (
           <p className="text-sm text-ink-2">
             Talk to us about Enterprise:{" "}
-            <a className="font-medium text-brand underline-offset-2 hover:underline" href="/contact-sales">
+            <a className="font-medium text-brand underline-offset-2 hover:underline" href="/contact?topic=sales">
               contact sales
             </a>
             .
