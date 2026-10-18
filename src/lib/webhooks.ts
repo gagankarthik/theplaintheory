@@ -5,21 +5,30 @@ import { isIP } from "node:net";
 import { id } from "./crypto";
 import { planById } from "./plans";
 import { getStore } from "./store";
-import type { Organization, Property, Webhook, WebhookDelivery, WebhookEvent } from "./types";
+import type { Organization, Property, Webhook, WebhookDelivery, WebhookEvent, WebhookRetry } from "./types";
 
 /**
  * Signed webhooks: consent and withdrawal propagation to CRMs, CDPs and analytics tools, plus leak
- * alerts. Delivery is best-effort with bounded retries; every attempt is recorded so customers can
- * see exactly what was sent and when.
+ * alerts. Every attempt is recorded so customers can see exactly what was sent and when.
+ *
+ * Delivery is durable: the first attempt goes out straight away; a retryable failure (network error,
+ * timeout, 408, 429, 5xx) is written to a retry outbox in the store and sent again on a backoff of
+ * 1 min, 5 min, 30 min, 2 h, 6 h, 12 h and 24 h (about two days), by drainWebhookRetries (run every
+ * minute by the scheduler, after each consent, and by the daily jobs). Nothing is lost when a
+ * function is recycled. Every attempt carries the same X-Plain-Delivery id so receivers can dedupe.
  *
  * Signature header (Stripe-style, replay-resistant):
  *   X-Plain-Signature: t=<unix seconds>,v1=<hex HMAC-SHA256(secret, `${t}.${rawBody}`)>
  */
 
 const TIMEOUT_MS = 5_000;
-const MAX_ATTEMPTS = 3;
-const BACKOFF_MS = [0, 1_000, 4_000];
+/** Delay before attempt n+2 (index 0 is the first retry). */
+export const RETRY_BACKOFF_MS = [60_000, 300_000, 1_800_000, 7_200_000, 21_600_000, 43_200_000, 86_400_000];
+export const MAX_ATTEMPTS = RETRY_BACKOFF_MS.length + 1;
 const MAX_CONCURRENCY = 4;
+
+/** Worth trying again: no answer, a timeout, or the receiver asked us to (408, 429) or failed (5xx). */
+const retryable = (status?: number) => !status || status === 408 || status === 429 || status >= 500;
 
 export const SIGNATURE_HEADER = "x-plain-signature";
 
@@ -97,7 +106,7 @@ export interface WebhookPayload {
   [key: string]: unknown;
 }
 
-async function attemptOnce(property: Property, hook: Webhook, payload: WebhookPayload, attempt: number, deliveryId: string): Promise<WebhookDelivery> {
+async function attemptOnce(property: Property, hook: Webhook, payload: WebhookPayload, attempt: number, deliveryId: string, retries = true): Promise<WebhookDelivery> {
   const body = JSON.stringify(payload);
   const { header } = signPayload(hook.secret, body);
   const started = Date.now();
@@ -123,6 +132,11 @@ async function attemptOnce(property: Property, hook: Webhook, payload: WebhookPa
   } catch {
     /* network error, timeout or blocked destination: recorded as failed */
   }
+  const store = await getStore();
+  const now = Date.now();
+  // A failed attempt is queued again when it can be retried and attempts remain.
+  const again = status === "failed" && retries && retryable(httpStatus) && attempt < MAX_ATTEMPTS;
+  const nextAttemptAt = again ? new Date(now + RETRY_BACKOFF_MS[attempt - 1]).toISOString() : undefined;
   // One record per attempt; the X-Plain-Delivery id stays the same across retries so receivers can dedupe.
   const delivery: WebhookDelivery = {
     id: `${deliveryId}_${attempt}`,
@@ -132,25 +146,60 @@ async function attemptOnce(property: Property, hook: Webhook, payload: WebhookPa
     status,
     httpStatus,
     attempt,
-    durationMs: Date.now() - started,
-    createdAt: new Date().toISOString(),
+    durationMs: now - started,
+    createdAt: new Date(now).toISOString(),
+    ...(status === "failed" && retries ? (again ? { nextAttemptAt } : { final: true }) : {}),
   };
-  await (await getStore()).recordWebhookDelivery(delivery);
+  await store.recordWebhookDelivery(delivery);
+  if (again) {
+    await store.enqueueWebhookRetry({ id: id("whr"), deliveryId, propertyId: property.id, webhookId: hook.id, attempt: attempt + 1, dueAt: nextAttemptAt!, payload });
+  }
   return delivery;
 }
 
-/** Up to MAX_ATTEMPTS with backoff; 4xx other than 408/429 are not retried (the receiver rejected it). */
-async function deliver(property: Property, hook: Webhook, payload: WebhookPayload): Promise<WebhookDelivery> {
-  const deliveryId = id("dlv");
-  let last!: WebhookDelivery;
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-    if (BACKOFF_MS[attempt - 1]) await new Promise((r) => setTimeout(r, BACKOFF_MS[attempt - 1]));
-    last = await attemptOnce(property, hook, payload, attempt, deliveryId);
-    if (last.status === "delivered") return last;
-    const s = last.httpStatus;
-    if (s && s >= 400 && s < 500 && s !== 408 && s !== 429) return last;
+/**
+ * Drain due retries at most once a minute per server instance, from the background of public
+ * requests (consents arrive all the time on a live site), so retries flow between scheduler runs.
+ */
+let lastOpportunisticDrain = 0;
+export async function drainWebhookRetriesSoon() {
+  if (Date.now() - lastOpportunisticDrain < 60_000) return;
+  lastOpportunisticDrain = Date.now();
+  await drainWebhookRetries({ limit: 25, budgetMs: 8_000 });
+}
+
+/** First attempt now; a retryable failure is queued in the outbox (4xx other than 408/429 is final). */
+const deliver = (property: Property, hook: Webhook, payload: WebhookPayload) => attemptOnce(property, hook, payload, 1, id("dlv"));
+
+/**
+ * Send the retries that are due, within a time budget. Each is claimed atomically from the outbox,
+ * so overlapping drains never send one twice. A retry for a webhook that was deleted or paused, or a
+ * site whose plan no longer includes webhooks, is dropped.
+ */
+export async function drainWebhookRetries(opts: { limit?: number; budgetMs?: number; now?: Date } = {}) {
+  const store = await getStore();
+  const began = Date.now();
+  const budget = opts.budgetMs ?? 45_000;
+  let sent = 0;
+  let dropped = 0;
+  const properties = new Map<string, Property | null>();
+  while (Date.now() - began < budget) {
+    const due = await store.claimDueWebhookRetries((opts.now ?? new Date()).toISOString(), Math.min(25, (opts.limit ?? 200) - sent - dropped));
+    if (!due.length) break;
+    await Promise.all(
+      due.map(async (r: WebhookRetry) => {
+        if (!properties.has(r.propertyId)) properties.set(r.propertyId, await store.getProperty(r.propertyId));
+        const property = properties.get(r.propertyId);
+        const hook = property?.webhooks?.find((h) => h.id === r.webhookId && h.active);
+        const org = property ? await store.getOrg(property.orgId) : null;
+        if (!property || !hook || !webhooksEnabled(org)) return void dropped++;
+        await attemptOnce(property, hook, r.payload as WebhookPayload, r.attempt, r.deliveryId);
+        sent++;
+      }),
+    );
+    if (sent + dropped >= (opts.limit ?? 200)) break;
   }
-  return last;
+  return { sent, dropped };
 }
 
 /** Webhooks are a Business+ feature; the plan decides, not the client. */
@@ -163,8 +212,8 @@ export function subscribers(property: Property, event: WebhookEvent) {
 }
 
 /**
- * Send `payload` to every active webhook subscribed to `event`. Returns once all deliveries
- * (including retries) settle; call it from `after()` so the API response never waits on it.
+ * Send `payload` to every active webhook subscribed to `event`: one attempt each now, retries through
+ * the outbox. Call it from `after()` so the API response never waits on it.
  */
 export async function dispatchWebhooks(property: Property, org: Pick<Organization, "plan"> | null, event: WebhookEvent, payload: Omit<WebhookPayload, "event" | "siteKey">) {
   if (!webhooksEnabled(org)) return [];
@@ -188,5 +237,5 @@ export async function sendTestWebhook(property: Property, webhookId: string): Pr
     test: true,
     receipt: { id: "rcpt_test", seq: 0, hash: "0".repeat(64), visitorId: "0".repeat(32), action: "accept_all", framework: "gdpr", categories: { essential: true, functional: true, analytics: true, marketing: true }, country: "XX", gpc: false, timestamp: new Date().toISOString() },
   };
-  return attemptOnce(property, hook, payload, 1, id("dlv"));
+  return attemptOnce(property, hook, payload, 1, id("dlv"), false);
 }

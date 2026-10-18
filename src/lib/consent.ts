@@ -6,7 +6,7 @@ import { parseUserAgent, viewerLocation } from "./geo";
 import { toPublicConfig, type PublicConfig } from "./public-config";
 import { getStore } from "./store";
 import type { CategoryId, ConsentReceipt, LeakReport, Organization, Property } from "./types";
-import { dispatchWebhooks, subscribers, webhooksEnabled } from "./webhooks";
+import { dispatchWebhooks, drainWebhookRetriesSoon, subscribers, webhooksEnabled } from "./webhooks";
 
 /** Replace identifier-like path segments (emails, long numbers, UUIDs, tokens) before a leak report is stored. */
 export function redactPath(path: string) {
@@ -184,6 +184,7 @@ export async function recordConsent(input: ConsentInput, headers: Headers): Prom
   // After the response: compare with the visitor's previous decision (one indexed read, however old
   // it is), count a withdrawal in the day's rollup, and tell the site's webhooks.
   const followUp: FollowUp = async () => {
+    await drainWebhookRetriesSoon().catch((e) => console.error("[webhooks] retry drain failed", e));
     const [prev] = await store.listVisitorReceipts(property.id, receipt.visitorId, { before: receipt.seq, limit: 1 });
     const withdrawn = withdrawnCategories(prev, receipt);
     // revokes are already counted as "revoked"

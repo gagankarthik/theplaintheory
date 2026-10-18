@@ -1,8 +1,8 @@
-import { verifyChain } from "./crypto";
+import { chainCheckRecord, fullCheckFrom, incrementalCheckFrom, ledgerPages, verifyLedger } from "./ledger";
 import { planById } from "./plans";
 import { activeGrace, effectiveRetentionDays } from "./retention-grace";
 import type { Store } from "./store/types";
-import type { RetentionCheckpoint } from "./types";
+import type { ConsentReceipt, RetentionCheckpoint } from "./types";
 
 /**
  * Data retention and disposal (SOC 2 C1.2, P4.2; DPDP Rule 8). Run daily.
@@ -19,6 +19,11 @@ import type { RetentionCheckpoint } from "./types";
  *
  * Receipts are only removed when the chain verifies first: a broken chain is evidence of tampering,
  * so it is reported and left untouched.
+ *
+ * Built to finish at any size: nothing reads a whole ledger. Each night verifies only the receipts
+ * added since the last verified head (a full check, streamed from the retention checkpoint, runs on
+ * Sundays), and expiry reads only the expired prefix, a page at a time. Organizations run least
+ * recently processed first within a time budget; whatever doesn't fit is first in line next run.
  */
 export const LEAK_RETENTION_DAYS = 90;
 export const DELIVERY_RETENTION_DAYS = 30;
@@ -57,16 +62,33 @@ export interface RetentionReport {
     properties: PropertyRetention[];
   }[];
   totals: { receiptsRemoved: number; leaksRemoved: number; deliveriesRemoved: number; propertiesSkipped: number };
+  /** organizations left for the next run because the time budget ran out */
+  remaining: number;
 }
 
-export async function runRetention(store: Store, opts: { dryRun?: boolean; now?: Date } = {}): Promise<RetentionReport> {
+/** Leave room under the platform's function limit (300 s) to write the report. */
+export const RETENTION_BUDGET_MS = 240_000;
+
+export async function runRetention(store: Store, opts: { dryRun?: boolean; now?: Date; budgetMs?: number } = {}): Promise<RetentionReport> {
   const dryRun = Boolean(opts.dryRun);
   const now = opts.now ?? new Date();
   const startedAt = new Date().toISOString();
+  const began = Date.now();
+  const budget = opts.budgetMs ?? RETENTION_BUDGET_MS;
   const totals = { receiptsRemoved: 0, leaksRemoved: 0, deliveriesRemoved: 0, propertiesSkipped: 0 };
   const orgs: RetentionReport["orgs"] = [];
+  // Weekly, a full streamed verification; other nights only what was added since the last check.
+  const fullCheck = now.getUTCDay() === 0;
 
-  for (const org of await store.listOrgs()) {
+  // Least recently processed first (never-run first), so a run cut short by the budget resumes fairly.
+  const queue = (await store.listOrgs()).sort((a, b) => (a.retentionLastRunAt ?? "").localeCompare(b.retentionLastRunAt ?? ""));
+  let remaining = 0;
+  for (const [i, org] of queue.entries()) {
+    if (Date.now() - began > budget) {
+      remaining = queue.length - i;
+      console.warn(`[retention] time budget reached; ${remaining} organization(s) left for the next run`);
+      break;
+    }
     const plan = planById(org.plan);
     const grace = activeGrace(org, now);
     const logRetentionDays = effectiveRetentionDays(org, now);
@@ -99,13 +121,27 @@ export async function runRetention(store: Store, opts: { dryRun?: boolean; now?:
     }
 
     for (const property of await store.listProperties(org.id)) {
-      const receipts = (await store.listReceipts(property.id)).sort((a, b) => a.seq - b.seq);
       const prior = property.retentionCheckpoint ?? null;
-      // Oldest-first prefix past the cutoff. Stops at the first receipt still in retention, so the
-      // remaining chain stays contiguous even if timestamps are slightly out of order.
-      const live = receipts.filter((r) => !prior || r.seq > prior.seq);
+
+      // The nightly check doubles as the site's "last verified" result (Security page, consent log).
+      const check = legalHold ? null : await verifyLedger(store, property.id, fullCheck ? fullCheckFrom(property) : incrementalCheckFrom(property));
+      if (check && !dryRun) await store.updateProperty(property.id, { lastChainCheck: chainCheckRecord(property, check, now.toISOString()) });
+
+      // Oldest-first prefix past the cutoff, read a page at a time. Stops at the first receipt still in
+      // retention, so the remaining chain stays contiguous even if timestamps are slightly out of order.
       let n = 0;
-      while (n < live.length && live[n].timestamp < cutoff) n += 1;
+      let last: ConsentReceipt | null = null;
+      if (check?.ok) {
+        expiry: for await (const page of ledgerPages(store, property.id, prior?.seq ?? 0)) {
+          for (const x of page) {
+            if (x.timestamp >= cutoff) break expiry;
+            n += 1;
+            last = x;
+          }
+        }
+      }
+      // An earlier run interrupted between checkpoint and delete leaves receipts at or below it.
+      const leftover = Boolean(prior && check?.ok && (await store.pageReceipts(property.id, 0, 1))[0]?.seq <= prior.seq);
       const r: PropertyRetention = {
         propertyId: property.id,
         domain: property.domain,
@@ -117,21 +153,13 @@ export async function runRetention(store: Store, opts: { dryRun?: boolean; now?:
         deliveriesRemoved: 0,
       };
 
-      // The nightly check doubles as the site's "last verified" result (Security page, consent log).
-      const check = legalHold ? null : verifyChain(receipts, prior);
-      if (check && !dryRun) {
-        await store.updateProperty(property.id, {
-          lastChainCheck: { at: now.toISOString(), ok: check.ok, checked: check.checked, ...(check.ok ? {} : { brokenAt: check.brokenAt }) },
-        });
-      }
       if (legalHold) {
         // Legal hold: keep everything, including leak reports and webhook logs below.
         r.skipped = "legal-hold";
       } else if (!check!.ok) {
         r.skipped = "chain-broken";
         totals.propertiesSkipped += 1;
-      } else if (n > 0 || (prior && receipts.some((x) => x.seq <= prior.seq))) {
-        const last = n > 0 ? live[n - 1] : null;
+      } else if (n > 0 || leftover) {
         const checkpoint: RetentionCheckpoint | null = last
           ? { seq: last.seq, hash: last.hash, removedThrough: last.timestamp, removedCount: (prior?.removedCount ?? 0) + n, at: now.toISOString() }
           : prior;
@@ -194,5 +222,5 @@ export async function runRetention(store: Store, opts: { dryRun?: boolean; now?:
     });
   }
 
-  return { dryRun, startedAt, finishedAt: new Date().toISOString(), orgs, totals };
+  return { dryRun, startedAt, finishedAt: new Date().toISOString(), orgs, totals, remaining };
 }

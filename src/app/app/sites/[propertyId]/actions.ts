@@ -1,11 +1,12 @@
 "use server";
 
+import { chainCheckRecord, fullCheckFrom, verifyLedger } from "@/lib/ledger";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { failure, invalid, type ActionResult } from "@/lib/action-result";
 import { requireProperty } from "@/lib/auth/access";
-import { id, verifyChain } from "@/lib/crypto";
+import { id } from "@/lib/crypto";
 import { rightsSchema } from "@/lib/config-schema";
 import { DEFAULT_REASK_DAYS, FRAMEWORK_META } from "@/lib/defaults";
 import { languageInfo } from "@/lib/i18n/languages";
@@ -252,13 +253,14 @@ export async function verifyPropertyChain(propertyId: string): Promise<ChainChec
   const verifiedAt = new Date().toISOString();
   try {
     const ctx = await requireProperty(propertyId, "logs:export");
-    const result = verifyChain(await ctx.store.listReceipts(propertyId), ctx.property.retentionCheckpoint);
-    await auditSite(ctx, "logs.chain_verified", { ok: result.ok, checked: result.checked });
-    // Shown as "last verified" on the consent log's chain strip.
-    await ctx.store.updateProperty(propertyId, {
-      lastChainCheck: { at: verifiedAt, ok: result.ok, checked: result.checked, ...(result.ok ? {} : { brokenAt: result.brokenAt }) },
-    });
-    return { ...result, verifiedAt };
+    // Every receipt since the retention checkpoint, a page at a time (never the whole ledger at once).
+    const check = await verifyLedger(ctx.store, propertyId, fullCheckFrom(ctx.property));
+    await auditSite(ctx, "logs.chain_verified", { ok: check.ok, checked: check.checked });
+    // Shown as "last verified" on the consent log's chain strip; its head is where the nightly check resumes.
+    await ctx.store.updateProperty(propertyId, { lastChainCheck: chainCheckRecord(ctx.property, check, verifiedAt) });
+    return check.ok
+      ? { ok: true, checked: check.checked, head: check.head?.hash, verifiedAt }
+      : { ok: false, checked: check.checked, brokenAt: check.brokenAt, verifiedAt };
   } catch (e) {
     return { ok: false, checked: 0, error: failure(e)?.error, verifiedAt };
   }

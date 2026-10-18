@@ -370,8 +370,25 @@ export interface WebhookDelivery {
   status: "delivered" | "failed";
   httpStatus?: number;
   attempt: number;
+  /** set on a failed attempt when no more will follow (out of retries, or the receiver refused it) */
+  final?: boolean;
+  /** when a failed attempt will be retried */
+  nextAttemptAt?: string;
   durationMs: number;
   createdAt: string;
+}
+
+/** A webhook delivery waiting for its next attempt (lib/webhooks.ts, durable retry outbox). */
+export interface WebhookRetry {
+  id: string;
+  /** the X-Plain-Delivery id, the same on every attempt so receivers can dedupe */
+  deliveryId: string;
+  propertyId: string;
+  webhookId: string;
+  /** the attempt this retry will be */
+  attempt: number;
+  dueAt: string;
+  payload: Record<string, unknown>;
 }
 
 /** A tracker request observed in a visitor's browser after they declined its category. */
@@ -444,7 +461,8 @@ export interface Property {
    */
   retentionCheckpoint?: RetentionCheckpoint;
   /** outcome of the most recent "Verify chain" run on the consent log */
-  lastChainCheck?: { at: string; ok: boolean; checked: number; brokenAt?: number };
+  /** last chain verification; `head` is the newest receipt it verified, where the next check can start */
+  lastChainCheck?: { at: string; ok: boolean; checked: number; brokenAt?: number; head?: { seq: number; hash: string } };
   /** automatic tracker scans (lib/scan-schedule.ts); absent means off */
   scanSchedule?: ScanSchedule;
   createdAt: string;

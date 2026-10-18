@@ -2,9 +2,10 @@ import type { Metadata } from "next";
 import { PrintButton } from "@/components/app/logs/print-button";
 import { ButtonLink } from "@/components/app/ui/button";
 import { IconAlert, IconArrowRight, IconShieldCheck, Logo } from "@/components/icons";
-import { formatInt, formatPct, rangeDays, summarize } from "@/lib/analytics";
+import { formatInt, formatPct, rangeDays, summarizeRollups } from "@/lib/analytics";
+import { fullCheckFrom, verifyLedger } from "@/lib/ledger";
+import { loadRollups } from "@/lib/rollup-load";
 import { requireProperty } from "@/lib/auth/access";
-import { verifyChain } from "@/lib/crypto";
 import { FRAMEWORK_META } from "@/lib/defaults";
 import { planById } from "@/lib/plans";
 import { regionLabel } from "@/lib/regions";
@@ -24,15 +25,21 @@ const DECISION_LABEL: Record<string, string> = {
 export default async function AuditReportPage(props: PageProps<"/app/sites/[propertyId]/logs/report">) {
   const { propertyId } = await props.params;
   const { property, store, org, user } = await requireProperty(propertyId, "logs:export");
-  const all = (await store.listReceipts(property.id)).sort((a, b) => a.seq - b.seq);
-  const chain = verifyChain(all, property.retentionCheckpoint);
   const days = rangeDays(90);
-  const recent = all.filter((r) => r.timestamp >= `${days[0]}T00:00:00.000Z`);
-  const s = summarize(recent, await store.listCounters(property.id, days[0], days[days.length - 1]), days);
+  // Chain checked a page at a time; the numbers come from daily rollups; only the listed rows are read.
+  const [ledger, rollups, counters, latest] = await Promise.all([
+    verifyLedger(store, property.id, fullCheckFrom(property)),
+    loadRollups(store, property.id, days[0], days[days.length - 1]),
+    store.listCounters(property.id, days[0], days[days.length - 1]),
+    store.listReceipts(property.id, { from: `${days[0]}T00:00:00.000Z`, limit: LISTED }),
+  ]);
+  const chain = ledger.ok ? { ok: true as const, checked: ledger.checked, head: ledger.head?.hash } : { ok: false as const, checked: ledger.checked, brokenAt: ledger.brokenAt };
+  const s = summarizeRollups(rollups, counters, days);
+  const periodReceipts = s.decisions + s.revoked;
   const generated = new Date();
   const plan = planById(org.plan);
   const fmt = (d: Date | string) => new Date(d).toLocaleString("en-GB", { dateStyle: "long", timeStyle: "short", timeZone: "UTC" }) + " UTC";
-  const listed = [...recent].reverse().slice(0, LISTED);
+  const listed = latest;
 
   const facts: [string, React.ReactNode][] = [
     ["Organization", org.name],
@@ -176,7 +183,7 @@ export default async function AuditReportPage(props: PageProps<"/app/sites/[prop
             Receipts
           </h2>
           <p className="mb-4 mt-1 text-sm text-ink-3">
-            {recent.length > LISTED ? `The ${LISTED} most recent of ${formatInt(recent.length)}. The CSV export has every receipt.` : `All ${formatInt(recent.length)} receipts in the period.`} IP
+            {periodReceipts > LISTED ? `The ${LISTED} most recent of ${formatInt(periodReceipts)}. The CSV export has every receipt.` : `All ${formatInt(periodReceipts)} receipts in the period.`} IP
             addresses are truncated and salted before hashing; no raw IP is stored.
           </p>
           <div className="scroll-thin overflow-x-auto print:overflow-visible" tabIndex={0} role="region" aria-label="Receipts in the period">

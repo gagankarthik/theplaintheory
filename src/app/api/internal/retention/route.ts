@@ -7,6 +7,9 @@ import { getStore } from "@/lib/store";
  * Auth: `Authorization: Bearer <secret>`, where the secret is INTERNAL_CRON_SECRET or Vercel's CRON_SECRET.
  * Add `?dryRun=1` to report without deleting.
  */
+// The job works within a 240 s budget (lib/retention.ts); allow the function the platform maximum.
+export const maxDuration = 300;
+
 export async function GET(request: Request) {
   return POST(request);
 }

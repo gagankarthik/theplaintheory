@@ -30,6 +30,9 @@ function memoryStore(init: { org: Organization; property: Property; receipts: Co
     async listReceipts() {
       return [...state.receipts].reverse();
     },
+    async pageReceipts(_: string, afterSeq: number, limit: number) {
+      return [...state.receipts].filter((r) => r.seq > afterSeq).sort((a, b) => a.seq - b.seq).slice(0, limit);
+    },
     async updateProperty(_: string, patch: Partial<Property>) {
       state.calls.push("updateProperty");
       state.property = { ...state.property, ...patch };

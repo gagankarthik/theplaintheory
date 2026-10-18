@@ -20,6 +20,7 @@ import type {
   SessionRecord,
   User,
   WebhookDelivery,
+  WebhookRetry,
 } from "../types";
 import { selectDue } from "../scan-schedule";
 import type { SiteAuditReport } from "../site-audit/types";
@@ -52,6 +53,8 @@ interface Db {
   stripeEvents?: { id: string; at: string }[];
   /** daily decision rollups: flat counters per site and day (lib/rollups.ts) */
   rollups?: { propertyId: string; day: string; counts: Record<string, number>; anchor?: { seq: number; hash: string } }[];
+  /** webhook deliveries waiting for their next attempt */
+  webhookRetries?: WebhookRetry[];
   /** per site: the first receipt seq counted in rollups */
   rollupFrom?: Record<string, number>;
   /** IP-hash salts, one per UTC day; days older than yesterday are dropped */
@@ -452,6 +455,13 @@ export const localStore: Store = {
     return q.limit ? rows.slice(0, q.limit) : rows;
   },
 
+  async pageReceipts(propertyId, afterSeq, limit) {
+    return (await readReceipts(propertyId))
+      .filter((r) => r.seq > afterSeq)
+      .sort((a, b) => a.seq - b.seq)
+      .slice(0, limit);
+  },
+
   async listVisitorReceipts(propertyId, visitorId, q = {}) {
     const rows = (await readReceipts(propertyId)).filter((r) => r.visitorId === visitorId && (!q.before || r.seq < q.before)).reverse();
     return q.limit ? rows.slice(0, q.limit) : rows;
@@ -473,6 +483,23 @@ export const localStore: Store = {
       .sort((a, b) => a.day.localeCompare(b.day))
       .map((r) => ({ ...addFlat(emptyRollup(r.day), r.counts), ...(r.anchor ? { anchor: r.anchor } : {}) }));
     return { rollups, fromSeq: db.rollupFrom?.[propertyId] ?? null };
+  },
+
+  async enqueueWebhookRetry(r) {
+    await mutate((db) => {
+      (db.webhookRetries ??= []).push(r);
+    });
+  },
+
+  async claimDueWebhookRetries(nowIso, limit) {
+    let claimed: WebhookRetry[] = [];
+    await mutate((db) => {
+      const due = (db.webhookRetries ?? []).filter((r) => r.dueAt <= nowIso).sort((a, b) => a.dueAt.localeCompare(b.dueAt)).slice(0, limit);
+      const ids = new Set(due.map((r) => r.id));
+      db.webhookRetries = (db.webhookRetries ?? []).filter((r) => !ids.has(r.id));
+      claimed = due;
+    });
+    return claimed;
   },
 
   async recordLeak(l) {

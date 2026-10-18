@@ -1,7 +1,8 @@
 import "server-only";
+import { fullCheckFrom, verifyLedger } from "./ledger";
 import { groupLeaks } from "./analytics";
 import { anchorsFor, type DayAnchor } from "./anchors";
-import { sha256, verifyChain } from "./crypto";
+import { sha256 } from "./crypto";
 import { FRAMEWORK_META } from "./defaults";
 import { evaluateFairness, type FairnessCheck } from "./fairness";
 import { languageInfo } from "./i18n/languages";
@@ -74,8 +75,22 @@ export const evidenceDigest = (pack: EvidencePack) => sha256(canonicalJson(pack)
 export async function buildEvidencePack(input: { property: Property; org: Organization; plan: Plan; user: User; store: Store }): Promise<{ pack: EvidencePack; digest: string }> {
   const { property, org, plan, user, store } = input;
   const now = new Date();
-  const receipts = (await store.listReceipts(property.id)).sort((a, b) => a.seq - b.seq);
-  const chain = verifyChain(receipts, property.retentionCheckpoint);
+  // The chain is verified and its receipts counted a page at a time (never the whole ledger at once).
+  const byFramework: Record<string, number> = {};
+  const byLanguage: Record<string, number> = {};
+  let gpc = 0;
+  let automated = 0;
+  let receiptCount = 0;
+  const ledger = await verifyLedger(store, property.id, fullCheckFrom(property), (page) => {
+    receiptCount += page.length;
+    for (const r of page) {
+      byFramework[r.framework] = (byFramework[r.framework] ?? 0) + 1;
+      if (r.language) byLanguage[r.language] = (byLanguage[r.language] ?? 0) + 1;
+      if (r.gpc) gpc += 1;
+      if (r.automated) automated += 1;
+    }
+  });
+  const chain = ledger.ok ? { ok: true as const, checked: ledger.checked, head: ledger.head?.hash } : { ok: false as const, checked: ledger.checked, brokenAt: ledger.brokenAt };
   const { anchors } = await anchorsFor(property.id, 30, now);
   const leaks = await store.listLeaks(property.id, new Date(now.getTime() - 30 * 86_400_000).toISOString());
   // Evidence describes what visitors actually saw: the published snapshot, not unpublished drafts.
@@ -83,17 +98,6 @@ export async function buildEvidencePack(input: { property: Property; org: Organi
   const liveTrackers = heldTrackers(property.published?.trackers ?? property.trackers);
   const fairness = evaluateFairness(live, { dpoEmail: org.dpo?.email });
   const readiness = dpdpReadiness(property, org, plan);
-
-  const byFramework: Record<string, number> = {};
-  const byLanguage: Record<string, number> = {};
-  let gpc = 0;
-  let automated = 0;
-  for (const r of receipts) {
-    byFramework[r.framework] = (byFramework[r.framework] ?? 0) + 1;
-    if (r.language) byLanguage[r.language] = (byLanguage[r.language] ?? 0) + 1;
-    if (r.gpc) gpc += 1;
-    if (r.automated) automated += 1;
-  }
 
   const pack: EvidencePack = {
     format: "plaintheory.evidence/1",
@@ -151,7 +155,7 @@ export async function buildEvidencePack(input: { property: Property; org: Organi
       })),
     },
     trackers: liveTrackers.map((t) => ({ name: t.name, category: t.category, pattern: t.pattern })),
-    signals: { receipts: receipts.length, gpcHonoured: gpc, automated, byFramework, byLanguage },
+    signals: { receipts: receiptCount, gpcHonoured: gpc, automated, byFramework, byLanguage },
     leaks: {
       days: 30,
       requests: leaks.length,

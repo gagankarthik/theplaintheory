@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { recordAudit } from "@/lib/audit";
 import { guardProperty } from "@/lib/auth/route-guard";
-import { verifyChain } from "@/lib/crypto";
+import { chainCheckRecord, fullCheckFrom, verifyLedger } from "@/lib/ledger";
 import { filterQuery, hasFieldFilters, matchesReceipt, parseReceiptFilters } from "@/lib/receipt-filters";
 import type { CategoryId, ConsentReceipt } from "@/lib/types";
 
@@ -48,6 +48,9 @@ const line = (r: ConsentReceipt) =>
     .map(cell)
     .join(",");
 
+// A large ledger streams for a while: give the export room before the platform cuts it off.
+export const maxDuration = 300;
+
 export async function GET(request: Request, ctx: RouteContext<"/api/app/logs/[propertyId]/export">) {
   const { propertyId } = await ctx.params;
   // The log's filter form submits every field, so empty values mean "not filtered".
@@ -59,30 +62,38 @@ export async function GET(request: Request, ctx: RouteContext<"/api/app/logs/[pr
   if (!g.ok) return g.response;
   const { property, store, user } = g;
 
-  // Verify against the full chain, then emit the requested window oldest-first.
-  const all = (await store.listReceipts(propertyId)).sort((a, b) => a.seq - b.seq);
-  const check = verifyChain(all, property.retentionCheckpoint);
+  // The whole chain is verified (from the retention checkpoint) while it streams, a page at a time,
+  // oldest first; only the requested window is written. Memory stays flat however long the ledger is.
   const filters = parseReceiptFilters(parsed.data);
   const { from, to } = filters;
-  const rows = all.filter((r) => matchesReceipt(r, filters));
-  await recordAudit({
-    orgId: property.orgId,
-    actor: { userId: user.id, email: user.email },
-    action: "logs.exported",
-    target: { type: "property", id: property.id, label: property.domain },
-    metadata: { rows: rows.length, from: from ?? null, to: to ?? null, filters: hasFieldFilters(filters) ? new URLSearchParams(filterQuery(filters)).toString() : null, chainOk: check.ok },
-  });
-
   const encoder = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({
-    start(controller) {
+    async start(controller) {
       controller.enqueue(encoder.encode("﻿" + HEADER.join(",") + "\n"));
-      for (let i = 0; i < rows.length; i += 500) {
-        controller.enqueue(encoder.encode(rows.slice(i, i + 500).map(line).join("\n") + "\n"));
+      let rows = 0;
+      try {
+        const check = await verifyLedger(store, propertyId, fullCheckFrom(property), (page) => {
+          const out = page.filter((r) => matchesReceipt(r, filters));
+          rows += out.length;
+          if (out.length) controller.enqueue(encoder.encode(out.map(line).join("\n") + "\n"));
+        });
+        const verifiedAt = new Date().toISOString();
+        const verdict = check.ok ? `chain intact; head ${check.head?.hash ?? "none"}` : `chain BROKEN at seq ${check.brokenAt}`;
+        controller.enqueue(encoder.encode(`# ${verdict}; ${check.checked} receipts verified at ${verifiedAt}\n`));
+        await store.updateProperty(property.id, { lastChainCheck: chainCheckRecord(property, check, verifiedAt) });
+        await recordAudit({
+          orgId: property.orgId,
+          actor: { userId: user.id, email: user.email },
+          action: "logs.exported",
+          target: { type: "property", id: property.id, label: property.domain },
+          metadata: { rows, from: from ?? null, to: to ?? null, filters: hasFieldFilters(filters) ? new URLSearchParams(filterQuery(filters)).toString() : null, chainOk: check.ok },
+        });
+        controller.close();
+      } catch (e) {
+        console.error("[export] consent log export failed", property.id, e);
+        controller.enqueue(encoder.encode("# export interrupted: try again\n"));
+        controller.close();
       }
-      const verdict = check.ok ? `chain intact; head ${check.head ?? "none"}` : `chain BROKEN at seq ${check.brokenAt}`;
-      controller.enqueue(encoder.encode(`# ${verdict}; ${check.checked} receipts verified at ${new Date().toISOString()}\n`));
-      controller.close();
     },
   });
 

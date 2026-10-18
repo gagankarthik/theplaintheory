@@ -5,6 +5,7 @@ import { IdentityStack } from "../lib/auth-stack";
 import { CrawlerImagesStack, CrawlerStack } from "../lib/crawler-stack";
 import { DataStack } from "../lib/data-stack";
 import { DeliveryStack } from "../lib/delivery-stack";
+import { JobsStack } from "../lib/jobs-stack";
 import { MailStack } from "../lib/mail-stack";
 import { Naming, STAGES, type Stage } from "../lib/naming";
 import { ObservabilityStack } from "../lib/observability-stack";
@@ -92,5 +93,12 @@ new ObservabilityStack(app, naming.stack("observability"), {
   alertEmail: ctx("alertEmail"),
   monthlyBudgetUsd: Number(ctx("monthlyBudgetUsd") ?? (stage === "prod" ? 200 : 50)),
 });
+
+// Per-minute jobs (webhook retries). Needs a Secrets Manager secret holding INTERNAL_CRON_SECRET:
+//   -c cronSecretName=pt-prod-cron-secret [-c appUrl=https://www.theplaintheory.in]
+const cronSecretName = ctx("cronSecretName");
+if (cronSecretName) {
+  new JobsStack(app, naming.stack("jobs"), { env, naming, cronSecretName, appUrl: ctx("appUrl") ?? "https://www.theplaintheory.in" });
+}
 
 app.synth();

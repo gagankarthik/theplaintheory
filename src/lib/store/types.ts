@@ -9,6 +9,7 @@ import type {
   LeadTopic,
   LeakReport,
   WebhookDelivery,
+  WebhookRetry,
   Membership,
   Organization,
   PageviewCounter,
@@ -116,6 +117,8 @@ export interface Store {
   /** daily decision rollups for the inclusive day range, and the first receipt seq they cover */
   listDecisionRollups(propertyId: string, fromDay: string, toDay: string): Promise<RollupRange>;
   listReceipts(propertyId: string, q?: ReceiptQuery): Promise<ConsentReceipt[]>;
+  /** Receipts with seq > afterSeq, oldest first, at most `limit` (paging through the ledger; lib/ledger.ts). */
+  pageReceipts(propertyId: string, afterSeq: number, limit: number): Promise<ConsentReceipt[]>;
   /** One visitor's receipts, newest first, through the visitor index (never a scan of the ledger). */
   listVisitorReceipts(propertyId: string, visitorId: string, q?: { limit?: number; before?: number }): Promise<ConsentReceipt[]>;
   /** Add to a day's rollup counters after the fact (e.g. "n:withdrawn", known once the previous receipt is read). */
@@ -127,6 +130,10 @@ export interface Store {
   recordLeak(l: LeakReport): Promise<void>;
   listLeaks(propertyId: string, sinceIso: string): Promise<LeakReport[]>;
   pruneLeaks(propertyId: string, beforeIso: string): Promise<number>;
+
+  // webhook retry outbox: due retries are claimed atomically, so overlapping drains never double-send
+  enqueueWebhookRetry(r: WebhookRetry): Promise<void>;
+  claimDueWebhookRetries(nowIso: string, limit: number): Promise<WebhookRetry[]>;
 
   // webhook delivery log (newest first)
   recordWebhookDelivery(d: WebhookDelivery): Promise<void>;

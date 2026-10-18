@@ -1,4 +1,5 @@
 import { cronAuthorised, cronConfigured } from "@/lib/cron-auth";
+import { drainWebhookRetries } from "@/lib/webhooks";
 import { runScheduledScans } from "@/lib/scheduled-scans";
 import { getStore } from "@/lib/store";
 
@@ -21,5 +22,7 @@ export async function POST(request: Request) {
   if (!cronAuthorised(request)) return Response.json({ error: "Unauthorized." }, { status: 401 });
   const dryRun = new URL(request.url).searchParams.get("dryRun") === "1";
   const report = await runScheduledScans(await getStore(), { dryRun });
-  return Response.json(report, { headers: { "cache-control": "no-store" } });
+  // Backstop for the webhook retry outbox when no per-minute scheduler is configured.
+  const webhooks = await drainWebhookRetries({ budgetMs: 30_000 }).catch((e) => ({ error: String(e) }));
+  return Response.json({ ...report, webhooks }, { headers: { "cache-control": "no-store" } });
 }

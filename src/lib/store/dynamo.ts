@@ -35,6 +35,7 @@ import type {
   SessionRecord,
   User,
   WebhookDelivery,
+  WebhookRetry,
 } from "../types";
 import type { SiteAuditReport } from "../site-audit/types";
 import { SCAN_KEEP, type ScanReport } from "../trackers";
@@ -909,6 +910,25 @@ export const dynamoStore: Store = {
       return receipt;
     });
   },
+  async pageReceipts(propertyId, afterSeq, limit) {
+    const rows: ConsentReceipt[] = [];
+    let ExclusiveStartKey: Item | undefined;
+    do {
+      const r = await db().send(
+        new QueryCommand({
+          TableName: TABLES.receipts,
+          KeyConditionExpression: "PK = :p AND SK BETWEEN :lo AND :hi",
+          ExpressionAttributeValues: { ":p": `PROP#${propertyId}`, ":lo": rcptKey(afterSeq + 1), ":hi": "RCPT#~" },
+          ScanIndexForward: true,
+          Limit: limit - rows.length,
+          ExclusiveStartKey,
+        }),
+      );
+      for (const item of r.Items ?? []) rows.push(strip<ConsentReceipt>(item)!);
+      ExclusiveStartKey = rows.length >= limit ? undefined : r.LastEvaluatedKey;
+    } while (ExclusiveStartKey);
+    return rows;
+  },
   async listVisitorReceipts(propertyId, visitorId, q = {}) {
     // keys-only visitor index, newest first, then the receipts themselves in one batch
     const keys: Key[] = [];
@@ -1185,6 +1205,39 @@ export const dynamoStore: Store = {
 
   /* ---------- Stripe webhook idempotency (ephemeral) ---------- */
 
+  async enqueueWebhookRetry(r) {
+    await db().send(
+      new PutCommand({
+        TableName: TABLES.ephemeral,
+        Item: { PK: "WHRETRY", SK: `${r.dueAt}#${r.id}`, ...r, expiresAt: epochS(r.dueAt) + 3 * 86_400 },
+      }),
+    );
+  },
+  async claimDueWebhookRetries(nowIso, limit) {
+    const r = await db().send(
+      new QueryCommand({
+        TableName: TABLES.ephemeral,
+        KeyConditionExpression: "PK = :p AND SK <= :due",
+        ExpressionAttributeValues: { ":p": "WHRETRY", ":due": `${nowIso}#~` },
+        Limit: limit,
+      }),
+    );
+    // Claim by deleting: only the drain whose delete succeeds sends it.
+    const claimed = await Promise.all(
+      (r.Items ?? []).map(async (item) => {
+        try {
+          const del = await db().send(
+            new DeleteCommand({ TableName: TABLES.ephemeral, Key: { PK: item.PK, SK: item.SK }, ConditionExpression: "attribute_exists(PK)", ReturnValues: "ALL_OLD" }),
+          );
+          return del.Attributes ? (strip<WebhookRetry>(del.Attributes) as WebhookRetry) : null;
+        } catch (e) {
+          if ((e as { name?: string }).name === "ConditionalCheckFailedException") return null;
+          throw e;
+        }
+      }),
+    );
+    return claimed.filter((x): x is WebhookRetry => x !== null);
+  },
   async hitWindow(key, windowStart, windowMs) {
     const r = await db().send(
       new UpdateCommand({
