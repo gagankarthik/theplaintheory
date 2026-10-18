@@ -230,7 +230,9 @@ export class CrawlerStack extends Stack {
       runtimePlatform: { cpuArchitecture: ecs.CpuArchitecture.X86_64, operatingSystemFamily: ecs.OperatingSystemFamily.LINUX },
     });
     // Read-only root filesystem: the only writable path is /tmp, a task-scoped volume on ephemeral
-    // storage (Fargate has no tmpfs). The image's /tmp (mode 1777) seeds it, so the non-root user can write.
+    // storage (Fargate has no tmpfs). Fargate creates that volume root-owned, mode 755, whatever the
+    // image's /tmp is, so a short-lived init container (below) opens it to 1777 before the crawler,
+    // which runs as the non-root `node` user, starts.
     taskDefinition.addVolume({ name: "tmp" });
     // No Linux capabilities at all: Node and Chromium (--no-sandbox, see services/crawler/src/scanner/browser.ts)
     // need none, and the image runs as the non-root `node` user.
@@ -262,6 +264,23 @@ export class CrawlerStack extends Stack {
       stopTimeout: Duration.seconds(120),
     });
     container.addMountPoints({ sourceVolume: "tmp", containerPath: "/tmp", readOnly: false });
+
+    // Init: as root (the volume's owner, so no capabilities are needed), make /tmp world-writable with
+    // the sticky bit, then exit. The crawler only starts once this has succeeded.
+    const tmpLinux = new ecs.LinuxParameters(this, "TmpInitLinuxParameters");
+    tmpLinux.dropCapabilities(ecs.Capability.ALL);
+    const tmpInit = taskDefinition.addContainer("tmp-init", {
+      image,
+      essential: false,
+      user: "0",
+      readonlyRootFilesystem: true,
+      linuxParameters: tmpLinux,
+      entryPoint: ["sh", "-c"],
+      command: ["chmod 1777 /tmp"],
+      logging: ecs.LogDrivers.awsLogs({ streamPrefix: "tmp-init", logGroup }),
+    });
+    tmpInit.addMountPoints({ sourceVolume: "tmp", containerPath: "/tmp", readOnly: false });
+    container.addContainerDependencies({ container: tmpInit, condition: ecs.ContainerDependencyCondition.SUCCESS });
 
     // Least privilege: sites and scan reports (core), append-only audit events, the data key, the queue.
     const role = taskDefinition.taskRole;
