@@ -13,7 +13,7 @@ import { getStore } from "@/lib/store";
 
 export const generateMetadata = () => staffMetadata("Request");
 
-const CATEGORY_TITLE = { sales: "Category", support: "Category", partner: "Query type", enterprise: "Request type" } as const;
+const CATEGORY_TITLE = { sales: "Category", support: "Category", partner: "Query type", enterprise: "Request type", signup: "Category" } as const;
 
 export default async function AdminRequestPage({ params }: { params: Promise<{ leadId: string }> }) {
   const { leadId } = await params;
@@ -31,9 +31,14 @@ export default async function AdminRequestPage({ params }: { params: Promise<{ l
 
   const facts: [string, React.ReactNode][] = [
     ["Reference", <span key="ref" className="font-mono">{ref}</span>],
-    ["Name", lead.name],
+    ["Name", lead.name || "Not given"],
     ["Email", <a key="email" href={`mailto:${lead.email}`} className="break-all text-ink underline underline-offset-4 hover:text-ink-2">{lead.email}</a>],
   ];
+  // A sign-up interest is worth a follow-up only while they haven't created the account.
+  if (topic === "signup") {
+    const user = await store.getUserByEmail(lead.email);
+    facts.push(["Account", user ? `Signed up ${fmtDateTime(user.createdAt)}` : "No account yet: worth a follow-up"]);
+  }
   if (lead.company) facts.push(["Company", lead.company]);
   if (lead.category) facts.push([CATEGORY_TITLE[topic], categoryLabel(topic, lead.category)]);
   if (lead.severity) facts.push(["Severity", <SeverityBadge key="sev" severity={lead.severity} />]);

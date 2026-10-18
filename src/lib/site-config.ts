@@ -48,6 +48,8 @@ export async function persistConfig(
     }
     await store.updateProperty(propertyId, {
       config: { ...parsed.data, categories, version: property.config.version + 1 },
+      // the owner has made the banner theirs (setup checklist, step 1)
+      ...(property.bannerSavedAt ? {} : { bannerSavedAt: new Date().toISOString() }),
     });
     await auditSite(ctx, action, { ...metadata, version: property.config.version + 1 });
   } catch (e) {

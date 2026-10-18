@@ -1,5 +1,6 @@
 "use server";
 
+import { launchNewSite } from "@/lib/site-launch";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -51,7 +52,10 @@ export async function createSite(_: ActionResult, form: FormData): Promise<Actio
     }
     if (existing.some((p) => p.domain === parsed.data.domain)) return { error: `${parsed.data.domain} is already in this organization.` };
     property = await store.createProperty(buildProperty(org.id, parsed.data.name, parsed.data.domain));
-    await recordAudit({ orgId: org.id, actor: { userId: user.id, email: user.email }, action: "property.created", target: { type: "property", id: property.id, label: property.domain } });
+    const actor = { userId: user.id, email: user.email };
+    await recordAudit({ orgId: org.id, actor, action: "property.created", target: { type: "property", id: property.id, label: property.domain } });
+    // default banner published now, first scan in the background (lib/site-launch.ts)
+    await launchNewSite(store, property, org, actor);
   } catch (e) {
     return failure(e);
   }

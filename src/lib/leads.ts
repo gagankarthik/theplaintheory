@@ -222,6 +222,7 @@ export const TOPIC_EMAIL: Record<LeadTopic, string> = {
   support: "hello@theplaintheory.in",
   partner: "hello@theplaintheory.in",
   enterprise: "sales@theplaintheory.in",
+  signup: "hello@theplaintheory.in",
 };
 
 const WINDOW_MS = 60 * 60 * 1000;

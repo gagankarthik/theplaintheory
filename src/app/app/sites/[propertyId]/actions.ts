@@ -12,8 +12,7 @@ import { DEFAULT_REASK_DAYS, FRAMEWORK_META } from "@/lib/defaults";
 import { languageInfo } from "@/lib/i18n/languages";
 import { rangeDays } from "@/lib/analytics";
 import { evaluateFairness } from "@/lib/fairness";
-import { buildConfigVersion } from "@/lib/config-versions";
-import { publishConfig, toPublicConfig } from "@/lib/publish";
+import { publishProperty } from "@/lib/publish-site";
 import { rateLimiter, retryAfterText } from "@/lib/rate-limit";
 import { auditLiveSite } from "@/lib/site-audit";
 import type { SiteAuditResult } from "@/lib/site-audit/types";
@@ -111,32 +110,13 @@ export async function publishSite(propertyId: string): Promise<ActionResult> {
   try {
     const ctx = await requireProperty(propertyId, "property:write");
     const { property, org, store } = ctx;
-    // The same fairness check the builder shows; enforced here so no client can skip it.
-    const fairness = evaluateFairness(property.config, { dpoEmail: org.dpo?.email });
-    if (fairness.failures.length) {
-      const first = fairness.failures[0];
-      const more = fairness.failures.length > 1 ? ` (and ${fairness.failures.length - 1} more)` : "";
-      return { error: `Can't publish yet: ${first.title}. ${first.detail}${more}` };
-    }
-    const dpo = org.dpo ? { name: org.dpo.name, email: org.dpo.email } : undefined;
-    const { location } = await publishConfig(toPublicConfig(property, dpo));
-    // the snapshot keeps the approved inventory only: suggestions and ignored items were never live
-    const trackers = heldTrackers(property.trackers);
-    const publishedAt = new Date().toISOString();
-    // Keep an immutable copy of this version so every receipt can show the notice behind it.
-    // Write-once: re-publishing an unchanged version keeps the first snapshot.
-    await store.saveConfigVersion(
-      buildConfigVersion({ propertyId, version: property.config.version, config: property.config, trackers, publishedAt, publishedBy: ctx.user.id }),
-    );
-    await store.updateProperty(propertyId, {
-      publishedVersion: property.config.version,
-      publishedAt,
-      published: { config: property.config, trackers },
-    });
-    await auditSite(ctx, "property.published", { version: property.config.version, fairnessScore: fairness.score });
+    // The same fairness check the builder shows, enforced server-side so no client can skip it.
+    const result = await publishProperty(store, property, org, { userId: ctx.user.id, email: ctx.user.email });
+    if (!result.ok) return { error: result.error };
+    // the owner has made the banner theirs (setup checklist, step 1)
+    if (!property.bannerSavedAt) await store.updateProperty(propertyId, { bannerSavedAt: new Date().toISOString() });
     revalidatePath(`/app/sites/${propertyId}`, "layout");
     revalidatePath("/app");
-    void location;
     return {
       ok: `Your banner is live. Visitors to ${property.domain} now get version ${property.config.version} wherever the Plain Theory script is installed.`,
     };
@@ -184,7 +164,8 @@ const CATEGORY_LABEL = { essential: "Essential", functional: "Preferences", anal
 export async function updateTrackerCategory(propertyId: string, trackerId: string, category: Tracker["category"]): Promise<ActionResult> {
   try {
     const cat = CATEGORY.parse(category);
-    await writeTrackers(propertyId, (list) => list.map((t) => (t.id === trackerId ? { ...t, category: cat } : t)), {
+    // the site's own choice now: no longer "auto-categorized"
+    await writeTrackers(propertyId, (list) => list.map((t) => (t.id === trackerId ? { ...t, category: cat, autoApproved: undefined } : t)), {
       action: "tracker.updated",
       metadata: () => ({ trackerId, category: cat }),
     });

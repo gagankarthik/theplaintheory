@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { startSignup } from "@/app/(marketing)/cta-actions";
 import { BrandMark } from "@/components/brand/logo";
 import { site } from "@/lib/site";
 import { BackToTop } from "./back-to-top";
@@ -30,8 +31,8 @@ const HEADING = "text-[0.75rem] font-medium uppercase tracking-[0.08em] text-mut
 
 /**
  * The close of every marketing page, call to action and footer in one soot block. It opens with one
- * sentence with a blank: the blank is the email field, the last word is the button, and the form opens
- * sign-up with the address filled in. Then the brand and contacts, the site map in six ruled columns
+ * sentence with a blank: the blank is the email field, the last word is the button, and the form keeps
+ * the address for follow-up, then opens sign-up with it filled in. Then the brand and contacts, the site map in six ruled columns
  * (Legal last), a one-line disclaimer, and the copyright with a way back to the top.
  */
 export function SiteFooter() {
@@ -47,7 +48,8 @@ export function SiteFooter() {
       </svg>
       <div className="mx-auto max-w-[1440px] px-5 sm:px-8">
         {/* Call to action */}
-        <form action="/auth/signup" method="get" data-reveal className="pb-14 pt-16 md:pb-20 md:pt-24">
+        {/* The address is kept for follow-up (a "Sign-up interest" in the staff console), then sign-up opens with it filled in. */}
+        <form action={startSignup} data-reveal className="pb-14 pt-16 md:pb-20 md:pt-24">
           {/* A wrapping row with real gaps, so the phrase, the field and the button never touch when they wrap. */}
           <h2 id="close-title" className="flex flex-wrap items-center gap-x-[0.3em] gap-y-[0.3em] text-[clamp(2.25rem,6vw,5.75rem)] leading-[1.1]">
             <span>Start free as</span>

@@ -5,7 +5,7 @@ import type { LeadStatus, LeadTopic } from "./types";
  * the forms render these and lib/leads.ts validates against the same values.
  */
 
-export const LEAD_TOPICS = ["sales", "support", "partner", "enterprise"] as const satisfies readonly LeadTopic[];
+export const LEAD_TOPICS = ["sales", "support", "partner", "enterprise", "signup"] as const satisfies readonly LeadTopic[];
 export const LEAD_STATUSES = ["new", "open", "closed"] as const satisfies readonly LeadStatus[];
 
 export const TOPIC_LABEL: Record<LeadTopic, string> = {
@@ -13,6 +13,7 @@ export const TOPIC_LABEL: Record<LeadTopic, string> = {
   support: "Support",
   partner: "Partner",
   enterprise: "Enterprise",
+  signup: "Sign-up interest",
 };
 
 export const STATUS_LABEL: Record<LeadStatus, string> = { new: "New", open: "Open", closed: "Closed" };
@@ -81,6 +82,7 @@ export const REGION_CHOICES = opts([
 
 /** Labels for the `details` keys each form stores, for the staff inbox. */
 export const DETAIL_LABEL: Record<string, string> = {
+  source: "Where it came from",
   siteDomain: "Site domain",
   website: "Website",
   partnershipType: "Partnership type",
@@ -124,4 +126,5 @@ export const RESPONSE_TIMES: Record<LeadTopic, string> = {
   sales: "Sales replies within one business day.",
   partner: "The partnerships team replies within one business day.",
   enterprise: "Enterprise and compliance requests get a reply within one business day, from a named contact.",
+  signup: "Not a request: someone left their email in a Start free call to action. Follow up if they haven't signed up.",
 };

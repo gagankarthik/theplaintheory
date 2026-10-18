@@ -427,6 +427,8 @@ export interface Tracker {
   pattern: string;
   status?: TrackerStatus;
   source?: TrackerSource;
+  /** approved by a scan because the tracker database knows the vendor and its category (editable) */
+  autoApproved?: boolean;
   vendor?: string;
   purpose?: string;
   kind?: TrackerKind;
@@ -461,6 +463,8 @@ export interface Property {
    */
   retentionCheckpoint?: RetentionCheckpoint;
   /** outcome of the most recent "Verify chain" run on the consent log */
+  /** first time someone saved or published the banner themselves (the setup checklist's design step) */
+  bannerSavedAt?: string;
   /** last chain verification; `head` is the newest receipt it verified, where the next check can start */
   lastChainCheck?: { at: string; ok: boolean; checked: number; brokenAt?: number; head?: { seq: number; hash: string } };
   /** automatic tracker scans (lib/scan-schedule.ts); absent means off */
@@ -528,7 +532,8 @@ export interface ConsentReceipt {
   seq: number;
 }
 
-export type LeadTopic = "sales" | "support" | "partner" | "enterprise";
+/** "signup": an email left in a "Start free" call to action, kept so the team can follow up */
+export type LeadTopic = "sales" | "support" | "partner" | "enterprise" | "signup";
 export type LeadStatus = "new" | "open" | "closed";
 
 /**

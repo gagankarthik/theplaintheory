@@ -1,5 +1,6 @@
 "use server";
 
+import { launchNewSite } from "@/lib/site-launch";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { invalid, type ActionResult } from "@/lib/action-result";
@@ -105,6 +106,10 @@ export async function createWorkspace(_: OnboardState, form: FormData): Promise<
   await recordPreWorkspaceAuth({ orgId, actor, firstWorkspace: priorMemberships.length === 0, signedUpAt: user?.createdAt, session: sessionRecord });
   await recordAudit({ orgId, actor, action: "org.created", target: { type: "org", id: orgId, label: d.org }, metadata: { dataRegion: d.dataRegion, kind: d.kind, plan: d.plan } });
   await recordAudit({ orgId, actor, action: "property.created", target: { type: "property", id: property.id, label: property.domain } });
+  // A DPDPA notice must name someone to contact. Until the owner sets a DPO in Settings, it's them.
+  const dpo = { name: user?.name || session.email, email: session.email };
+  await store.updateOrg(orgId, { dpo });
+  await launchNewSite(store, property, { id: orgId, dpo }, actor);
   await setActiveOrg(orgId);
 
   // the site overview opens on the setup checklist

@@ -141,7 +141,8 @@ function panelKeys(e: React.KeyboardEvent<HTMLElement>) {
  * One mega-menu (disclosure pattern): click or Enter toggles it, never hover, so the pointer can travel to
  * the panel without it closing on the way. Down arrow opens it and moves into the links; Escape closes it
  * and returns focus to the button; it closes when focus leaves, on a press outside it, and on navigation.
- * The white panel drops below the bar, one column per group, wrapping when the viewport is narrow.
+ * The white panel drops below the bar with one evenly spaced column per group, always side by side
+ * (a column never wraps under another), sized to its longest link.
  */
 function Menu({ menu, open, onOpen, onClose }: { menu: NavMenu; open: boolean; onOpen: () => void; onClose: () => void }) {
   const id = useId();
@@ -181,9 +182,9 @@ function Menu({ menu, open, onOpen, onClose }: { menu: NavMenu; open: boolean; o
         <IconChevronDown size={14} aria-hidden className={`ml-1 text-white/60 transition-transform duration-150 ${open ? "rotate-180" : ""}`} />
       </button>
       <div ref={panel} id={id} hidden={!open} onKeyDown={panelKeys} className="absolute top-full z-50 w-max pt-3">
-        <div className={`${PANEL} flex max-w-[min(46rem,calc(100vw-2rem))] flex-wrap gap-x-10 gap-y-8 px-8 py-7`}>
+        <div className={`${PANEL} grid max-w-[calc(100vw-2rem)] grid-flow-col auto-cols-[minmax(10.5rem,max-content)] gap-x-12 px-8 py-7`}>
           {menu.groups.map((g) => (
-            <div key={g.heading + g.links[0]?.href} className="w-[200px]">
+            <div key={g.heading + g.links[0]?.href} className="flex min-w-0 flex-col">
               <p className="text-[0.875rem] text-mute-ink" aria-hidden={!g.heading.trim() || undefined}>
                 {g.heading}
               </p>

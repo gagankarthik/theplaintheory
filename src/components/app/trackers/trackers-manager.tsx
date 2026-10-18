@@ -127,6 +127,13 @@ function Flag({ children, title }: { children: React.ReactNode; title: string })
 
 function SourceBadge({ t }: { t: Tracker }) {
   const s = statusOf(t);
+  // approved by a scan from the tracker database: a known vendor in its standard category
+  if (s === "approved" && t.autoApproved)
+    return (
+      <Badge tone="success" icon={<IconCheck size={12} />}>
+        Auto-categorized
+      </Badge>
+    );
   if (s === "approved")
     return (
       <Badge tone="success" icon={<IconCheck size={12} />}>
@@ -699,7 +706,7 @@ function TrackerDetail({ t, flags }: { t: Tracker; flags?: TrackerFlags }) {
     ["Secure", flags?.secure === undefined ? "Not recorded" : flags.secure ? "Yes, HTTPS only" : "No"],
     ["SameSite", flags?.sameSite ?? "Not recorded"],
     ["Stored in", flags?.storage ? STORAGE_LABEL[flags.storage] : "Not recorded"],
-    ["Source", t.source === "manual" ? "Added by hand" : t.source === "traffic" ? "Seen in visitor traffic" : "Found by a scan"],
+    ["Source", t.source === "manual" ? "Added by hand" : t.source === "traffic" ? "Seen in visitor traffic" : t.autoApproved ? "Found by a scan, categorized automatically (known vendor)" : "Found by a scan"],
     ["Last seen", t.seenAt ? <DateText key="s" iso={t.seenAt} mode="datetime" /> : "Not recorded"],
   ];
   return (

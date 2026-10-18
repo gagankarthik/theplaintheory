@@ -199,7 +199,10 @@ export interface MergeResult {
 
 /**
  * Fold a scan into the tracker list. Rules:
- *  - a new tracker goes to "review", with the database's category when it knows one (null when not);
+ *  - a new tracker from a vendor the database knows is approved straight away with that vendor's
+ *    standard category (marked autoApproved, so the catalog says so and the site can change it):
+ *    standard vendors never need a line-by-line sign-off before a banner can go live;
+ *  - any other new tracker goes to "review", with the database's category when it knows one;
  *  - an approved one keeps its status, category and pattern: a scan never holds or releases anything;
  *  - an ignored one stays ignored, matched by pattern, so rescans don't suggest it again;
  *  - anything found again gets fresh "found on" pages, and blanks (vendor, purpose) filled in;
@@ -223,12 +226,14 @@ export function mergeScan(existing: Tracker[], candidates: Candidate[], opts: { 
       if (statusOf(hit) === "review" && hit.category === null && c.category) hit.category = c.category;
       continue;
     }
+    const known = Boolean(c.vendor && c.category);
     const t: Tracker = {
       id: opts.newId(),
       name: c.name.slice(0, 60),
       pattern: c.pattern.slice(0, 200),
       category: c.category,
-      status: "review",
+      status: known ? "approved" : "review",
+      ...(known ? { autoApproved: true } : {}),
       source: "scan",
       kind: c.kind,
       party: c.party,

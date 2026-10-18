@@ -69,7 +69,7 @@ export function leadMetrics(leads: Lead[], now = Date.now(), days = 30): LeadMet
   const series = new Map<string, LeadDay>();
   for (let i = days - 1; i >= 0; i--) {
     const day = dayKey(now - i * DAY);
-    series.set(day, { day, total: 0, byTopic: { sales: 0, support: 0, partner: 0, enterprise: 0 } });
+    series.set(day, { day, total: 0, byTopic: { sales: 0, support: 0, partner: 0, enterprise: 0, signup: 0 } });
   }
   for (const l of leads) {
     const d = series.get(l.createdAt.slice(0, 10));
