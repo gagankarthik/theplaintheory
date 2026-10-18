@@ -9,6 +9,8 @@ export type NavTab = {
   label: string;
   icon: (p: IconProps) => ReactNode;
   exact?: boolean;
+  /** other pages this row stands for (its section's tabs), so it stays current on them */
+  also?: string[];
   /** a short count or progress shown at the row's end, e.g. "3/6" while a site is being set up */
   badge?: { text: string; label: string };
 };

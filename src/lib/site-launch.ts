@@ -21,6 +21,7 @@ export async function launchNewSite(store: Store, property: Property, org: Pick<
     return null;
   });
   if (published && !published.ok) console.warn("[site-launch] default banner not published:", published.error);
+  if (published?.ok) await store.updateProperty(property.id, { defaultPublished: true });
 
   after(async () => {
     try {

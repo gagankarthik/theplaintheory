@@ -463,6 +463,8 @@ export interface Property {
    */
   retentionCheckpoint?: RetentionCheckpoint;
   /** outcome of the most recent "Verify chain" run on the consent log */
+  /** the default banner was published automatically when the site was created (lib/site-launch.ts) */
+  defaultPublished?: boolean;
   /** first time someone saved or published the banner themselves (the setup checklist's design step) */
   bannerSavedAt?: string;
   /** last chain verification; `head` is the newest receipt it verified, where the next check can start */

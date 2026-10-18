@@ -49,7 +49,8 @@ function base(property: Property, org: Pick<Organization, "dpo">, scan: ScanRepo
     scanned: scan?.status === "ok",
     trackers: property.trackers.length,
     toReview: property.trackers.filter((t) => statusOf(t) === "review").length,
-    bannerEdited: property.config.version > 1,
+    // Saved or published by someone; a site published before this signal existed (no default publish) counts too.
+    bannerSaved: Boolean(property.bannerSavedAt) || (property.publishedVersion > 0 && !property.defaultPublished),
     published: property.publishedVersion > 0,
     blocked: evaluateFairness(property.config, { dpoEmail: org.dpo?.email }).failures.length,
     seen: decided || viewed,

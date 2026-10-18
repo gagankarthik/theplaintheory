@@ -393,7 +393,7 @@ export const TRACKER_DB: TrackerDef[] = [
   d("jquery-cdn", "jQuery CDN", "OpenJS Foundation", E, "Serves the jQuery library.", { urls: ["code.jquery.com"] }),
   d("bootstrap-cdn", "BootstrapCDN", "jsDelivr", E, "Serves the Bootstrap library.", { urls: ["stackpath.bootstrapcdn.com", "maxcdn.bootstrapcdn.com", "netdna.bootstrapcdn.com"] }),
   d("font-awesome", "Font Awesome", "Fonticons", E, "Serves icon fonts.", { urls: ["kit.fontawesome.com", "use.fontawesome.com", "ka-f.fontawesome.com"] }),
-  d("plain-theory", "Plain Theory consent", "Plain Theory", E, "Shows the consent banner and remembers the visitor's choice.", { urls: ["/sdk/plain-consent.js"], cookies: [["plain_consent", "6 months"]] }),
+  d("plain-theory", "Plain Theory consent", "Plain Theory", E, "Shows the consent banner and remembers the visitor's choice.", { urls: ["/sdk/plain-consent.js", "cdn.theplaintheory.in", "theplaintheory.in/api/v1"], cookies: [["plain_consent", "6 months"], ["plain_gcm", "6 months"]], inline: ["PlainConsent"] }),
   d("onetrust", "OneTrust", "OneTrust", E, "Consent management platform.", { urls: ["cdn.cookielaw.org", "optanon.blob.core.windows.net", "cookie-cdn.cookiepro.com"], cookies: [["OptanonConsent", "1 year"], ["OptanonAlertBoxClosed", "1 year"]] }),
   d("cookiebot", "Cookiebot", "Usercentrics", E, "Consent management platform.", { urls: ["consent.cookiebot.com", "consentcdn.cookiebot.com"], cookies: [["CookieConsent", "1 year"]] }),
   d("cookieyes", "CookieYes", "CookieYes", E, "Consent management platform.", { urls: ["cdn-cookieyes.com"], cookies: [["cookieyes-consent", "1 year"]] }),

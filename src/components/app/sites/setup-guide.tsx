@@ -2,17 +2,15 @@ import Link from "next/link";
 import { ButtonLink } from "@/components/app/ui/button";
 import { Card, CardHeader } from "@/components/app/ui/card";
 import { Progress } from "@/components/app/ui/progress";
-import { IconArrowRight, IconBrush, IconCheck, IconCookie, IconInstall, IconRadar, IconReceipt, IconSpark } from "@/components/icons";
+import { IconArrowRight, IconBrush, IconCheck, IconCookie, IconInstall, IconReceipt } from "@/components/icons";
 import type { SetupProgress, SetupStepId } from "@/lib/setup";
 import { RefreshWhile } from "./refresh-while";
 
 const ICON: Record<SetupStepId, typeof IconBrush> = {
-  scan: IconRadar,
-  review: IconCookie,
   banner: IconBrush,
-  publish: IconSpark,
   install: IconInstall,
   decision: IconReceipt,
+  review: IconCookie,
 };
 
 /** Steps anyone in the organization can take; the rest need an owner, admin or editor. */

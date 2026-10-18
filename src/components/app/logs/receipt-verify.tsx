@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { verifyReceiptAction, type ReceiptCheck } from "@/app/app/sites/[propertyId]/logs/[receiptId]/actions";
+import { verifyReceiptAction, type ReceiptCheck } from "@/app/app/sites/[propertyId]/(vault)/logs/[receiptId]/actions";
 import { Alert } from "@/components/app/ui/alert";
 import { Button } from "@/components/app/ui/button";
 import { IconAlert, IconCheck, IconShieldCheck } from "@/components/icons";

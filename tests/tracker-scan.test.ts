@@ -187,15 +187,24 @@ describe("triage", () => {
     expect(candidates.find((c) => c.pattern === "PHPSESSID")).toMatchObject({ kind: "cookie", category: "essential" });
   });
 
-  it("adds new trackers to review: classified ones with a category, unknown ones without", () => {
+  it("approves known vendors with their standard category, and puts only unknown trackers in review", () => {
     const { trackers, added } = mergeScan([], candidates, { now, newId });
     expect(added.length).toBe(candidates.length);
-    expect(trackers.every((t) => t.status === "review" && t.source === "scan")).toBe(true);
-    expect(trackers.find((t) => t.pattern === "cdn.unknownvendor.io")?.category).toBeNull();
-    expect(trackers.find((t) => t.pattern === "static.hotjar.com")).toMatchObject({ category: "analytics", vendor: "Contentsquare", foundOn: ["https://www.acme.in/pricing"], pageCount: 1, seenAt: now });
-    expect(sdkTrackers(trackers)).toEqual([]);
-    expect(suggested(trackers).map((t) => t.pattern)).toContain("static.hotjar.com");
-    expect(suggested(trackers).map((t) => t.pattern)).not.toContain("cdn.unknownvendor.io");
+    expect(trackers.every((t) => t.source === "scan")).toBe(true);
+    expect(trackers.find((t) => t.pattern === "cdn.unknownvendor.io")).toMatchObject({ status: "review", category: null });
+    expect(trackers.find((t) => t.pattern === "static.hotjar.com")).toMatchObject({
+      status: "approved",
+      autoApproved: true,
+      category: "analytics",
+      vendor: "Contentsquare",
+      foundOn: ["https://www.acme.in/pricing"],
+      pageCount: 1,
+      seenAt: now,
+    });
+    // held from the next publish; nothing known is left waiting for a sign-off
+    expect(sdkTrackers(trackers).map((t) => t.p)).toContain("static.hotjar.com");
+    expect(suggested(trackers)).toEqual([]);
+    expect(trackers.filter((t) => t.status === "review").every((t) => !t.vendor)).toBe(true);
   });
 
   it("never changes an approved tracker's status, category or pattern", () => {
@@ -289,5 +298,13 @@ describe("local store: tracker scans", () => {
     await store.deleteProperty("p1");
     expect(await store.listScans("p1", 10)).toEqual([]);
     expect(await store.listScans("p2", 10)).toHaveLength(1);
+  });
+});
+
+describe("our own script", () => {
+  it("is recognised as Plain Theory, essential, not an unknown third party", () => {
+    const m = matchUrl("https://cdn.theplaintheory.in/v1/plain.js");
+    expect([m?.def.vendor, m?.def.category]).toEqual(["Plain Theory", "essential"]);
+    expect(matchCookie("plain_consent")?.def.vendor).toBe("Plain Theory");
   });
 });

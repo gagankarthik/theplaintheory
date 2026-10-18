@@ -18,12 +18,8 @@ import {
   IconLock,
   IconLogs,
   IconOverview,
-  IconPlainText,
   IconPlug,
   IconPlus,
-  IconRadar,
-  IconReceipt,
-  IconRegion,
   IconSettings,
   IconShieldCheck,
   IconSignOut,
@@ -66,59 +62,54 @@ interface ShellProps {
 }
 
 /**
- * A site's sections, in the order the work happens: set the site up (find the cookies, sort them,
- * design and localise the notice, install it), watch it, keep the records, and the site's own
- * settings at the end. Overview carries the setup progress while the site isn't live.
+ * A site's sections, four plain groups: Overview (which carries the setup progress while the site
+ * isn't live), Manage (what runs and what visitors see), Compliance (the records and the checks) and
+ * Developer (wiring it up). A row with several pages (Trackers & catalog, Banner studio, Consent
+ * vault) opens its main page and has tabs for the rest; it stays current on all of them.
  */
-const siteGroups = (id: string, setup?: SetupSummary | null): NavGroup[] => [
-  {
-    tabs: [
-      {
-        href: `/app/sites/${id}`,
-        label: "Overview",
-        icon: IconOverview,
-        exact: true,
-        ...(setup && setup.siteId === id ? {
-              badge: setup.scanning
-                ? { text: "Scanning", label: `, scan in progress, setup ${setup.done} of ${setup.total} done` }
-                : { text: `${setup.done}/${setup.total}`, label: `, setup ${setup.done} of ${setup.total} done` },
-            } : {}),
-      },
-    ],
-  },
-  {
-    label: "Set up",
-    tabs: [
-      { href: `/app/sites/${id}/scanner`, label: "Scanner", icon: IconRadar },
-      { href: `/app/sites/${id}/trackers`, label: "Cookie catalog", icon: IconCookie },
-      { href: `/app/sites/${id}/banner`, label: "Banner studio", icon: IconBrush },
-      { href: `/app/sites/${id}/regions`, label: "Regions", icon: IconRegion },
-      { href: `/app/sites/${id}/languages`, label: "Languages", icon: IconPlainText },
-      { href: `/app/sites/${id}/install`, label: "Install", icon: IconInstall },
-    ],
-  },
-  {
-    label: "Monitor",
-    tabs: [
-      { href: `/app/sites/${id}/leaks`, label: "Leaks", icon: IconAlert },
-      { href: `/app/sites/${id}/dpdp`, label: "DPDP readiness", icon: IconBalance },
-    ],
-  },
-  {
-    label: "Records",
-    tabs: [
-      { href: `/app/sites/${id}/logs`, label: "Consent log", icon: IconLogs },
-      { href: `/app/sites/${id}/evidence`, label: "Evidence Pack", icon: IconReceipt },
-    ],
-  },
-  {
-    label: "Site",
-    tabs: [
-      { href: `/app/sites/${id}/webhooks`, label: "Webhooks", icon: IconPlug },
-      { href: `/app/sites/${id}/settings`, label: "Site settings", icon: IconSettings },
-    ],
-  },
-];
+const siteGroups = (id: string, setup?: SetupSummary | null): NavGroup[] => {
+  const base = `/app/sites/${id}`;
+  return [
+    {
+      tabs: [
+        {
+          href: base,
+          label: "Overview",
+          icon: IconOverview,
+          exact: true,
+          ...(setup && setup.siteId === id ? {
+                badge: setup.scanning
+                  ? { text: "Scanning", label: `, scan in progress, setup ${setup.done} of ${setup.total} done` }
+                  : { text: `${setup.done}/${setup.total}`, label: `, setup ${setup.done} of ${setup.total} done` },
+              } : {}),
+        },
+      ],
+    },
+    {
+      label: "Manage",
+      tabs: [
+        { href: `${base}/trackers`, also: [`${base}/scanner`], label: "Trackers & catalog", icon: IconCookie },
+        { href: `${base}/banner`, also: [`${base}/regions`, `${base}/languages`], label: "Banner studio", icon: IconBrush },
+      ],
+    },
+    {
+      label: "Compliance",
+      tabs: [
+        { href: `${base}/logs`, also: [`${base}/evidence`], label: "Consent vault", icon: IconLogs },
+        { href: `${base}/leaks`, label: "Leak detection", icon: IconAlert },
+        { href: `${base}/dpdp`, label: "DPDP readiness", icon: IconBalance },
+      ],
+    },
+    {
+      label: "Developer",
+      tabs: [
+        { href: `${base}/install`, label: "Installation", icon: IconInstall },
+        { href: `${base}/webhooks`, label: "Webhooks", icon: IconPlug },
+        { href: `${base}/settings`, label: "Site settings", icon: IconSettings },
+      ],
+    },
+  ];
+};
 
 /** Organization pages: every site, the people, the plan, and the organization's own settings and records. */
 const orgTabs = (role: Role): NavTab[] => [
@@ -149,7 +140,8 @@ const orgGroups = (role: Role): NavGroup[] => {
 export const SIDEBAR_COOKIE = "pt-sidebar";
 export const SITE_COOKIE = "pt-site";
 
-const isActive = (t: NavTab, pathname: string) => (t.exact ? pathname === t.href : pathname === t.href || pathname.startsWith(`${t.href}/`));
+const under = (href: string, pathname: string) => pathname === href || pathname.startsWith(`${href}/`);
+const isActive = (t: NavTab, pathname: string) => (t.exact ? pathname === t.href : under(t.href, pathname) || (t.also ?? []).some((h) => under(h, pathname)));
 
 const initials = (s: string) =>
   s
@@ -533,7 +525,8 @@ export function Shell({ user, org, role, orgs, properties, initialCollapsed = fa
         <span aria-hidden className="size-2 rounded-full border-2 border-amber-bright" />
         Not published yet
       </span>
-    ) : focus && currentId && can(role, "property:write") ? (
+    ) : focus && currentId && focus.dirty && can(role, "property:write") ? (
+      // Only when there's something to publish: a site that's up to date shows nothing here.
       <div className="flex items-center gap-2.5">
         {focus.dirty ? (
           // same words as the page's publish badge, so the two never disagree

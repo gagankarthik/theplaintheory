@@ -43,25 +43,37 @@ describe("scanEta", () => {
 
 describe("setup checklist and scans", () => {
   const signals = (scan: SetupSignals["scan"]): SetupSignals => ({
-    propertyId: "prop_1", domain: "acme.in", scanned: false, trackers: 0, toReview: 0, bannerEdited: false,
+    propertyId: "prop_1", domain: "acme.in", scanned: false, trackers: 0, toReview: 0, bannerSaved: false,
     published: false, blocked: 0, seen: false, decided: false, scan,
   });
 
   it("a running scan shows as in progress with View progress, not Run a scan", () => {
-    const step = setupProgress(signals(scanSignal(report({}), T0 + 10_000))).steps[0];
+    const step = setupProgress(signals(scanSignal(report({}), T0 + 10_000))).steps.find((x) => x.id === "review")!;
     expect(step.status).toBe("running");
     expect(step.cta).toBe("View progress");
     expect(step.title).toBe("Scanning acme.in");
   });
 
   it("a silent scan counts as failed after 15 minutes, with a retry", () => {
-    const step = setupProgress(signals(scanSignal(report({}), T0 + 16 * 60_000))).steps[0];
+    const step = setupProgress(signals(scanSignal(report({}), T0 + 16 * 60_000))).steps.find((x) => x.id === "review")!;
     expect(step.status).toBe("failed");
     expect(step.cta).toBe("Run the scan again");
   });
 
+  it("the new order: banner, script, first consent, then the trackers nobody could identify", () => {
+    expect(setupProgress(signals(undefined)).steps.map((x) => x.id)).toEqual(["banner", "install", "decision", "review"]);
+    const reviewed = setupProgress({ ...signals(undefined), scanned: true, trackers: 9, toReview: 2 }).steps.find((x) => x.id === "review")!;
+    expect([reviewed.done, reviewed.title]).toEqual([false, "Review 2 trackers we couldn't identify"]);
+  });
+
+  it("a default banner that's live counts once the owner saves it", () => {
+    const live = { ...signals(undefined), published: true };
+    expect(setupProgress(live).steps[0]).toMatchObject({ done: false, title: "Make the banner yours" });
+    expect(setupProgress({ ...live, bannerSaved: true }).steps[0].done).toBe(true);
+  });
+
   it("no scan yet: the plain first step", () => {
-    const step = setupProgress(signals(undefined)).steps[0];
+    const step = setupProgress(signals(undefined)).steps.find((x) => x.id === "review")!;
     expect([step.status, step.cta]).toEqual([undefined, "Run a scan"]);
   });
 });

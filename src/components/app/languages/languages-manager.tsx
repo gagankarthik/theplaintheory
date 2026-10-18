@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
-import { addLanguage, markReviewed, removeLanguage, saveTranslation } from "@/app/app/sites/[propertyId]/languages/actions";
+import { addLanguage, markReviewed, removeLanguage, saveTranslation } from "@/app/app/sites/[propertyId]/(studio)/languages/actions";
 import { IconPlus, IconTrash } from "@/components/icons";
 import { Alert } from "@/components/app/ui/alert";
 import { Badge } from "@/components/app/ui/badge";

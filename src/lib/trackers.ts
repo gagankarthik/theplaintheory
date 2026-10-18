@@ -217,6 +217,9 @@ export function mergeScan(existing: Tracker[], candidates: Candidate[], opts: { 
     const found = { foundOn: c.pages.slice(0, 5), pageCount: c.pages.length, seenAt: opts.now };
     if (hit) {
       seen++;
+      // One waiting for review whose vendor is now known (the database grew) is categorized the same
+      // way a new known one is; a decision someone already made is never touched.
+      const nowKnown = statusOf(hit) === "review" && !hit.vendor && Boolean(c.vendor && c.category);
       Object.assign(hit, found, {
         vendor: hit.vendor ?? c.vendor,
         purpose: hit.purpose ?? c.purpose,
@@ -224,6 +227,7 @@ export function mergeScan(existing: Tracker[], candidates: Candidate[], opts: { 
         party: hit.party ?? c.party,
       });
       if (statusOf(hit) === "review" && hit.category === null && c.category) hit.category = c.category;
+      if (nowKnown) Object.assign(hit, { category: c.category, status: "approved" as const, autoApproved: true });
       continue;
     }
     const known = Boolean(c.vendor && c.category);
