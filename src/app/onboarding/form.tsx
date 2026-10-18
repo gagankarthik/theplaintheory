@@ -49,7 +49,8 @@ function guessLocale(): { region: Region; currency: Currency } {
   return { region: "ap-south-1", currency: "usd" };
 }
 
-const recommendedPlan = (kind: WorkspaceKind | null): PlanId => (kind === "organization" ? "growth" : "free");
+/** The plan step leads with a paid plan; Free stays available as a quiet "continue with Free" below the cards. */
+const recommendedPlan = (kind: WorkspaceKind | null): PlanId => (kind === "organization" ? "growth" : "starter");
 
 /* ---------- small presentational pieces ---------- */
 
@@ -512,7 +513,9 @@ export function OnboardingForm({
               <legend className="sr-only">Choose a plan</legend>
               {heading(
                 "Choose your plan",
-                kind === "organization" ? "Most teams start on Growth for the Evidence Pack and roles. Free is always there." : "Free covers a personal site for good. Upgrade whenever you need more.",
+                kind === "organization"
+                  ? "Most teams start on Growth for the Evidence Pack, roles and audit trail. Change or cancel any time."
+                  : "Starter covers your site with room to grow. Change or cancel any time.",
               )}
               <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <Segmented
@@ -529,7 +532,7 @@ export function OnboardingForm({
               </div>
 
               <div role="radiogroup" aria-label="Plans" className="space-y-3">
-                {plans.map((p) => {
+                {plans.filter((p) => p.id !== "free").map((p) => {
                   const recommended = p.id === recommendedPlan(kind);
                   const selected = chosenPlan === p.id;
                   const limits = [
@@ -588,6 +591,33 @@ export function OnboardingForm({
                     Talk to sales
                   </ButtonLink>
                 </div>
+              </div>
+
+              {/* Free is always there, but as a way out rather than the default choice */}
+              <div className="mt-6 flex flex-col items-center gap-1 border-t border-line pt-5 text-center">
+                {chosenPlan === "free" ? (
+                  <p className="flex items-center gap-1.5 text-sm font-medium text-ink">
+                    <IconCheck size={14} className="text-success" aria-hidden />
+                    Continuing on Free. Choose a plan above to upgrade instead.
+                  </p>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPlan("free");
+                      go(LAST);
+                    }}
+                    className="rounded-full px-3 py-1.5 text-sm font-medium text-ink-2 underline underline-offset-4 transition-colors duration-150 hover:text-ink"
+                  >
+                    Not ready yet? Continue with Free
+                  </button>
+                )}
+                <p className="text-xs text-ink-3">
+                  {(() => {
+                    const f = livePlan("free");
+                    return `Free: ${f.properties} site, ${compactNumber(f.pageviews ?? 0)} banner views a month, ${retentionLabel(f.logRetentionDays).toLowerCase()} consent log. Upgrade any time.`;
+                  })()}
+                </p>
               </div>
 
               <p className="mt-4 flex flex-col gap-1 text-sm text-ink-3 sm:flex-row sm:items-center sm:justify-between">
@@ -655,7 +685,7 @@ export function OnboardingForm({
           )}
           {step < LAST ? (
             <Button type="submit" className="w-full gap-2 sm:w-auto">
-              Continue
+              {step === 3 ? (paid ? `Continue with ${planById(chosenPlan).name}` : "Continue with Free") : "Continue"}
               <IconArrowRight size={16} />
             </Button>
           ) : (
