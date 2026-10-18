@@ -1,11 +1,12 @@
 import { fmtInt, fmtUsd } from "@/components/admin/format";
 import { PlanMix, SignupsChart } from "@/components/admin/overview-charts";
 import { RecentSignupsTable } from "@/components/admin/recent-signups";
+import { RequestsTable } from "@/components/admin/requests-table";
 import { PageHeader } from "@/components/app/shell/page-header";
 import { ButtonLink } from "@/components/app/ui/button";
 import { EmptyState } from "@/components/app/ui/empty-state";
 import { StatStrip } from "@/components/app/ui/stat-strip";
-import { IconTeam } from "@/components/icons";
+import { IconMail, IconTeam } from "@/components/icons";
 import { requireStaff, staffMetadata } from "@/lib/auth/staff";
 import { loadOverview } from "@/lib/platform/data";
 import { leadMetrics, shortDuration } from "@/lib/platform/lead-metrics";
@@ -57,7 +58,7 @@ export default async function AdminOverviewPage() {
               { label: "New, unanswered", value: fmtInt(lm.unanswered), tone: lm.unanswered ? "warn" : undefined, note: lm.oldestWaitingMs === null ? "Inbox zero" : `Oldest waiting ${shortDuration(lm.oldestWaitingMs)}`, href: "/admin/requests?status=new" },
               { label: "Urgent or high support", value: fmtInt(lm.urgentOpen), tone: lm.urgentOpen ? "bad" : undefined, note: "Not yet closed", href: "/admin/requests?topic=support" },
               { label: "Requests, 30 days", value: fmtInt(lm.last30), note: `${fmtInt(lm.topics.find((t) => t.topic === "sales")?.last30 ?? 0)} sales, ${fmtInt(lm.topics.find((t) => t.topic === "enterprise")?.last30 ?? 0)} enterprise` },
-              { label: "Median time to close", value: lm.medianCloseMs === null ? "None yet" : shortDuration(lm.medianCloseMs), note: "All metrics on Requests", href: "/admin/requests" },
+              { label: "Median time to close", value: lm.medianCloseMs === null ? "None yet" : shortDuration(lm.medianCloseMs), note: "All metrics on Contact requests", href: "/admin/requests" },
             ]}
           />
         </>
@@ -67,6 +68,26 @@ export default async function AdminOverviewPage() {
         <SignupsChart data={o.signups} />
         <PlanMix mix={o.planMix} total={t.orgs} />
       </div>
+
+      {leads ? (
+        <section aria-labelledby="recent-req-h" className="mb-8">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h2 id="recent-req-h" className="text-base font-semibold">
+              Recent contact requests
+            </h2>
+            <ButtonLink href="/admin/requests" variant="secondary" size="sm">
+              All contact requests
+            </ButtonLink>
+          </div>
+          {leads.length ? (
+            <RequestsTable leads={leads.slice(0, 8)} />
+          ) : (
+            <EmptyState icon={<IconMail size={22} />} title="No contact requests yet">
+              Submissions from the contact page appear here as soon as they&apos;re sent.
+            </EmptyState>
+          )}
+        </section>
+      ) : null}
 
       <section aria-labelledby="recent-h">
         <div className="mb-3 flex items-center justify-between gap-3">

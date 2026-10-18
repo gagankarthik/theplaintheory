@@ -12,7 +12,7 @@ import { leadMetrics } from "@/lib/platform/lead-metrics";
 import { getStore } from "@/lib/store";
 import type { LeadStatus, LeadTopic } from "@/lib/types";
 
-export const generateMetadata = () => staffMetadata("Requests");
+export const generateMetadata = () => staffMetadata("Contact requests");
 
 const LIMIT = 300;
 const METRICS_LIMIT = 5000;
@@ -62,8 +62,8 @@ export default async function AdminRequestsPage({ searchParams }: { searchParams
     <>
       <PageHeader
         live
-        title="Requests"
-        description="Support tickets, sales enquiries, partner and enterprise requests from the public contact forms, newest first. Status changes are audited."
+        title="Contact requests"
+        description="Every submission from the contact page (sales, support, partner and enterprise), newest first. Open one to read it in full and reply; status changes are audited."
       />
 
       <RequestMetrics m={metrics} />

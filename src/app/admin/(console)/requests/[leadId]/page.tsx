@@ -48,7 +48,7 @@ export default async function AdminRequestPage({ params }: { params: Promise<{ l
     <>
       <PageHeader
         title={summary}
-        crumbs={[{ label: "Staff console" }, { label: "Overview", href: "/admin" }, { label: "Requests", href: "/admin/requests" }, { label: ref }]}
+        crumbs={[{ label: "Staff console" }, { label: "Overview", href: "/admin" }, { label: "Contact requests", href: "/admin/requests" }, { label: ref }]}
         description={
           <span className="flex flex-wrap items-center gap-2">
             <LeadStatusBadge status={status} />

@@ -17,7 +17,7 @@ const NAV: (NavTab & { id: AdminNavId })[] = [
   { id: "overview", href: "/admin", label: "Overview", icon: IconOverview, exact: true },
   { id: "orgs", href: "/admin/orgs", label: "Organizations", icon: IconSites },
   { id: "users", href: "/admin/users", label: "Users", icon: IconTeam },
-  { id: "requests", href: "/admin/requests", label: "Requests", icon: IconMail },
+  { id: "requests", href: "/admin/requests", label: "Contact requests", icon: IconMail },
   { id: "staff", href: "/admin/staff", label: "Our team", icon: IconShieldCheck },
   { id: "audit", href: "/admin/audit", label: "Audit log", icon: IconChain },
 ];
@@ -40,18 +40,21 @@ export function AdminShell({
   user,
   roleLabel,
   nav,
+  badges,
   trustedBrowsers,
   children,
 }: {
   user: { name: string; email: string };
   roleLabel: string;
   nav: AdminNavId[];
+  /** counts that need attention, such as unanswered contact requests */
+  badges?: Partial<Record<AdminNavId, NavTab["badge"]>>;
   /** Present with STAFF_REMEMBER_DEVICE=1: this browser's trust (a formatted end date, or null) and "Sign out everywhere". */
   trustedBrowsers?: { thisBrowserUntil: string | null };
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const items = NAV.filter((n) => nav.includes(n.id));
+  const items = NAV.filter((n) => nav.includes(n.id)).map((n) => (badges?.[n.id] ? { ...n, badge: badges[n.id] } : n));
   const [collapsed, setCollapsed] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuButton = useRef<HTMLButtonElement>(null);
