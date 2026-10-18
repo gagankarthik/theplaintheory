@@ -1,18 +1,10 @@
 "use client";
 
-import {
-  consentActions,
-  consentStore,
-  isAllowed,
-  loadPlainConsent,
-  type Category,
-  type ConsentState,
-  type LoadOptions,
-} from "@plaintheory/consent";
+import { consentActions, consentStore, isAllowed, loadPlainConsent, loadScriptWhenAllowed, type Category, type ConsentState, type LoadOptions } from "@theplaintheory/consent";
 import { useEffect, useSyncExternalStore, type ButtonHTMLAttributes, type ReactNode } from "react";
 
-export type { Categories, Category, ConsentState, Framework, LoadOptions, PlainConsentApi } from "@plaintheory/consent";
-export { getConsent, loadPlainConsent, loadScriptWhenAllowed, whenAllowed } from "@plaintheory/consent";
+export type { Categories, Category, ConsentState, Framework, LoadOptions, PlainConsentApi } from "@theplaintheory/consent";
+export { getConsent, isAllowed, loadPlainConsent, loadScriptWhenAllowed, onConsentChange, whenAllowed } from "@theplaintheory/consent";
 
 /**
  * Loads plain-consent.js once on the client. Render it near the root (Next.js: app/layout.tsx).
@@ -20,13 +12,15 @@ export { getConsent, loadPlainConsent, loadScriptWhenAllowed, whenAllowed } from
  * Hooks and components below work anywhere under it, and also without it if you add the tag yourself.
  */
 export function PlainConsentProvider({ children, ...options }: LoadOptions & { children?: ReactNode }) {
-  const { siteKey, src, apiUrl, configUrl, debug, nonce, readyTimeoutMs } = options;
+  const { siteKey, src, apiUrl, configUrl, gcm, debug, nonce, readyTimeoutMs } = options;
   useEffect(() => {
     // A failed load leaves known trackers blocked and no banner shown; log it rather than throw.
-    loadPlainConsent({ siteKey, src, apiUrl, configUrl, debug, nonce, readyTimeoutMs }).catch((e: unknown) => console.warn(e));
-  }, [siteKey, src, apiUrl, configUrl, debug, nonce, readyTimeoutMs]);
+    loadPlainConsent({ siteKey, src, apiUrl, configUrl, gcm, debug, nonce, readyTimeoutMs }).catch((e: unknown) => console.warn(e));
+  }, [siteKey, src, apiUrl, configUrl, gcm, debug, nonce, readyTimeoutMs]);
   return <>{children}</>;
 }
+
+const useConsentState = () => useSyncExternalStore(consentStore.subscribe, consentStore.getSnapshot, consentStore.getServerSnapshot);
 
 export interface UseConsent {
   /** null on the server and until the script is ready */
@@ -39,18 +33,24 @@ export interface UseConsent {
   open(): void;
   /** forget the choice and ask again */
   revoke(): void;
+  /** show the notice in one of the site's languages; "" for the default */
+  setLanguage(code: string): void;
 }
 
 /** Consent state and actions. Concurrent-safe (useSyncExternalStore) and SSR-safe (null on the server). */
 export function useConsent(): UseConsent {
-  const state = useSyncExternalStore(consentStore.subscribe, consentStore.getSnapshot, consentStore.getServerSnapshot);
+  const state = useConsentState();
   return { state, ready: state !== null, ...consentActions };
 }
 
 /** Whether a category is allowed. False on the server and before the script is ready (except `essential`). */
 export function useConsentAllowed(category: Category): boolean {
-  const state = useSyncExternalStore(consentStore.subscribe, consentStore.getSnapshot, consentStore.getServerSnapshot);
-  return isAllowed(category, state);
+  return isAllowed(category, useConsentState());
+}
+
+/** True once the script has loaded the site's settings (false on the server). */
+export function useConsentReady(): boolean {
+  return useConsentState() !== null;
 }
 
 /** Render children only when `category` is allowed; otherwise render `fallback`. */
@@ -78,15 +78,15 @@ export function ConsentScript({
   const allowed = useConsentAllowed(category);
   useEffect(() => {
     if (!allowed) return;
-    if (document.querySelector(`script[src="${CSS.escape(src)}"]`)) return;
-    const s = document.createElement("script");
-    s.src = src;
-    s.async = async;
-    Object.entries(attributes ?? {}).forEach(([k, v]) => s.setAttribute(k, v));
-    if (onLoad) s.addEventListener("load", onLoad, { once: true });
-    document.head.appendChild(s);
+    let live = true;
+    loadScriptWhenAllowed(category, src, { ...attributes, ...(async ? { async: true } : {}) }).then((s) => {
+      if (live && onLoad) s.addEventListener("load", onLoad, { once: true });
+    });
+    return () => {
+      live = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- attributes/onLoad apply to the first insertion only
-  }, [allowed, src, async]);
+  }, [allowed, category, src, async]);
   return null;
 }
 

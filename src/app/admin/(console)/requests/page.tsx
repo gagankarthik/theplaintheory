@@ -1,4 +1,5 @@
 import { FilterChips, type FilterChip } from "@/components/admin/filter-bar";
+import { RequestMetrics } from "@/components/admin/request-metrics";
 import { RequestsTable } from "@/components/admin/requests-table";
 import { PageHeader } from "@/components/app/shell/page-header";
 import { EmptyState } from "@/components/app/ui/empty-state";
@@ -7,12 +8,14 @@ import { FilterBar } from "@/components/app/ui/filter-bar";
 import { IconMail } from "@/components/icons";
 import { requireStaff, staffMetadata } from "@/lib/auth/staff";
 import { LEAD_STATUSES, LEAD_TOPICS, STATUS_LABEL, TOPIC_LABEL, matchesReference } from "@/lib/lead-options";
+import { leadMetrics } from "@/lib/platform/lead-metrics";
 import { getStore } from "@/lib/store";
 import type { LeadStatus, LeadTopic } from "@/lib/types";
 
 export const generateMetadata = () => staffMetadata("Requests");
 
 const LIMIT = 300;
+const METRICS_LIMIT = 5000;
 const ALL = "all";
 
 const pick = <T extends string>(v: string | string[] | undefined, allowed: readonly T[]): T | undefined =>
@@ -26,7 +29,9 @@ export default async function AdminRequestsPage({ searchParams }: { searchParams
   const q = typeof sp.q === "string" ? sp.q.trim().slice(0, 120) : "";
 
   const store = await getStore();
-  const all = await store.listLeads({ status, topic, limit: LIMIT });
+  // Metrics always cover every request; the list below follows the filters.
+  const [all, everything] = await Promise.all([store.listLeads({ status, topic, limit: LIMIT }), store.listLeads({ limit: METRICS_LIMIT })]);
+  const metrics = leadMetrics(everything);
   const needle = q.toLowerCase();
   const leads = needle
     ? all.filter((l) => matchesReference(l.id, q) || l.email.toLowerCase().includes(needle) || l.name.toLowerCase().includes(needle) || (l.company ?? "").toLowerCase().includes(needle))
@@ -61,6 +66,9 @@ export default async function AdminRequestsPage({ searchParams }: { searchParams
         description="Support tickets, sales enquiries, partner and enterprise requests from the public contact forms, newest first. Status changes are audited."
       />
 
+      <RequestMetrics m={metrics} />
+
+      <h2 className="mb-3 text-base font-semibold">Inbox</h2>
       {/* "Clear all" lives with the chips below, so the bar itself never shows a second clear link */}
       <FilterBar label="Filter requests" active={false} className="mb-3">
         <TextField key={`q-${q}`} id="req-q" name="q" type="search" label="Search" defaultValue={q} placeholder="Reference, name, email or company" autoComplete="off" spellCheck={false} />

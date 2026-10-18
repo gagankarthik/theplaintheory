@@ -2,7 +2,7 @@ import Link from "next/link";
 import { pageMetadata } from "@/lib/seo";
 import type { ReactNode } from "react";
 import { CodeBlock, CodeTabs } from "@/components/marketing/docs/code-block";
-import { API, INSTALL_SNIPPETS, KEY } from "@/components/marketing/docs/framework-snippets";
+import { API, INSTALL_SNIPPETS, KEY, PACKAGES_ON_NPM, PACKAGE_SNIPPETS } from "@/components/marketing/docs/framework-snippets";
 import { PageHero } from "@/components/marketing/page-hero";
 import { Toc, type TocItem } from "@/components/marketing/toc";
 
@@ -314,7 +314,7 @@ export default function DocsPage() {
                 <a href="#api" className={LINK}>
                   JavaScript API
                 </a>
-                . Nothing to install from npm.
+                .{PACKAGES_ON_NPM ? " Or use a typed package for your framework (below)." : " Nothing to install from npm."}
               </p>
               <CodeBlock
                 title="React: read consent in a component"
@@ -339,11 +339,44 @@ export function useAnalyticsAllowed() {
                 <code>marketing</code>. A script that has already run can&apos;t be unloaded, so a later withdrawal takes effect from the
                 next page view.
               </p>
-              <p className="rounded-[var(--radius-md)] border border-line bg-paper px-4 py-3.5 text-sm">
-                <strong className="font-semibold text-ink">Coming soon: typed packages.</strong> Packages with hooks, components and
-                types for React, Vue, Svelte and Angular aren&apos;t published yet. Until they are, the script tag and the JavaScript API
-                do everything they will.
-              </p>
+              {PACKAGES_ON_NPM ? (
+                <>
+                  <h3 className="pt-2 text-base font-semibold text-ink">Framework packages</h3>
+                  <p>
+                    Typed packages wrap the same script with hooks, stores and components. Keep the script tag in <code>&lt;head&gt;</code>{" "}
+                    (it holds trackers in your HTML); the packages detect it and never load a second copy. Without the tag, they load
+                    the script themselves. Consent is <code>null</code> during server rendering and until the script is ready, so
+                    nothing that needs consent renders early.
+                  </p>
+                  <CodeTabs tabs={PACKAGE_SNIPPETS} />
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm">
+                      <thead className="text-ink-3">
+                        <tr>
+                          <th className="py-2 pr-4 font-medium">Package</th>
+                          <th className="py-2 font-medium">What you get</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-line">
+                        {[
+                          ["@theplaintheory/react", "PlainConsentProvider, useConsent, useConsentAllowed, useConsentReady, ConsentGate, ConsentScript, PrivacyChoicesButton"],
+                          ["@theplaintheory/vue", "createPlainConsent plugin, useConsent, ConsentGate, ConsentScript, PrivacyChoicesButton"],
+                          ["@theplaintheory/svelte", "init, consent / ready / allowed(category) stores, consentScript action, actions"],
+                          ["@theplaintheory/angular", "providePlainConsent, PlainConsentService (signals), *plainConsentAllowed"],
+                          ["@theplaintheory/consent", "Any framework: loadPlainConsent, isAllowed, onConsentChange, whenAllowed, loadScriptWhenAllowed"],
+                        ].map(([name, what]) => (
+                          <tr key={name}>
+                            <td className="py-2 pr-4 align-top">
+                              <code>{name}</code>
+                            </td>
+                            <td className="py-2">{what}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              ) : null}
             </DocSection>
 
             <DocSection id="wordpress" title="WordPress">

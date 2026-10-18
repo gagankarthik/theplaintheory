@@ -3,7 +3,8 @@
  * dashboard (real key and URLs) and the public docs (placeholders) never disagree.
  *
  * Every method is the same <script> tag placed first in <head>; only where you paste it differs.
- * The @plaintheory/* framework packages aren't on npm yet, so no method depends on them.
+ * The @theplaintheory/* framework packages (packages/) add hooks and components on top; every method here
+ * works without them.
  */
 
 /** The CloudFront distribution that serves the SDK and published configs. */

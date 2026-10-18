@@ -5,15 +5,6 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
-  // Vue, Svelte and Angular packages follow their own frameworks' rules, not React's.
-  {
-    files: ["packages/vue/**", "packages/svelte/**", "packages/angular/**"],
-    rules: {
-      "react-hooks/rules-of-hooks": "off",
-      "react-hooks/exhaustive-deps": "off",
-      "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],
-    },
-  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:
@@ -27,6 +18,8 @@ const eslintConfig = defineConfig([
     // Separately-managed crawler service (own package.json) and static test fixtures
     "services/**",
     "examples/**",
+    // Framework packages: their own workspace, toolchain and build output (packages/package.json)
+    "packages/**",
   ]),
 ]);
 

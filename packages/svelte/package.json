@@ -1,6 +1,6 @@
 {
-  "name": "@plaintheory/svelte",
-  "version": "0.1.0",
+  "name": "@theplaintheory/svelte",
+  "version": "1.0.0",
   "description": "Svelte and SvelteKit stores for Plain Theory consent. Works with Svelte 4 and 5.",
   "license": "MIT",
   "type": "module",
@@ -22,13 +22,29 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@plaintheory/consent": "0.1.0"
+    "@theplaintheory/consent": "^1.0.0"
   },
   "peerDependencies": {
-    "svelte": "^4.0.0 || ^5.0.0"
+    "svelte": ">=4"
   },
-  "devDependencies": {
-    "svelte": "^5.0.0",
-    "typescript": "^5.6.0"
-  }
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gagankarthik/theplaintheory.git",
+    "directory": "packages/svelte"
+  },
+  "homepage": "https://www.theplaintheory.in/docs#frameworks",
+  "keywords": [
+    "consent",
+    "cmp",
+    "cookie banner",
+    "gdpr",
+    "ccpa",
+    "dpdpa",
+    "svelte",
+    "sveltekit",
+    "store"
+  ]
 }

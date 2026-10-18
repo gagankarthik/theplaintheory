@@ -25,12 +25,6 @@
     "paths": {
       "@/*": [
         "./src/*"
-      ],
-      "@plaintheory/consent": [
-        "./packages/consent/src/index.ts"
-      ],
-      "@plaintheory/react": [
-        "./packages/react/src/index.tsx"
       ]
     }
   },
@@ -46,11 +40,8 @@
     "node_modules",
     "infra",
     "services",
-    "packages/vue",
-    "packages/svelte",
-    "packages/angular",
+    "packages",
     "examples",
-    "packages/*/dist",
     "scripts/stripe-sync.ts",
     "scripts/staff-invite.ts"
   ]

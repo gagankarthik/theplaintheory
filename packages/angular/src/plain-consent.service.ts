@@ -1,13 +1,13 @@
 import { computed, inject, Injectable, PLATFORM_ID, signal, type OnDestroy, type Signal } from "@angular/core";
 import { isPlatformBrowser } from "@angular/common";
-import { consentActions, consentStore, isAllowed, loadPlainConsent, type Category, type ConsentState, type LoadOptions } from "@plaintheory/consent";
+import { consentActions, consentStore, isAllowed, loadPlainConsent, type Category, type ConsentState, type LoadOptions } from "@theplaintheory/consent";
 
 /**
- * Plain Theory consent as Angular signals (Angular 16+). SSR-safe: on the server the state stays null
- * and nothing is loaded.
+ * Plain Theory consent as Angular signals. SSR-safe: on the server the state stays null and nothing
+ * is loaded. Load the script with `providePlainConsent({ siteKey })` in your app config, or call
+ * `init()` yourself.
  *
  *   private readonly consent = inject(PlainConsentService);
- *   constructor() { this.consent.init({ siteKey: "pk_live_..." }); }
  *   readonly analytics = this.consent.allowed("analytics");
  */
 @Injectable({ providedIn: "root" })
@@ -23,10 +23,12 @@ export class PlainConsentService implements OnDestroy {
   readonly acceptAll = consentActions.acceptAll;
   readonly rejectAll = consentActions.rejectAll;
   readonly set = consentActions.set;
-  /** open the preferences panel */
+  /** open the preferences panel (wire it to a "Privacy choices" link in your footer) */
   readonly open = consentActions.open;
   /** forget the choice and ask again */
   readonly revoke = consentActions.revoke;
+  /** show the notice in one of the site's languages; "" for the default */
+  readonly setLanguage = consentActions.setLanguage;
 
   constructor() {
     if (!this.browser) return;

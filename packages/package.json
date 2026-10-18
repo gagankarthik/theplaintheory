@@ -1,0 +1,38 @@
+{
+  "name": "plaintheory-packages",
+  "private": true,
+  "description": "Workspace for the @theplaintheory/* framework packages. Separate from the app: its own install, build and tests.",
+  "type": "module",
+  "workspaces": [
+    "consent",
+    "react",
+    "vue",
+    "svelte",
+    "angular"
+  ],
+  "scripts": {
+    "build": "npm run build -w @theplaintheory/consent && npm run build -w @theplaintheory/react -w @theplaintheory/vue -w @theplaintheory/svelte -w @theplaintheory/angular",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run build && vitest run",
+    "release": "npm test && npm publish -w @theplaintheory/consent && npm publish -w @theplaintheory/react -w @theplaintheory/vue -w @theplaintheory/svelte && npm publish ./angular/dist"
+  },
+  "devDependencies": {
+    "@angular/common": "^21.2.25",
+    "@angular/compiler": "^21.2.25",
+    "@angular/compiler-cli": "^21.2.25",
+    "@angular/core": "^21.2.25",
+    "@angular/platform-browser": "^21.2.25",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "happy-dom": "^21.0.3",
+    "ng-packagr": "^21.2.7",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "rxjs": "^7.8.2",
+    "svelte": "^5.57.2",
+    "tslib": "^2.8.1",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.5",
+    "vue": "^3.5.44"
+  }
+}

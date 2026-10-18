@@ -8,12 +8,17 @@ import { StatStrip } from "@/components/app/ui/stat-strip";
 import { IconTeam } from "@/components/icons";
 import { requireStaff, staffMetadata } from "@/lib/auth/staff";
 import { loadOverview } from "@/lib/platform/data";
+import { leadMetrics, shortDuration } from "@/lib/platform/lead-metrics";
+import { canPlatform } from "@/lib/auth/platform";
+import { getStore } from "@/lib/store";
 
 export const generateMetadata = () => staffMetadata("Overview");
 
 export default async function AdminOverviewPage() {
-  await requireStaff("platform:metrics");
-  const o = await loadOverview();
+  const { role } = await requireStaff("platform:metrics");
+  const canLeads = canPlatform(role, "leads:read");
+  const [o, leads] = await Promise.all([loadOverview(), canLeads ? getStore().then((s) => s.listLeads({ limit: 5000 })) : Promise.resolve(null)]);
+  const lm = leads ? leadMetrics(leads) : null;
   const t = o.totals;
   const free = o.planMix.find((p) => p.plan === "free")?.orgs ?? 0;
 
@@ -42,6 +47,21 @@ export default async function AdminOverviewPage() {
           { label: "Consent decisions, 30 days", value: fmtInt(t.decisions30), note: "Banner views that got a choice" },
         ]}
       />
+
+      {lm ? (
+        <>
+          <h2 className="eyebrow mb-2">Contact requests</h2>
+          <StatStrip
+            label="Contact request figures"
+            stats={[
+              { label: "New, unanswered", value: fmtInt(lm.unanswered), tone: lm.unanswered ? "warn" : undefined, note: lm.oldestWaitingMs === null ? "Inbox zero" : `Oldest waiting ${shortDuration(lm.oldestWaitingMs)}`, href: "/admin/requests?status=new" },
+              { label: "Urgent or high support", value: fmtInt(lm.urgentOpen), tone: lm.urgentOpen ? "bad" : undefined, note: "Not yet closed", href: "/admin/requests?topic=support" },
+              { label: "Requests, 30 days", value: fmtInt(lm.last30), note: `${fmtInt(lm.topics.find((t) => t.topic === "sales")?.last30 ?? 0)} sales, ${fmtInt(lm.topics.find((t) => t.topic === "enterprise")?.last30 ?? 0)} enterprise` },
+              { label: "Median time to close", value: lm.medianCloseMs === null ? "None yet" : shortDuration(lm.medianCloseMs), note: "All metrics on Requests", href: "/admin/requests" },
+            ]}
+          />
+        </>
+      ) : null}
 
       <div className="mb-8 grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <SignupsChart data={o.signups} />

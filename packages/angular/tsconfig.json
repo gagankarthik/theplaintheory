@@ -1,21 +1,22 @@
 {
   "compilerOptions": {
-    "target": "ES2019",
-    "module": "ESNext",
+    "target": "ES2022",
+    "module": "ES2022",
     "moduleResolution": "Bundler",
-    "lib": [
-      "ES2020",
-      "DOM"
-    ],
+    "lib": ["ES2022", "DOM"],
     "strict": true,
-    "rootDir": "src",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
     "skipLibCheck": true,
-    "isolatedModules": true,
-    "noEmit": true,
-    "experimentalDecorators": true,
-    "useDefineForClassFields": false
+    "useDefineForClassFields": false,
+    "outDir": "out-tsc",
+    "rootDir": "src"
   },
-  "include": [
-    "src"
-  ]
+  "angularCompilerOptions": {
+    "compilationMode": "partial",
+    "strictTemplates": true,
+    "strictInjectionParameters": true
+  },
+  "include": ["src"]
 }

@@ -43,3 +43,10 @@ next-env.d.ts
 .data/
 .env*
 !.env.example
+
+# Framework packages workspace (packages/package.json): installs and build output
+packages/**/node_modules/
+packages/**/dist/
+
+# Personal Claude Code settings
+.claude/settings.local.json

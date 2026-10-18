@@ -4,26 +4,39 @@
 
 | Package | For | What you get |
 | --- | --- | --- |
-| [`@plaintheory/consent`](./consent) | Any framework, plain ESM, Astro, Remix | `loadPlainConsent`, `getConsent`, `onConsentChange`, `whenAllowed`, `loadScriptWhenAllowed`, types |
-| [`@plaintheory/react`](./react) | React 18+, Next.js, Vite, Remix | `PlainConsentProvider`, `useConsent`, `useConsentAllowed`, `ConsentGate`, `ConsentScript`, `PrivacyChoicesButton` |
-| [`@plaintheory/vue`](./vue) | Vue 3.3+, Nuxt 3 | `createPlainConsent` plugin, `useConsent` composable, `ConsentGate` |
-| [`@plaintheory/svelte`](./svelte) | Svelte 4 and 5, SvelteKit | `consent` store, `allowed(category)` store, `init` |
-| [`angular`](./angular) | Angular 16+ | `PlainConsentService` with signals (source to copy into your app) |
+| [`@theplaintheory/consent`](./consent) | Any framework, plain ESM, Astro, Remix | `loadPlainConsent`, `getConsent`, `isAllowed`, `onConsentChange`, `whenAllowed`, `loadScriptWhenAllowed`, `consentActions`, types |
+| [`@theplaintheory/react`](./react) | React 18+, Next.js, Vite, Remix | `PlainConsentProvider`, `useConsent`, `useConsentAllowed`, `useConsentReady`, `ConsentGate`, `ConsentScript`, `PrivacyChoicesButton` |
+| [`@theplaintheory/vue`](./vue) | Vue 3.3+, Nuxt 3 | `createPlainConsent` plugin, `useConsent`, `ConsentGate`, `ConsentScript`, `PrivacyChoicesButton` |
+| [`@theplaintheory/svelte`](./svelte) | Svelte 4 and 5, SvelteKit | `init`, `consent`, `ready` and `allowed(category)` stores, `consentScript` action, actions |
+| [`@theplaintheory/angular`](./angular) | Angular 17.1+ | `PlainConsentService` (signals), `providePlainConsent`, `*plainConsentAllowed` |
 
-All of them share one subscription to the script (`consentStore` in `@plaintheory/consent`), so state stays consistent across islands and micro-frontends.
+All of them share one subscription to the script (`consentStore` in `@theplaintheory/consent`), so state stays consistent across islands and micro-frontends.
 
 ## Script tag or package?
 
-- **Script tag in `<head>` (recommended for production).** It runs before any other script, so it can hold trackers that are written directly into your HTML. Add it, then use a package for state and components. The packages detect the existing tag and don't load a second copy.
-- **Package only.** `loadPlainConsent()` adds the script at runtime. It holds every tracker added after it runs, including all known trackers (Google Analytics, Meta Pixel, Hotjar and others), but can't stop `<script>` tags that the browser already ran.
+- **Script tag first in `<head>` (recommended for production).** It runs before any other script, so it can hold trackers written directly into your HTML. Add it, then use a package for state and components; the packages detect the tag and don't load a second copy.
+- **Package only.** `loadPlainConsent()` adds the script at runtime. It holds every tracker added after it runs, including all known trackers, but can't stop `<script>` tags the browser already ran.
 
-## Building
+## Develop
 
-Each package builds with its own `tsc`:
+This folder is its own npm workspace, separate from the app (the app's typecheck, lint and build ignore it).
 
 ```bash
-cd packages/consent && npm i && npm run build
-cd packages/react && npm i && npm run build
+cd packages
+npm install
+npm run build     # consent first, then react, vue, svelte, angular (ng-packagr)
+npm test          # builds, then 28 tests against a stand-in for plain-consent.js
 ```
 
-Publish `@plaintheory/consent` first; the framework packages depend on it.
+Tests run the sources in a browser-like DOM, except Angular, which is tested through its built package (what npm users get).
+
+## Publish
+
+One-time: create the `theplaintheory` organization on npmjs.com (it owns the `@theplaintheory` scope) and `npm login` as a member.
+
+```bash
+cd packages
+npm run release   # build, test, then publish consent, react, vue, svelte and angular (from angular/dist)
+```
+
+Bump `version` in each package (and the `^x.y.z` range on `@theplaintheory/consent` in the others) before publishing again.

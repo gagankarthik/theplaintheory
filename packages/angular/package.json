@@ -1,28 +1,38 @@
 {
-  "name": "@plaintheory/angular",
-  "version": "0.1.0",
-  "description": "Angular signals service for Plain Theory consent. Source only: copy src/plain-consent.service.ts into your app.",
+  "name": "@theplaintheory/angular",
+  "version": "1.0.0",
+  "description": "Angular 17.1+ bindings for Plain Theory consent: a signals service, providePlainConsent() and the *plainConsentAllowed directive. SSR-safe.",
   "license": "MIT",
-  "type": "module",
   "sideEffects": false,
-  "exports": {
-    ".": "./src/plain-consent.service.ts"
+  "scripts": {
+    "build": "ng-packagr -p ng-package.json -c tsconfig.json",
+    "typecheck": "ngc -p tsconfig.json --noEmit"
   },
-  "files": [
-    "src",
-    "README.md"
-  ],
   "dependencies": {
-    "@plaintheory/consent": "0.1.0"
+    "@theplaintheory/consent": "^1.0.0",
+    "tslib": "^2.6.0"
   },
   "peerDependencies": {
-    "@angular/core": ">=16",
-    "@angular/common": ">=16"
+    "@angular/common": ">=17.1.0",
+    "@angular/core": ">=17.1.0"
   },
-  "devDependencies": {
-    "@angular/core": "^18.0.0",
-    "@angular/common": "^18.0.0",
-    "typescript": "^5.6.0"
+  "publishConfig": {
+    "access": "public"
   },
-  "private": true
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gagankarthik/theplaintheory.git",
+    "directory": "packages/angular"
+  },
+  "homepage": "https://www.theplaintheory.in/docs#frameworks",
+  "keywords": [
+    "consent",
+    "cmp",
+    "cookie banner",
+    "gdpr",
+    "ccpa",
+    "dpdpa",
+    "angular",
+    "signals"
+  ]
 }

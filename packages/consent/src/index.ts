@@ -3,11 +3,15 @@ import type { Category, ConsentState, LoadOptions, PlainConsentApi } from "./typ
 export type { Categories, Category, ConsentEvent, ConsentState, Framework, LoadOptions, PlainConsentApi } from "./types";
 
 /**
- * @plaintheory/consent: framework-agnostic loader and helpers for plain-consent.js.
+ * @theplaintheory/consent: framework-agnostic loader and helpers for plain-consent.js.
  * Nothing here touches `window` or `document` at import time, so it is safe in SSR bundles.
  */
 
-export const DEFAULT_SRC = "https://cdn.theplaintheory.in/sdk/v1/plain-consent.js";
+/**
+ * The script, served by the Plain Theory app itself: always the current release, and its own origin
+ * is the consent API, so no other address is needed. Pass `src` (and `configUrl`) to load from a CDN.
+ */
+export const DEFAULT_SRC = "https://www.theplaintheory.in/sdk/plain-consent.js";
 
 const isBrowser = () => typeof window !== "undefined" && typeof document !== "undefined";
 
@@ -80,6 +84,7 @@ export function loadPlainConsent(options: LoadOptions): Promise<PlainConsentApi>
     s.setAttribute("data-site", options.siteKey);
     if (options.apiUrl) s.setAttribute("data-api", options.apiUrl);
     if (options.configUrl) s.setAttribute("data-config-url", options.configUrl);
+    if (options.gcm) s.setAttribute("data-gcm", "true");
     if (options.debug) s.setAttribute("data-debug", "");
     if (options.nonce) s.nonce = options.nonce;
     s.onerror = () => {
@@ -195,4 +200,13 @@ export const consentActions = {
   set: (partial: Partial<Record<Category, boolean>>) => withApi((a) => a.set(partial)),
   open: () => withApi((a) => a.open()),
   revoke: () => withApi((a) => a.revoke()),
+  setLanguage: (code: string) => withApi((a) => a.setLanguage(code)),
 };
+
+/** For tests: forget the loader promise and the shared snapshot. Not part of the public API. */
+export function __resetForTests() {
+  loading = null;
+  snapshot = null;
+  attached = false;
+  subscribers.clear();
+}

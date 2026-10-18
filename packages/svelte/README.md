@@ -1,30 +1,21 @@
-# @plaintheory/svelte
+# @theplaintheory/svelte
 
-Svelte stores for Plain Theory consent. Works with Svelte 4 and 5, and SvelteKit.
+Svelte and SvelteKit stores for [Plain Theory](https://www.theplaintheory.in) consent, with types. Svelte 4 and 5. SSR-safe.
 
 ```bash
-npm i @plaintheory/svelte
+npm install @theplaintheory/svelte
 ```
 
-## SvelteKit
+## Set up
 
-Put the script first in `src/app.html` so trackers in your HTML are held:
-
-```html
-<head>
-  <script src="https://cdn.theplaintheory.in/sdk/v1/plain-consent.js" data-site="pk_live_YOUR_SITE_KEY"></script>
-  %sveltekit.head%
-</head>
-```
-
-Or load it from your root layout instead:
+Put the script tag first in `<head>` in `src/app.html` (copy it from the dashboard's **Install** page), or load it from your root layout:
 
 ```svelte
 <!-- src/routes/+layout.svelte -->
-<script>
+<script lang="ts">
   import { onMount } from "svelte";
-  import { init } from "@plaintheory/svelte";
-  onMount(() => init({ siteKey: "pk_live_YOUR_SITE_KEY" }));
+  import { init } from "@theplaintheory/svelte";
+  onMount(() => init({ siteKey: "pk_YOUR_SITE_KEY" }));
 </script>
 
 <slot />
@@ -33,19 +24,31 @@ Or load it from your root layout instead:
 ## Use it
 
 ```svelte
-<script>
-  import { consent, allowed, openPreferences } from "@plaintheory/svelte";
+<script lang="ts">
+  import { allowed, consent, consentScript, openPreferences, ready, setLanguage } from "@theplaintheory/svelte";
   const marketing = allowed("marketing");
 </script>
 
+<div use:consentScript={{ category: "analytics", src: "https://www.googletagmanager.com/gtag/js?id=G-XXXX" }}></div>
+
 {#if $marketing}
-  <YouTubeEmbed />
+  <iframe src="https://www.youtube.com/embed/…" title="Video"></iframe>
 {:else}
   <p>Allow marketing cookies to watch this video.</p>
 {/if}
 
-{#if $consent}<p>Notice: {$consent.framework}</p>{/if}
+{#if $ready}<p>Language: {$consent?.language}</p>{/if}
 <button on:click={openPreferences}>Privacy choices</button>
 ```
 
-Exports: `init`, `consent`, `allowed(category)`, `acceptAll`, `rejectAll`, `setConsent`, `openPreferences`, `revoke`. In Svelte 5 use `onclick` instead of `on:click`.
+| Export | What it is |
+| --- | --- |
+| `init(options)` | Loads the script once (browser only). |
+| `consent` | Store: the state, `null` on the server and until ready. |
+| `ready`, `allowed(category)` | Boolean stores. |
+| `consentScript` | Action: add a third-party script once allowed. |
+| `acceptAll`, `rejectAll`, `setConsent`, `openPreferences`, `revoke`, `setLanguage` | Actions; queued until the script loads. |
+
+Everything from [`@theplaintheory/consent`](https://www.npmjs.com/package/@theplaintheory/consent) is re-exported.
+
+MIT · [Docs](https://www.theplaintheory.in/docs#frameworks)

@@ -1,51 +1,45 @@
-# Plain Theory for Angular
+# @theplaintheory/angular
 
-A signals-based service (Angular 16+). It's distributed as source: copy `src/plain-consent.service.ts` into your app and install the core package.
+Angular bindings for [Plain Theory](https://www.theplaintheory.in) consent: a signals service, `providePlainConsent()` and the `*plainConsentAllowed` directive, with types. Angular 17.1 and later, standalone, SSR-safe.
 
 ```bash
-npm i @plaintheory/consent
+npm install @theplaintheory/angular
 ```
 
-## Install the script
-
-Put it first in `src/index.html` so trackers in your HTML are held:
-
-```html
-<head>
-  <script src="https://cdn.theplaintheory.in/sdk/v1/plain-consent.js" data-site="pk_live_YOUR_SITE_KEY"></script>
-</head>
-```
-
-Or let the service load it from your root component:
+## Set up
 
 ```ts
-export class AppComponent {
-  private readonly consent = inject(PlainConsentService);
-  constructor() {
-    this.consent.init({ siteKey: "pk_live_YOUR_SITE_KEY" });
-  }
-}
+// main.ts
+import { bootstrapApplication } from "@angular/platform-browser";
+import { providePlainConsent } from "@theplaintheory/angular";
+import { App } from "./app/app";
+
+bootstrapApplication(App, { providers: [providePlainConsent({ siteKey: "pk_YOUR_SITE_KEY" })] });
 ```
+
+For trackers written into your HTML, also put the script tag first in `<head>` in `index.html` (from the dashboard's **Install** page); the provider detects it and doesn't add a second copy. During server rendering nothing is loaded and the state stays `null`.
 
 ## Use it
 
 ```ts
+import { Component, inject } from "@angular/core";
+import { PlainConsentAllowedDirective, PlainConsentService } from "@theplaintheory/angular";
+
 @Component({
   selector: "app-video",
-  standalone: true,
+  imports: [PlainConsentAllowedDirective],
   template: `
-    @if (marketing()) {
-      <iframe src="https://www.youtube-nocookie.com/embed/..." title="Product tour"></iframe>
-    } @else {
-      <p>Allow marketing cookies to watch this video.</p>
-      <button (click)="consent.open()">Privacy choices</button>
-    }
+    <iframe *plainConsentAllowed="'marketing'; else blocked" src="https://www.youtube.com/embed/…" title="Video"></iframe>
+    <ng-template #blocked><p>Allow marketing cookies to watch this video.</p></ng-template>
+    <button type="button" (click)="consent.open()">Privacy choices</button>
   `,
 })
 export class VideoComponent {
   readonly consent = inject(PlainConsentService);
-  readonly marketing = this.consent.allowed("marketing");
+  readonly analytics = this.consent.allowed("analytics"); // Signal<boolean>
 }
 ```
 
-`PlainConsentService` exposes `state`, `ready`, `allowed(category)`, `init`, `acceptAll`, `rejectAll`, `set`, `open` and `revoke`. With SSR (`@angular/ssr`) the state stays `null` on the server and nothing is loaded.
+`PlainConsentService`: `state` and `ready` signals, `allowed(category)` returning a signal, and `acceptAll`, `rejectAll`, `set`, `open`, `revoke`, `setLanguage`, `init`. Everything from [`@theplaintheory/consent`](https://www.npmjs.com/package/@theplaintheory/consent) is re-exported.
+
+MIT · [Docs](https://www.theplaintheory.in/docs#frameworks)
