@@ -51,7 +51,7 @@ interface Db {
   /** Stripe webhook event ids already handled, with when they were claimed */
   stripeEvents?: { id: string; at: string }[];
   /** daily decision rollups: flat counters per site and day (lib/rollups.ts) */
-  rollups?: { propertyId: string; day: string; counts: Record<string, number> }[];
+  rollups?: { propertyId: string; day: string; counts: Record<string, number>; anchor?: { seq: number; hash: string } }[];
   /** per site: the first receipt seq counted in rollups */
   rollupFrom?: Record<string, number>;
   /** IP-hash salts, one per UTC day; days older than yesterday are dropped */
@@ -417,12 +417,12 @@ export const localStore: Store = {
         const { day, fields } = rollupIncrement(receipt);
         db.rollupFrom ??= {};
         db.rollupFrom[receipt.propertyId] ??= receipt.seq;
-        if (Object.keys(fields).length) {
-          const list = (db.rollups ??= []);
-          let row = list.find((x) => x.propertyId === receipt.propertyId && x.day === day);
-          if (!row) list.push((row = { propertyId: receipt.propertyId, day, counts: {} }));
-          for (const [k, v] of Object.entries(fields)) row.counts[k] = (row.counts[k] ?? 0) + v;
-        }
+        const list = (db.rollups ??= []);
+        let row = list.find((x) => x.propertyId === receipt.propertyId && x.day === day);
+        if (!row) list.push((row = { propertyId: receipt.propertyId, day, counts: {} }));
+        for (const [k, v] of Object.entries(fields)) row.counts[k] = (row.counts[k] ?? 0) + v;
+        // the day's last receipt anchors its chain
+        if (!row.anchor || receipt.seq > row.anchor.seq) row.anchor = { seq: receipt.seq, hash: receipt.hash };
         await save();
       } catch (e) {
         console.error("[store] rollup update failed", e);
@@ -452,12 +452,26 @@ export const localStore: Store = {
     return q.limit ? rows.slice(0, q.limit) : rows;
   },
 
+  async listVisitorReceipts(propertyId, visitorId, q = {}) {
+    const rows = (await readReceipts(propertyId)).filter((r) => r.visitorId === visitorId && (!q.before || r.seq < q.before)).reverse();
+    return q.limit ? rows.slice(0, q.limit) : rows;
+  },
+
+  async bumpRollup(propertyId, day, fields) {
+    await mutate((db) => {
+      const list = (db.rollups ??= []);
+      let row = list.find((x) => x.propertyId === propertyId && x.day === day);
+      if (!row) list.push((row = { propertyId, day, counts: {} }));
+      for (const [k, v] of Object.entries(fields)) row.counts[k] = (row.counts[k] ?? 0) + v;
+    });
+  },
+
   async listDecisionRollups(propertyId, fromDay, toDay) {
     const db = await load();
     const rollups = (db.rollups ?? [])
       .filter((r) => r.propertyId === propertyId && r.day >= fromDay && r.day <= toDay)
       .sort((a, b) => a.day.localeCompare(b.day))
-      .map((r) => addFlat(emptyRollup(r.day), r.counts));
+      .map((r) => ({ ...addFlat(emptyRollup(r.day), r.counts), ...(r.anchor ? { anchor: r.anchor } : {}) }));
     return { rollups, fromSeq: db.rollupFrom?.[propertyId] ?? null };
   },
 

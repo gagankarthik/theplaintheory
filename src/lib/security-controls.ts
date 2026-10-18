@@ -1,6 +1,5 @@
 import "server-only";
 import { verifyAuditChain } from "./audit-chain";
-import { verifyChain } from "./crypto";
 import { planById } from "./plans";
 import type { Store } from "./store/types";
 import type { Organization } from "./types";
@@ -39,8 +38,12 @@ export async function evaluateControls(store: Store, org: Organization, now = ne
   const lastReview = audit.find((e) => e.action === "access_review.exported");
   const reviewAgeDays = lastReview ? Math.floor((now.getTime() - Date.parse(lastReview.createdAt)) / DAY) : null;
   const auditChain = verifyAuditChain(audit);
-  const chains = await Promise.all(properties.map(async (p) => ({ p, r: verifyChain(await store.listReceipts(p.id), p.retentionCheckpoint) })));
-  const brokenChains = chains.filter((c) => !c.r.ok);
+  // Each site's last verification (nightly with retention, or "Verify chain" on its consent log),
+  // never a re-read of every receipt on a page view.
+  const CHECK_STALE_DAYS = 8;
+  const brokenChains = properties.filter((p) => p.lastChainCheck && !p.lastChainCheck.ok);
+  const unverified = properties.filter((p) => !p.lastChainCheck || now.getTime() - Date.parse(p.lastChainCheck.at) > CHECK_STALE_DAYS * DAY);
+  const checkedReceipts = properties.reduce((a, p) => a + (p.lastChainCheck?.ok ? p.lastChainCheck.checked : 0), 0);
   const retentionAgeH = org.retentionLastRunAt ? (now.getTime() - Date.parse(org.retentionLastRunAt)) / 3_600_000 : null;
   const plan = planById(org.plan);
   const prod = process.env.NODE_ENV === "production";
@@ -144,13 +147,15 @@ export async function evaluateControls(store: Store, org: Organization, now = ne
       id: "consent-integrity",
       criteria: ["PI1.4", "CC7.2"],
       title: "Consent records are untampered",
-      status: brokenChains.length ? "attention" : "pass",
+      status: brokenChains.length || unverified.length ? "attention" : "pass",
       detail: properties.length
         ? brokenChains.length
-          ? `Chain broken on ${brokenChains.map((c) => `${c.p.domain} at #${c.r.ok ? "" : c.r.brokenAt}`).join(", ")}.`
-          : `All ${properties.length} site${properties.length === 1 ? "" : "s"} verify (${chains.reduce((a, c) => a + c.r.checked, 0).toLocaleString("en-GB")} receipts).`
+          ? `Chain broken on ${brokenChains.map((p) => `${p.domain} at #${p.lastChainCheck?.brokenAt ?? "?"}`).join(", ")}.`
+          : unverified.length
+            ? `Not verified in the last ${CHECK_STALE_DAYS} days: ${unverified.map((p) => p.domain).join(", ")}. Verify from each site's consent log; the nightly retention job also checks every chain.`
+            : `All ${properties.length} site${properties.length === 1 ? "" : "s"} verified in the last ${CHECK_STALE_DAYS} days (${checkedReceipts.toLocaleString("en-GB")} receipts).`
         : "No sites yet.",
-      evidence: properties.slice(0, 3).map((p) => ({ label: `${p.domain} log`, href: `/app/sites/${p.id}/logs` })),
+      evidence: (brokenChains.length ? brokenChains : unverified.length ? unverified : properties).slice(0, 3).map((p) => ({ label: `${p.domain} log`, href: `/app/sites/${p.id}/logs` })),
     },
     {
       id: "retention",

@@ -89,6 +89,11 @@ export async function parseBody<S extends z.ZodType>(
  * is allowed and the error logged: rate limiting must never take the consent API down. Production
  * should also front the API with AWS WAF rate rules.
  */
+/** True when any of the given [key, limit-per-minute] budgets is spent. The checks run in parallel. */
+export async function anyRateLimited(checks: [key: string, limit: number][]) {
+  return (await Promise.all(checks.map(([k, l]) => rateLimited(k, l)))).some(Boolean);
+}
+
 export async function rateLimited(key: string, limit = 30, windowMs = 60_000, now = Date.now()) {
   const windowStart = Math.floor(now / windowMs) * windowMs;
   try {

@@ -116,6 +116,10 @@ export interface Store {
   /** daily decision rollups for the inclusive day range, and the first receipt seq they cover */
   listDecisionRollups(propertyId: string, fromDay: string, toDay: string): Promise<RollupRange>;
   listReceipts(propertyId: string, q?: ReceiptQuery): Promise<ConsentReceipt[]>;
+  /** One visitor's receipts, newest first, through the visitor index (never a scan of the ledger). */
+  listVisitorReceipts(propertyId: string, visitorId: string, q?: { limit?: number; before?: number }): Promise<ConsentReceipt[]>;
+  /** Add to a day's rollup counters after the fact (e.g. "n:withdrawn", known once the previous receipt is read). */
+  bumpRollup(propertyId: string, day: string, fields: Record<string, number>): Promise<void>;
   /** retention: remove receipts with seq <= `seq`; returns how many were removed */
   deleteReceiptsThrough(propertyId: string, seq: number): Promise<number>;
 

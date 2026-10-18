@@ -12,13 +12,14 @@ import { EmptyState } from "@/components/app/ui/empty-state";
 import { FilterBar, type FilterChip } from "@/components/app/ui/filter-bar";
 import { Pagination } from "@/components/app/ui/pagination";
 import { IconDownload, IconLogs, IconReceipt } from "@/components/icons";
-import { isoDaysAgo, outcomeOf } from "@/lib/analytics";
+import { isoDaysAgo } from "@/lib/analytics";
 import { requireProperty } from "@/lib/auth/access";
 import { can } from "@/lib/auth/rbac";
 import { FRAMEWORK_META } from "@/lib/defaults";
 import { effectiveRetentionDays } from "@/lib/retention-grace";
 import { formatDate, formatNumber, formatPct } from "@/lib/format";
-import { countWithdrawals } from "@/lib/withdrawals";
+import { loadRollups } from "@/lib/rollup-load";
+import { mergeRollups } from "@/lib/rollups";
 import { filterQuery, filterRange, hasFieldFilters, hasFilters, matchesReceipt, parseReceiptFilters } from "@/lib/receipt-filters";
 import { StatStrip, type Stat } from "@/components/app/ui/stat-strip";
 
@@ -72,11 +73,16 @@ export default async function LogsPage(props: PageProps<"/app/sites/[propertyId]
   // The numbers row describes the chosen dates (or the last 30 days), not the decision, notice,
   // visitor or GPC filters: an opt-in rate over "Rejected all" receipts would say nothing.
   const dated = Boolean(filters.from || filters.to);
-  const inRange = await store.listReceipts(property.id, dated ? range : { from: isoDaysAgo(STATS_DAYS) });
-  const decisions = inRange.filter((r) => outcomeOf(r.action));
-  const accepted = decisions.filter((r) => r.action === "accept_all").length;
-  const gpc = decisions.filter((r) => r.gpc).length;
-  const withdrawals = countWithdrawals(inRange);
+  // From the daily rollups, not the receipts: a few small items per day however busy the site is.
+  const today = new Date().toISOString().slice(0, 10);
+  const fromDay = dated ? (filters.from ?? "2000-01-01") : isoDaysAgo(STATS_DAYS).slice(0, 10);
+  const toDay = dated ? (filters.to ?? today) : today;
+  const [t] = mergeRollups((await loadRollups(store, property.id, fromDay, toDay)).map((r) => ({ ...r, day: "all" })));
+  const decided = t ? t.accepted + t.partial + t.rejected : 0;
+  const accepted = t?.accepted ?? 0;
+  const gpc = t?.gpc ?? 0;
+  const withdrawals = t ? t.revoked + t.withdrawn : 0;
+  const receiptCount = decided + (t?.revoked ?? 0);
   const period = dated
     ? filters.from && filters.to
       ? filters.from === filters.to
@@ -98,7 +104,8 @@ export default async function LogsPage(props: PageProps<"/app/sites/[propertyId]
             tone: "good",
             note: (
               <>
-                {formatNumber(check.checked)} of {formatNumber(chainSize)} receipts, <DateText iso={check.at} mode="relative" />
+                {check.checked >= chainSize ? `All ${formatNumber(chainSize)} receipts checked` : `${formatNumber(check.checked)} checked, ${formatNumber(chainSize - check.checked)} newer since`}{" "}
+                <DateText iso={check.at} mode="relative" />
               </>
             ),
           }
@@ -115,18 +122,18 @@ export default async function LogsPage(props: PageProps<"/app/sites/[propertyId]
   const stats: Stat[] = [
     {
       label: `Receipts, ${period}`,
-      value: formatNumber(inRange.length),
-      note: inRange.length ? `${formatNumber(withdrawals)} withdrawal${withdrawals === 1 ? "" : "s"}` : "None yet",
+      value: formatNumber(receiptCount),
+      note: receiptCount ? `${formatNumber(withdrawals)} withdrawal${withdrawals === 1 ? "" : "s"}` : "None yet",
     },
     {
       label: "Opt-in rate",
-      value: decisions.length ? formatPct(accepted / decisions.length) : "—",
-      note: decisions.length ? `${formatNumber(accepted)} of ${formatNumber(decisions.length)} accepted all` : "No decisions yet",
+      value: decided ? formatPct(accepted / decided) : "—",
+      note: decided ? `${formatNumber(accepted)} of ${formatNumber(decided)} accepted all` : "No decisions yet",
     },
     {
       label: "GPC opt-outs",
       value: formatNumber(gpc),
-      note: decisions.length ? `of ${formatNumber(decisions.length)} decisions, all honoured` : "None yet",
+      note: decided ? `of ${formatNumber(decided)} decisions, all honoured` : "None yet",
       href: gpc ? withQuery("", { gpc: "1" }) : undefined,
     },
     chain,

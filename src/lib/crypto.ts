@@ -65,6 +65,26 @@ export function ipHashSecret() {
  * midnight. HMAC with a server secret, so it can't be reversed without the secret. Never store it
  * with a record: records get the daily hash (lib/ip-hash.ts).
  */
+/**
+ * The caller's address as rate limits see it: a full IPv4 address, or an IPv6 /64 (one home or
+ * phone; rotating within it doesn't escape the limit). Not the /24 that ipRateKey uses: thousands of
+ * mobile users share an IPv4 block behind carrier NAT, and must not share one small budget.
+ * Keyed with the server secret and only ever kept in short-lived counters.
+ */
+export function callerRateKey(ip: string | null | undefined) {
+  const raw = ip?.split(",")[0].trim();
+  if (!raw) return "unknown";
+  let key = raw;
+  if (raw.includes(":")) {
+    const [head, tail = ""] = raw.split("::");
+    const h = head ? head.split(":") : [];
+    const t = tail ? tail.split(":") : [];
+    const full = raw.includes("::") ? [...h, ...Array(Math.max(0, 8 - h.length - t.length)).fill("0"), ...t] : h;
+    key = full.slice(0, 4).map((g) => g.toLowerCase().replace(/^0+(?=.)/, "")).join(":") + "::/64";
+  }
+  return createHmac("sha256", ipHashSecret()).update(key).digest("base64url").slice(0, 32);
+}
+
 export function ipRateKey(ip: string | null | undefined) {
   const truncated = truncateIp(ip);
   if (!truncated) return "unknown";

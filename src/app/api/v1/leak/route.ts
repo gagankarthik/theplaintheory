@@ -1,5 +1,5 @@
 import { after } from "next/server";
-import { LeakInput, ipKeyFor, recordLeak } from "@/lib/consent";
+import { callerKeyFor, LeakInput, recordLeak } from "@/lib/consent";
 import { apiError, json, outcomeError, parseBody, preflight, rateLimited } from "@/lib/public-api";
 
 export const OPTIONS = preflight;
@@ -11,7 +11,7 @@ export const OPTIONS = preflight;
 export async function POST(req: Request) {
   const parsed = await parseBody(req, LeakInput);
   if (!parsed.ok) return parsed.response;
-  if (await rateLimited(`leak:${ipKeyFor(req.headers)}`, 20)) return apiError("rate_limited", "Too many leak reports. Try again in a minute.");
+  if (await rateLimited(`leak:${parsed.data.siteKey}:${callerKeyFor(req.headers)}`, 200)) return apiError("rate_limited", "Too many leak reports. Try again in a minute.");
 
   const result = await recordLeak(parsed.data, req.headers);
   if (!result.ok) return outcomeError(result.reason);

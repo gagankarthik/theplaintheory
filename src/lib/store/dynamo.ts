@@ -909,6 +909,32 @@ export const dynamoStore: Store = {
       return receipt;
     });
   },
+  async listVisitorReceipts(propertyId, visitorId, q = {}) {
+    // keys-only visitor index, newest first, then the receipts themselves in one batch
+    const keys: Key[] = [];
+    let ExclusiveStartKey: Item | undefined;
+    do {
+      const r = await db().send(
+        new QueryCommand({
+          TableName: TABLES.receipts,
+          IndexName: "GSI1",
+          KeyConditionExpression: q.before ? "GSI1PK = :v AND GSI1SK < :b" : "GSI1PK = :v",
+          ExpressionAttributeValues: { ":v": `PROP#${propertyId}#V#${visitorId}`, ...(q.before ? { ":b": rcptKey(q.before) } : {}) },
+          ScanIndexForward: false,
+          ...(q.limit ? { Limit: q.limit - keys.length } : {}),
+          ExclusiveStartKey,
+        }),
+      );
+      for (const i of r.Items ?? []) keys.push({ PK: i.PK, SK: i.SK });
+      ExclusiveStartKey = q.limit && keys.length >= q.limit ? undefined : r.LastEvaluatedKey;
+    } while (ExclusiveStartKey);
+    if (!keys.length) return [];
+    const items = await batchGet(TABLES.receipts, keys);
+    return items.map((i) => strip<ConsentReceipt>(i)!).sort((a, b) => b.seq - a.seq);
+  },
+  async bumpRollup(propertyId, day, fields) {
+    await addRollupFields(propertyId, day, fields);
+  },
   async listDecisionRollups(propertyId, fromDay, toDay) {
     const [items, head] = await Promise.all([
       query({
@@ -918,7 +944,10 @@ export const dynamoStore: Store = {
       }),
       db().send(new GetCommand({ TableName: TABLES.receipts, Key: { PK: `PROP#${propertyId}`, SK: "CHAIN#HEAD" }, ProjectionExpression: "rollupFromSeq" })),
     ]);
-    const rollups = items.map((i) => addFlat(emptyRollup(String(i.day ?? String(i.SK).slice(4))), i));
+    const rollups = items.map((i) => ({
+      ...addFlat(emptyRollup(String(i.day ?? String(i.SK).slice(4))), i),
+      ...(typeof i.aseq === "number" && typeof i.ahash === "string" ? { anchor: { seq: i.aseq, hash: i.ahash } } : {}),
+    }));
     const fromSeq = head.Item?.rollupFromSeq;
     return { rollups, fromSeq: typeof fromSeq === "number" ? fromSeq : null };
   },
@@ -1407,12 +1436,12 @@ async function scanItem(propertyId: string, scanId: string): Promise<Item | null
 }
 
 /** Add a stored receipt to its day's decision rollup (telemetry DAY# item, shared with pageview counters). */
-async function addRollup(r: ConsentReceipt) {
-  const { day, fields } = rollupIncrement(r);
+/** ADD flat counters to one site-day rollup item. */
+async function addRollupFields(propertyId: string, day: string, fields: Record<string, number>) {
   const entries = Object.entries(fields);
   if (!entries.length) return;
   const names: Record<string, string> = { "#d": "day" };
-  const values: Item = { ":p": r.propertyId, ":d": day, ":ttl": epochS(`${day}T00:00:00Z`) + COUNTER_TTL_S };
+  const values: Item = { ":p": propertyId, ":d": day, ":ttl": epochS(`${day}T00:00:00Z`) + COUNTER_TTL_S };
   const adds = entries.map(([k, v], i) => {
     names[`#r${i}`] = k;
     values[`:r${i}`] = v;
@@ -1421,10 +1450,33 @@ async function addRollup(r: ConsentReceipt) {
   await db().send(
     new UpdateCommand({
       TableName: TABLES.telemetry,
-      Key: { PK: `PROP#${r.propertyId}`, SK: `DAY#${day}` },
+      Key: { PK: `PROP#${propertyId}`, SK: `DAY#${day}` },
       UpdateExpression: `ADD ${adds.join(", ")} SET propertyId = :p, #d = :d, expiresAt = if_not_exists(expiresAt, :ttl)`,
       ExpressionAttributeNames: names,
       ExpressionAttributeValues: values,
     }),
   );
+}
+
+/** Counters plus the day's chain anchor (kept at the highest seq; a late, lower write is refused). */
+async function addRollup(r: ConsentReceipt) {
+  const { day, fields } = rollupIncrement(r);
+  const ttl = epochS(`${day}T00:00:00Z`) + COUNTER_TTL_S;
+  await Promise.all([
+    addRollupFields(r.propertyId, day, fields),
+    db()
+      .send(
+        new UpdateCommand({
+          TableName: TABLES.telemetry,
+          Key: { PK: `PROP#${r.propertyId}`, SK: `DAY#${day}` },
+          UpdateExpression: "SET aseq = :s, ahash = :h, propertyId = :p, #d = :d, expiresAt = if_not_exists(expiresAt, :ttl)",
+          ConditionExpression: "attribute_not_exists(aseq) OR aseq < :s",
+          ExpressionAttributeNames: { "#d": "day" },
+          ExpressionAttributeValues: { ":s": r.seq, ":h": r.hash, ":p": r.propertyId, ":d": day, ":ttl": ttl },
+        }),
+      )
+      .catch((e: unknown) => {
+        if ((e as { name?: string }).name !== "ConditionalCheckFailedException") throw e;
+      }),
+  ]);
 }

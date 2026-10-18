@@ -5,7 +5,10 @@ import type { ConsentReceipt } from "./types";
  * stored, so the overview reads one small item per day instead of every receipt.
  *
  * Counters are flat numeric fields so both stores can add to them blindly (DynamoDB `ADD`):
- *   n:accepted  n:partial  n:rejected  n:revoked  n:gpc         decisions by outcome, withdrawals, GPC
+ *   n:accepted  n:partial  n:rejected  n:revoked  n:gpc         decisions by outcome, revokes, GPC
+ *   n:withdrawn                                                  decisions that turned off a category the
+ *                                                                visitor's previous decision allowed
+ *   aseq  ahash                                                  the day's last receipt (its chain anchor)
  *   g:functional  g:analytics  g:marketing                       decisions that granted the category
  *   d:<dimension>:<value>:<outcome>                              decisions per country/device/browser/framework
  */
@@ -23,6 +26,10 @@ export interface DecisionRollup {
   partial: number;
   rejected: number;
   revoked: number;
+  /** decisions that withdrew a category the visitor's previous decision allowed (revokes excluded) */
+  withdrawn: number;
+  /** the day's last receipt: its seq and hash anchor the chain for that day */
+  anchor?: { seq: number; hash: string };
   /** decisions made with a Global Privacy Control signal */
   gpc: number;
   /** decisions that granted each optional category */
@@ -73,6 +80,7 @@ export const emptyRollup = (day: string): DecisionRollup => ({
   partial: 0,
   rejected: 0,
   revoked: 0,
+  withdrawn: 0,
   gpc: 0,
   granted: { functional: 0, analytics: 0, marketing: 0 },
   dims: { country: {}, device: {}, browser: {}, framework: {} },
@@ -85,7 +93,7 @@ export function addFlat(into: DecisionRollup, fields: Record<string, unknown>) {
     if (!Number.isFinite(n) || !n) continue;
     const parts = k.split(":");
     if (parts[0] === "n" && parts.length === 2) {
-      const f = parts[1] as "accepted" | "partial" | "rejected" | "revoked" | "gpc";
+      const f = parts[1] as "accepted" | "partial" | "rejected" | "revoked" | "withdrawn" | "gpc";
       if (f in into && typeof into[f] === "number") into[f] += n;
     } else if (parts[0] === "g" && parts.length === 2 && (OPTIONAL_CATEGORIES as readonly string[]).includes(parts[1])) {
       into.granted[parts[1] as OptionalCategory] += n;
@@ -100,13 +108,32 @@ export function addFlat(into: DecisionRollup, fields: Record<string, unknown>) {
   return into;
 }
 
-/** Rollups computed from receipts (legacy days, tests and the backfill script), one per day, sorted. */
-export function rollupsFromReceipts(receipts: Pick<ConsentReceipt, "action" | "categories" | "gpc" | "timestamp" | RollupDimension>[]): DecisionRollup[] {
+type RollupSource = Pick<ConsentReceipt, "action" | "categories" | "gpc" | "timestamp" | RollupDimension> & Partial<Pick<ConsentReceipt, "visitorId" | "seq" | "hash">>;
+
+const OPTIONAL_IDS = ["functional", "analytics", "marketing"] as const;
+
+/**
+ * Rollups computed from receipts (legacy days, tests and the backfill script), one per day, sorted.
+ * Withdrawals are found within the receipts given (a visitor's earlier receipt in the same list), and
+ * each day's anchor is its highest-seq receipt.
+ */
+export function rollupsFromReceipts(receipts: RollupSource[]): DecisionRollup[] {
   const byDay = new Map<string, DecisionRollup>();
-  for (const r of receipts) {
-    const { day, fields } = rollupIncrement(r);
-    if (!Object.keys(fields).length) continue;
-    addFlat(byDay.get(day) ?? byDay.set(day, emptyRollup(day)).get(day)!, fields);
+  const day = (d: string) => byDay.get(d) ?? byDay.set(d, emptyRollup(d)).get(d)!;
+  const lastByVisitor = new Map<string, RollupSource>();
+  const ordered = [...receipts].sort((a, b) => (a.seq ?? 0) - (b.seq ?? 0) || a.timestamp.localeCompare(b.timestamp));
+  for (const r of ordered) {
+    const { day: d, fields } = rollupIncrement(r);
+    if (Object.keys(fields).length) addFlat(day(d), fields);
+    if (r.seq !== undefined && r.hash) {
+      const into = day(d);
+      if (!into.anchor || r.seq > into.anchor.seq) into.anchor = { seq: r.seq, hash: r.hash };
+    }
+    if (r.visitorId) {
+      const prev = lastByVisitor.get(r.visitorId);
+      if (prev && r.action !== "revoke" && prev.action !== "revoke" && OPTIONAL_IDS.some((c) => prev.categories?.[c] && !r.categories?.[c])) day(d).withdrawn += 1;
+      lastByVisitor.set(r.visitorId, r);
+    }
   }
   return [...byDay.values()].sort((a, b) => a.day.localeCompare(b.day));
 }
@@ -120,6 +147,8 @@ export function mergeRollups(...lists: DecisionRollup[][]): DecisionRollup[] {
     into.partial += r.partial;
     into.rejected += r.rejected;
     into.revoked += r.revoked;
+    into.withdrawn += r.withdrawn ?? 0;
+    if (r.anchor && (!into.anchor || r.anchor.seq > into.anchor.seq)) into.anchor = r.anchor;
     into.gpc += r.gpc;
     for (const c of OPTIONAL_CATEGORIES) into.granted[c] += r.granted[c];
     for (const d of ROLLUP_DIMENSIONS) {

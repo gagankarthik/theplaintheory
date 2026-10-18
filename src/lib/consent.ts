@@ -1,6 +1,6 @@
 import "server-only";
 import { z } from "zod";
-import { id, ipRateKey } from "./crypto";
+import { callerRateKey, id, ipRateKey } from "./crypto";
 import { dailyIpHash } from "./ip-hash";
 import { parseUserAgent, viewerLocation } from "./geo";
 import { toPublicConfig, type PublicConfig } from "./public-config";
@@ -104,6 +104,8 @@ export function originAllowed(headers: Headers, p: Pick<Property, "domain">) {
 export const clientIp = (headers: Headers) => headers.get("x-forwarded-for") ?? headers.get("x-real-ip");
 /** Stable keyed hash of the caller's network, for rate limits only (never stored). */
 export const ipKeyFor = (headers: Headers) => ipRateKey(clientIp(headers));
+/** Keyed hash of the caller's own address (IPv4, or IPv6 /64), for per-site rate limits only. */
+export const callerKeyFor = (headers: Headers) => callerRateKey(clientIp(headers));
 /** Daily-salted hash of the caller's network, stored with receipts (lib/ip-hash.ts). */
 export const ipHashFor = (headers: Headers) => dailyIpHash(clientIp(headers));
 
@@ -179,16 +181,19 @@ export async function recordConsent(input: ConsentInput, headers: Headers): Prom
     timestamp: new Date().toISOString(),
   });
 
+  // After the response: compare with the visitor's previous decision (one indexed read, however old
+  // it is), count a withdrawal in the day's rollup, and tell the site's webhooks.
   const followUp: FollowUp = async () => {
+    const [prev] = await store.listVisitorReceipts(property.id, receipt.visitorId, { before: receipt.seq, limit: 1 });
+    const withdrawn = withdrawnCategories(prev, receipt);
+    // revokes are already counted as "revoked"
+    if (withdrawn.length && receipt.action !== "revoke") await store.bumpRollup(property.id, receipt.timestamp.slice(0, 10), { "n:withdrawn": 1 });
     const org = await store.getOrg(property.orgId);
     if (!webhooksEnabled(org)) return;
     await dispatchWebhooks(property, org, "consent.created", { receipt: receiptPayload(receipt) });
-    if (!subscribers(property, "consent.withdrawn").length) return;
-    // The visitor's previous decision, from the recent tail of the log (cheap; no full scan).
-    const recent = await store.listReceipts(property.id, { before: receipt.seq, limit: 500 });
-    const prev = recent.find((r) => r.visitorId === receipt.visitorId);
-    const withdrawn = withdrawnCategories(prev, receipt);
-    if (withdrawn.length) await dispatchWebhooks(property, org, "consent.withdrawn", { withdrawn, receipt: receiptPayload(receipt) });
+    if (withdrawn.length && subscribers(property, "consent.withdrawn").length) {
+      await dispatchWebhooks(property, org, "consent.withdrawn", { withdrawn, receipt: receiptPayload(receipt) });
+    }
   };
 
   return { ok: true, value: { id: receipt.id, hash: receipt.hash, seq: receipt.seq, followUp } };
@@ -236,15 +241,13 @@ export async function recordBannerEvent(input: EventInput, headers: Headers): Pr
 
 /**
  * A visitor's own consent history (DPDPA right to a summary): choices only, no IP hash, country or device.
- * Scans the property's log; at scale add a visitor GSI (see infra/README.md).
+ * Read through the visitor index, newest 500.
  */
 export async function visitorReceipts(siteKey: string, visitorId: string): Promise<Outcome<VisitorReceipts>> {
   const store = await getStore();
   const property = await store.getPropertyBySiteKey(siteKey);
   if (!property) return { ok: false, reason: "not_found" };
-  const all = await store.listReceipts(property.id, { limit: 50_000 });
-  const receipts = all
-    .filter((r) => r.visitorId === visitorId)
-    .map(({ action, framework, categories, timestamp, hash }) => ({ action, framework, categories, timestamp, hash }));
+  const mine = await store.listVisitorReceipts(property.id, visitorId, { limit: 500 });
+  const receipts = mine.map(({ action, framework, categories, timestamp, hash }) => ({ action, framework, categories, timestamp, hash }));
   return { ok: true, value: { site: property.domain, receipts } };
 }

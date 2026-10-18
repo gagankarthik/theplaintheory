@@ -1,6 +1,6 @@
 import { after } from "next/server";
-import { ConsentInput, ipKeyFor, recordConsent } from "@/lib/consent";
-import { apiError, json, outcomeError, parseBody, preflight, rateLimited } from "@/lib/public-api";
+import { callerKeyFor, ConsentInput, recordConsent } from "@/lib/consent";
+import { anyRateLimited, apiError, json, outcomeError, parseBody, preflight } from "@/lib/public-api";
 
 export const OPTIONS = preflight;
 
@@ -8,7 +8,13 @@ export const OPTIONS = preflight;
 export async function POST(req: Request) {
   const parsed = await parseBody(req, ConsentInput);
   if (!parsed.ok) return parsed.response;
-  if (await rateLimited(`consent:${ipKeyFor(req.headers)}`)) return apiError("rate_limited", "Too many consent requests. Try again in a minute.");
+  // Per visitor (stops one page spamming) and per address on this site (stops floods, with room for
+  // a whole carrier-NAT pool behind one IP). The SDK retries a 429, so a receipt is delayed, not lost.
+  const { siteKey, visitorId } = parsed.data;
+  const caller = callerKeyFor(req.headers);
+  if (await anyRateLimited([[`consent:v:${siteKey}:${visitorId}`, 10], [`consent:ip:${siteKey}:${caller}`, 600]])) {
+    return apiError("rate_limited", "Too many consent requests. Try again in a minute.");
+  }
 
   const result = await recordConsent(parsed.data, req.headers);
   if (!result.ok) return outcomeError(result.reason);

@@ -1,4 +1,5 @@
 import "server-only";
+import { loadRollups } from "./rollup-load";
 import { getStore } from "./store";
 
 /**
@@ -23,23 +24,21 @@ export interface ChainAnchors {
 
 export async function anchorsFor(propertyId: string, days = 30, now = new Date()): Promise<ChainAnchors> {
   const store = await getStore();
-  const since = new Date(now.getTime() - days * 86_400_000);
-  since.setUTCHours(0, 0, 0, 0);
-  // newest first
-  const rows = await store.listReceipts(propertyId, { from: since.toISOString() });
-  const byDay = new Map<string, DayAnchor>();
-  for (const r of rows) {
-    const day = r.timestamp.slice(0, 10);
-    const a = byDay.get(day);
-    if (!a) byDay.set(day, { day, seq: r.seq, hash: r.hash, receipts: 1 });
-    else {
-      a.receipts += 1;
-      if (r.seq > a.seq) Object.assign(a, { seq: r.seq, hash: r.hash });
-    }
-  }
-  const [latest] = rows.length ? rows : await store.listReceipts(propertyId, { limit: 1 });
+  const day = (offset: number) => new Date(now.getTime() - offset * 86_400_000).toISOString().slice(0, 10);
+  // From the daily rollups, which keep each day's last receipt as it's written. A longer lookback
+  // finds the anchor before the window, so the first day's receipt count is exact too.
+  const [rollups, [latest]] = await Promise.all([loadRollups(store, propertyId, day(days + 60), day(0)), store.listReceipts(propertyId, { limit: 1 })]);
+  const anchored = rollups.filter((r) => r.anchor).sort((a, b) => a.day.localeCompare(b.day));
+  const windowStart = day(days);
+  const anchors: DayAnchor[] = [];
+  anchored.forEach((r, i) => {
+    if (r.day < windowStart) return;
+    const prev = anchored[i - 1]?.anchor?.seq;
+    const receipts = prev !== undefined ? r.anchor!.seq - prev : r.accepted + r.partial + r.rejected + r.revoked;
+    anchors.push({ day: r.day, seq: r.anchor!.seq, hash: r.anchor!.hash, receipts });
+  });
   return {
     head: latest ? { seq: latest.seq, hash: latest.hash, timestamp: latest.timestamp } : null,
-    anchors: [...byDay.values()].sort((a, b) => b.day.localeCompare(a.day)),
+    anchors: anchors.sort((a, b) => b.day.localeCompare(a.day)),
   };
 }

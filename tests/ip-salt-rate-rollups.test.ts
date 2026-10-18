@@ -21,6 +21,8 @@ beforeAll(async () => {
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
 afterEach(() => vi.unstubAllEnvs());
 
+const noWithdrawn = <T extends { withdrawn?: number }>(r: T) => ({ ...r, withdrawn: undefined });
+
 describe("IP hashing", () => {
   it("truncates before hashing, so one network shares a hash", () => {
     expect(truncateIp("203.0.113.77, 10.0.0.1")).toBe("203.0.113.0");
@@ -170,14 +172,46 @@ describe("daily decision rollups", () => {
     for (const d of mixed) stored.push(await store.appendReceipt(d));
     const range = await store.listDecisionRollups("prop_mix", "2026-04-01", "2026-04-30");
     expect(range.fromSeq).toBe(1);
-    expect(range.rollups).toEqual(rollupsFromReceipts(stored));
+    // Live withdrawals are added by the consent follow-up (not run here); everything else, anchors
+    // included, matches a rebuild from the receipts.
+    expect(range.rollups.map(noWithdrawn)).toEqual(rollupsFromReceipts(stored).map(noWithdrawn));
+    const last = stored.at(-1)!;
+    expect(range.rollups.find((r) => r.day === last.timestamp.slice(0, 10))?.anchor).toEqual({ seq: last.seq, hash: last.hash });
+  });
+
+  it("a visitor's receipts come back newest first, and a withdrawal can be added to the day", async () => {
+    const v = mixed[0].visitorId;
+    const mine = await store.listVisitorReceipts("prop_mix", v);
+    expect(mine.length).toBeGreaterThan(0);
+    expect(mine.every((r) => r.visitorId === v)).toBe(true);
+    expect(mine.map((r) => r.seq)).toEqual([...mine.map((r) => r.seq)].sort((a, b) => b - a));
+    const [newest] = mine;
+    expect(await store.listVisitorReceipts("prop_mix", v, { before: newest.seq, limit: 1 })).toEqual(mine.slice(1, 2));
+    const day = newest.timestamp.slice(0, 10);
+    const before = (await store.listDecisionRollups("prop_mix", day, day)).rollups[0]?.withdrawn ?? 0;
+    await store.bumpRollup("prop_mix", day, { "n:withdrawn": 1 });
+    expect((await store.listDecisionRollups("prop_mix", day, day)).rollups[0].withdrawn).toBe(before + 1);
   });
 
   it("legacy receipts plus rollups add up exactly on the cut-over day", () => {
     const rows = mixed.map((d, i) => ({ ...d, id: `r${i}`, seq: i + 1, prevHash: "", hash: "" })) as ConsentReceipt[];
     const legacy = rows.filter((r) => r.seq < 2);
     const rolled = rows.filter((r) => r.seq >= 2);
-    expect(mergeRollups(rollupsFromReceipts(rolled), rollupsFromReceipts(legacy))).toEqual(rollupsFromReceipts(rows));
+    // a withdrawal whose earlier receipt sits on the other side of the cut-over is counted live, not here
+    expect(mergeRollups(rollupsFromReceipts(rolled), rollupsFromReceipts(legacy)).map(noWithdrawn)).toEqual(rollupsFromReceipts(rows).map(noWithdrawn));
+  });
+
+  it("rebuilding from receipts finds withdrawals: a visitor turning off a category they had allowed", () => {
+    const at = (m: number) => `2026-05-01T10:0${m}:00.000Z`;
+    const base = { framework: "gdpr" as const, country: "DE", device: "desktop" as const, browser: "Chrome", gpc: false };
+    const all = { essential: true, functional: true, analytics: true, marketing: true };
+    const none = { essential: true, functional: false, analytics: false, marketing: false };
+    const [day] = rollupsFromReceipts([
+      { ...base, visitorId: "a", action: "accept_all", categories: all, timestamp: at(1), seq: 1, hash: "h1" },
+      { ...base, visitorId: "b", action: "reject_all", categories: none, timestamp: at(2), seq: 2, hash: "h2" },
+      { ...base, visitorId: "a", action: "reject_all", categories: none, timestamp: at(3), seq: 3, hash: "h3" },
+    ]);
+    expect(day).toMatchObject({ accepted: 1, rejected: 2, withdrawn: 1, anchor: { seq: 3, hash: "h3" } });
   });
 });
 

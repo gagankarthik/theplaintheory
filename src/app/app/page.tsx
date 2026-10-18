@@ -7,11 +7,12 @@ import { SitesTable } from "@/components/app/sites/sites-table";
 import { EmptyState } from "@/components/app/ui/empty-state";
 import { StatStrip } from "@/components/app/ui/stat-strip";
 import { IconSites } from "@/components/icons";
-import { daysAgoIso, formatInt, formatPct, outcomeOf } from "@/lib/analytics";
+import { daysAgoIso, formatInt, formatPct, rangeDays } from "@/lib/analytics";
 import { can } from "@/lib/auth/rbac";
 import { mfaRequirementState, showMfaPrompt } from "@/lib/auth/second-factor";
 import { requireUser } from "@/lib/auth/session";
 import { planById } from "@/lib/plans";
+import { loadRollups } from "@/lib/rollup-load";
 import { getStore } from "@/lib/store";
 import { heldTrackers } from "@/lib/trackers";
 
@@ -22,37 +23,39 @@ const plural = (n: number, word: string) => `${formatInt(n)} ${word}${n === 1 ? 
 /** The 30-day window is read once; the trend splits it into six 5-day buckets and two halves. */
 const WINDOW = 30;
 const BUCKETS = 6;
-const DAY_MS = 86_400_000;
 
 export default async function SitesPage() {
   const { org, role, user } = await requireUser();
   const store = await getStore();
   const properties = await store.listProperties(org.id);
-  const since = daysAgoIso(WINDOW);
+  const days = rangeDays(WINDOW);
   const leakSince = daysAgoIso(7);
-  const sinceMs = new Date(since).getTime();
-  const halfMs = sinceMs + (WINDOW / 2) * DAY_MS;
-  // One parallel round per site: the 30-day decisions, the 7-day leak count and the latest scan.
+  const perBucket = WINDOW / BUCKETS;
+  // One parallel round per site: 30 daily rollups (not the receipts), the 7-day leaks and the latest scan.
   const sites = await Promise.all(
     properties.map(async (p) => {
-      const [receipts, leaks, [lastScan]] = await Promise.all([store.listReceipts(p.id, { from: since }), store.listLeaks(p.id, leakSince), store.listScans(p.id, 1)]);
-      const decisions = receipts.filter((r) => outcomeOf(r.action));
-      const accepted = decisions.filter((r) => r.action === "accept_all").length;
+      const [rollups, leaks, [lastScan]] = await Promise.all([loadRollups(store, p.id, days[0], days[days.length - 1]), store.listLeaks(p.id, leakSince), store.listScans(p.id, 1)]);
+      const index = new Map(days.map((d, i) => [d, i]));
       // trend: opt-in per 5-day bucket for the sparkline, and the last 15 days against the 15 before
       const buckets = Array.from({ length: BUCKETS }, () => ({ n: 0, a: 0 }));
       const halves = [
         { n: 0, a: 0 },
         { n: 0, a: 0 },
       ];
-      for (const r of decisions) {
-        const t = new Date(r.timestamp).getTime();
-        const b = Math.min(BUCKETS - 1, Math.max(0, Math.floor((t - sinceMs) / ((WINDOW / BUCKETS) * DAY_MS))));
-        const h = t >= halfMs ? 1 : 0;
-        const yes = r.action === "accept_all" ? 1 : 0;
-        buckets[b].n++;
-        buckets[b].a += yes;
-        halves[h].n++;
-        halves[h].a += yes;
+      let total = 0;
+      let accepted = 0;
+      for (const r of rollups) {
+        const i = index.get(r.day);
+        if (i === undefined) continue;
+        const n = r.accepted + r.partial + r.rejected;
+        total += n;
+        accepted += r.accepted;
+        const b = buckets[Math.min(BUCKETS - 1, Math.floor(i / perBucket))];
+        b.n += n;
+        b.a += r.accepted;
+        const h = halves[i >= WINDOW / 2 ? 1 : 0];
+        h.n += n;
+        h.a += r.accepted;
       }
       return {
         accepted,
@@ -64,8 +67,8 @@ export default async function SitesPage() {
           dirty: p.config.version !== p.publishedVersion,
           published: p.publishedVersion > 0,
           trackers: heldTrackers(p.trackers).length,
-          decisions: decisions.length,
-          optIn: decisions.length ? accepted / decisions.length : null,
+          decisions: total,
+          optIn: total ? accepted / total : null,
           trend: buckets.map((b) => (b.n ? b.a / b.n : null)),
           delta: halves[0].n && halves[1].n ? halves[1].a / halves[1].n - halves[0].a / halves[0].n : null,
           lastScan: lastScan ? { status: lastScan.status, at: lastScan.finishedAt || lastScan.startedAt } : null,

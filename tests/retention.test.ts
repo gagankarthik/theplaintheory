@@ -103,8 +103,9 @@ describe("retention", () => {
     expect(state.receipts).toHaveLength(90);
     expect(cp).toMatchObject({ seq: 30, hash: all[29].hash, removedCount: 30 });
     expect(cp.removedThrough < new Date(NOW.getTime() - 90 * DAY).toISOString()).toBe(true);
-    // checkpoint is written before anything is deleted
-    expect(state.calls).toEqual(["updateProperty", "deleteReceiptsThrough"]);
+    // the verification is recorded, then the checkpoint, before anything is deleted
+    expect(state.calls).toEqual(["updateProperty", "updateProperty", "deleteReceiptsThrough"]);
+    expect(state.property.lastChainCheck).toMatchObject({ ok: true, checked: 120 });
     expect(verifyChain(state.receipts, cp)).toMatchObject({ ok: true, checked: 90 });
     // without the checkpoint the trimmed chain would look tampered with
     expect(verifyChain(state.receipts).ok).toBe(false);

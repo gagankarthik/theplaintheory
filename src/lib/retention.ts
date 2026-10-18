@@ -117,10 +117,17 @@ export async function runRetention(store: Store, opts: { dryRun?: boolean; now?:
         deliveriesRemoved: 0,
       };
 
+      // The nightly check doubles as the site's "last verified" result (Security page, consent log).
+      const check = legalHold ? null : verifyChain(receipts, prior);
+      if (check && !dryRun) {
+        await store.updateProperty(property.id, {
+          lastChainCheck: { at: now.toISOString(), ok: check.ok, checked: check.checked, ...(check.ok ? {} : { brokenAt: check.brokenAt }) },
+        });
+      }
       if (legalHold) {
         // Legal hold: keep everything, including leak reports and webhook logs below.
         r.skipped = "legal-hold";
-      } else if (!verifyChain(receipts, prior).ok) {
+      } else if (!check!.ok) {
         r.skipped = "chain-broken";
         totals.propertiesSkipped += 1;
       } else if (n > 0 || (prior && receipts.some((x) => x.seq <= prior.seq))) {
