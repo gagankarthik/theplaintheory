@@ -27,7 +27,19 @@ export async function anchorsFor(propertyId: string, days = 30, now = new Date()
   const day = (offset: number) => new Date(now.getTime() - offset * 86_400_000).toISOString().slice(0, 10);
   // From the daily rollups, which keep each day's last receipt as it's written. A longer lookback
   // finds the anchor before the window, so the first day's receipt count is exact too.
-  const [rollups, [latest]] = await Promise.all([loadRollups(store, propertyId, day(days + 60), day(0)), store.listReceipts(propertyId, { limit: 1 })]);
+  const [loaded, [latest]] = await Promise.all([loadRollups(store, propertyId, day(days + 60), day(0)), store.listReceipts(propertyId, { limit: 1 })]);
+  // Days rolled up before rollups carried anchors have counts but no anchor: take those from the
+  // day's receipts. Only the days from before the switch are read, and they leave the window in 30 days.
+  const missing = loaded.filter((r) => !r.anchor && r.accepted + r.partial + r.rejected + r.revoked > 0).map((r) => r.day).sort();
+  const derived = new Map<string, { seq: number; hash: string }>();
+  if (missing.length) {
+    for (const r of await store.listReceipts(propertyId, { from: `${missing[0]}T00:00:00.000Z`, to: `${missing[missing.length - 1]}T23:59:59.999Z` })) {
+      const d = r.timestamp.slice(0, 10);
+      const cur = derived.get(d);
+      if (!cur || r.seq > cur.seq) derived.set(d, { seq: r.seq, hash: r.hash });
+    }
+  }
+  const rollups = loaded.map((r) => (r.anchor || !derived.has(r.day) ? r : { ...r, anchor: derived.get(r.day)! }));
   const anchored = rollups.filter((r) => r.anchor).sort((a, b) => a.day.localeCompare(b.day));
   const windowStart = day(days);
   const anchors: DayAnchor[] = [];
