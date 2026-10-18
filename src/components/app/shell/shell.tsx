@@ -37,6 +37,7 @@ import type { Role } from "@/lib/types";
 import { PublishButton } from "@/components/app/sites/publish-button";
 import { Dropdown, MenuLabel, MenuSeparator, menuItemClass } from "./dropdown";
 import { NavDrawer, NavGroups, NavRail, type NavGroup, type NavTab } from "./nav";
+import { RefreshWhile } from "@/components/app/sites/refresh-while";
 
 /** How far the site in focus has got with setup (its Overview carries the full checklist). */
 export interface SetupSummary {
@@ -45,6 +46,8 @@ export interface SetupSummary {
   done: number;
   total: number;
   next: { title: string; href: string } | null;
+  /** a scan is running for this site */
+  scanning?: boolean;
 }
 
 interface ShellProps {
@@ -75,7 +78,11 @@ const siteGroups = (id: string, setup?: SetupSummary | null): NavGroup[] => [
         label: "Overview",
         icon: IconOverview,
         exact: true,
-        ...(setup && setup.siteId === id ? { badge: { text: `${setup.done}/${setup.total}`, label: `, setup ${setup.done} of ${setup.total} done` } } : {}),
+        ...(setup && setup.siteId === id ? {
+              badge: setup.scanning
+                ? { text: "Scanning", label: `, scan in progress, setup ${setup.done} of ${setup.total} done` }
+                : { text: `${setup.done}/${setup.total}`, label: `, setup ${setup.done} of ${setup.total} done` },
+            } : {}),
       },
     ],
   },
@@ -575,6 +582,8 @@ export function Shell({ user, org, role, orgs, properties, initialCollapsed = fa
   return (
     <ToastProvider>
       <ThemeScope />
+      {/* keeps the sidebar's "Scanning" badge and the checklist current until the scan finishes */}
+      <RefreshWhile active={Boolean(setup?.scanning)} everyMs={15_000} />
         <div className="pt-app min-h-dvh bg-canvas text-ink">
           <a
             href="#main"

@@ -10,6 +10,11 @@ export interface SetupSignals {
   domain: string;
   /** the latest scan finished ("ok") */
   scanned: boolean;
+  /**
+   * The latest scan while it matters to the checklist: "active" (queued or running, still alive),
+   * "failed" (didn't finish), else absent. `eta` is a short phrase such as "about 2 min left".
+   */
+  scan?: { state: "active" | "failed"; startedAt: string; phase?: string; eta?: string | null; error?: string };
   /** cookies and trackers in the catalog (scanned or added by hand) */
   trackers: number;
   /** of those, how many still wait for a category decision */
@@ -36,21 +41,47 @@ export interface SetupStep {
   href: string;
   /** public docs section that explains the step */
   docs: string;
+  /** work on this step is under way (a scan running) or its last attempt failed */
+  status?: "running" | "failed";
 }
 
 export function setupSteps(s: SetupSignals): SetupStep[] {
   const base = `/app/sites/${s.propertyId}`;
   const found = s.scanned || s.trackers > 0;
+  const scanStep: SetupStep =
+    !found && s.scan?.state === "active"
+      ? {
+          id: "scan",
+          title: `Scanning ${s.domain}`,
+          done: false,
+          status: "running",
+          why: `${s.scan.phase ?? "Scanning"}${s.scan.eta ? `, ${s.scan.eta}` : ""}. A real browser is visiting your pages as a first-time visitor. You can design your banner meanwhile; this ticks itself off when the scan finishes.`,
+          cta: "View progress",
+          href: `${base}/scanner`,
+          docs: "/docs#scanner",
+        }
+      : !found && s.scan?.state === "failed"
+        ? {
+            id: "scan",
+            title: "Scan your site",
+            done: false,
+            status: "failed",
+            why: `The last scan didn't finish${s.scan.error ? `: ${s.scan.error.replace(/\.$/, "")}` : ""}. Most failures are temporary, so run it again.`,
+            cta: "Run the scan again",
+            href: `${base}/scanner`,
+            docs: "/docs#scanner",
+          }
+        : {
+            id: "scan",
+            title: "Scan your site",
+            done: found,
+            why: `The scanner visits ${s.domain} as a first-time visitor and lists every cookie, stored value and tracker it sets. It takes about 2 to 4 minutes.`,
+            cta: "Run a scan",
+            href: `${base}/scanner`,
+            docs: "/docs#scanner",
+          };
   return [
-    {
-      id: "scan",
-      title: "Scan your site",
-      done: found,
-      why: `The scanner visits ${s.domain} as a first-time visitor and lists every cookie, stored value and tracker it sets.`,
-      cta: "Run a scan",
-      href: `${base}/scanner`,
-      docs: "/docs#scanner",
-    },
+    scanStep,
     {
       id: "review",
       title: s.toReview ? `Review ${s.toReview} ${s.toReview === 1 ? "cookie" : "cookies"}` : "Review the cookies found",

@@ -321,11 +321,14 @@ export class CrawlerStack extends Stack {
       adjustmentType: AdjustmentType.EXACT_CAPACITY,
       cooldown: Duration.seconds(60),
       evaluationPeriods: 1,
+      // An empty backlog scales in to 0; ONE waiting crawl must start a task. (The old steps put the
+      // scale-out alarm at 3, and a backlog of 1 landed in the inclusive "0 tasks" interval, so a
+      // single scan, the common case, never started a worker and sat queued forever.)
       scalingSteps: [
-        { upper: 1, change: 0 },
-        { lower: 1, upper: 3, change: 1 },
-        { lower: 3, upper: 10, change: Math.min(2, maxTasks) },
-        { lower: 10, change: maxTasks },
+        { upper: 0, change: 0 },
+        { lower: 1, upper: 5, change: 1 },
+        { lower: 5, upper: 15, change: Math.min(2, maxTasks) },
+        { lower: 15, change: maxTasks },
       ],
     });
 

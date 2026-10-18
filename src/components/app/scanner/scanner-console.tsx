@@ -17,8 +17,9 @@ import { Progress } from "@/components/app/ui/progress";
 import { Sheet } from "@/components/app/ui/sheet";
 import { StatusDot } from "@/components/app/ui/status-dot";
 import { useToast } from "@/components/app/ui/toast";
-import { IconAlert, IconCookie, IconRadar, IconStop } from "@/components/icons";
+import { IconAlert, IconCheck, IconCookie, IconRadar, IconStop } from "@/components/icons";
 import { mergePolledLog } from "@/lib/scan-poll";
+import { PHASE_LABEL, clock, remainingLabel, scanEta, type ScanPhase } from "@/lib/scan-eta";
 import { isScanActive, SCAN_LOG_KEEP, type Finding, type ScanLogLine, type ScanReport, type ScanStatus } from "@/lib/trackers";
 import { formatDuration } from "./format";
 
@@ -79,6 +80,64 @@ function LogList({ lines, emptyText }: { lines: ScanLogLine[]; emptyText: string
           </li>
         ))}
       </ol>
+    </div>
+  );
+}
+
+const PHASES: ScanPhase[] = ["starting", "crawling", "finishing"];
+
+/**
+ * A scan in flight, in words people trust: which phase it's in, a running clock, roughly how long is
+ * left, and that it's fine to leave. Ticks every second; the numbers come from the polled report.
+ */
+function LiveScanStatus({ report }: { report: ScanReport }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const eta = scanEta(report, now);
+  const at = PHASES.indexOf(eta.phase);
+  const left = remainingLabel(eta.remainingMs);
+  return (
+    <div className="space-y-4">
+      <ol className="grid gap-2 sm:grid-cols-3" aria-label="Scan steps">
+        {PHASES.map((p, i) => {
+          const state = i < at ? "done" : i === at ? "now" : "later";
+          return (
+            <li
+              key={p}
+              aria-current={state === "now" ? "step" : undefined}
+              className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm ring-1 ring-inset ${
+                state === "now" ? "bg-raised font-semibold text-ink ring-line-strong" : state === "done" ? "text-ink-3 ring-line" : "text-ink-3 ring-line"
+              }`}
+            >
+              <span aria-hidden className={`grid size-5 shrink-0 place-items-center rounded-full text-2xs ${state === "done" ? "bg-success-wash text-success" : state === "now" ? "bg-surface ring-2 ring-marker" : "ring-1 ring-line-strong"}`}>
+                {state === "done" ? <IconCheck size={11} /> : state === "now" ? <span className="size-1.5 animate-pulse rounded-full bg-ink motion-reduce:animate-none" /> : i + 1}
+              </span>
+              {PHASE_LABEL[p]}
+              {p === "crawling" && state === "now" ? <span className="ml-auto font-normal tabular-nums text-ink-3">{eta.pagesDone}/{eta.pagesPlanned}</span> : null}
+            </li>
+          );
+        })}
+      </ol>
+      <p className="flex flex-wrap items-baseline gap-x-2 text-sm text-ink-2" aria-live="off">
+        <span className="font-semibold tabular-nums text-ink">{clock(eta.elapsedMs)}</span>
+        <span>elapsed</span>
+        {left ? <span className="text-ink-3">· {left}</span> : null}
+      </p>
+      {eta.slow ? (
+        <Alert tone="warning" title="Taking longer than usual">
+          Scanners start on demand, and this one is slow to start. It keeps trying for up to 15 minutes; if it still hasn&apos;t started by then it stops, and you can run it again.
+        </Alert>
+      ) : (
+        <p className="text-xs text-ink-3">
+          {eta.phase === "starting"
+            ? "A fresh browser starts just for your site, which takes about a minute. "
+            : "A real browser is opening your pages as a first-time visitor. "}
+          You can leave this page; the scan keeps running and your overview updates when it&apos;s done.
+        </p>
+      )}
     </div>
   );
 }
@@ -281,7 +340,7 @@ export function ScannerConsole({
                         <span className="ml-1.5 text-sm font-normal text-ink-3">found</span>
                       </p>
                       <p className="text-sm tabular-nums text-ink-3">
-                        {report.status === "queued" ? "Waiting for a crawler worker" : `${scanned} of ${total} pages`}
+                        {report.status === "queued" ? "Starting a browser" : `${scanned} of ${total} pages`}
                         {report.finishedAt ? <> · {formatDuration(Date.parse(report.finishedAt) - Date.parse(report.startedAt))}</> : null}
                       </p>
                     </div>
@@ -292,6 +351,7 @@ export function ScannerConsole({
                       valueText={`${scanned} of ${total} pages`}
                       tone={report.status === "failed" ? "bad" : report.status === "ok" ? "ok" : "brand"}
                     />
+                    {active ? <LiveScanStatus report={report} /> : null}
                     <p className="text-xs text-ink-3">
                       Started <DateText iso={report.startedAt} mode="datetime" /> · {report.engine === "headless" ? "headless browser" : "HTML scan"}
                     </p>

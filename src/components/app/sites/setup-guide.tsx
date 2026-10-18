@@ -4,6 +4,7 @@ import { Card, CardHeader } from "@/components/app/ui/card";
 import { Progress } from "@/components/app/ui/progress";
 import { IconArrowRight, IconBrush, IconCheck, IconCookie, IconInstall, IconRadar, IconReceipt, IconSpark } from "@/components/icons";
 import type { SetupProgress, SetupStepId } from "@/lib/setup";
+import { RefreshWhile } from "./refresh-while";
 
 const ICON: Record<SetupStepId, typeof IconBrush> = {
   scan: IconRadar,
@@ -24,8 +25,10 @@ const OPEN_TO_ALL: SetupStepId[] = ["install", "decision"];
  */
 export function SetupGuide({ domain, progress, canWrite }: { domain: string; progress: SetupProgress; canWrite: boolean }) {
   const { steps, done, total, next } = progress;
+  const running = steps.some((x) => x.status === "running");
   return (
     <Card aria-labelledby="setup-h" className="overflow-hidden">
+      <RefreshWhile active={running} />
       <CardHeader
         titleId="setup-h"
         title={`Get ${domain} live`}
@@ -56,20 +59,28 @@ export function SetupGuide({ domain, progress, canWrite }: { domain: string; pro
                   x.done ? "bg-success-wash text-success" : current ? "bg-surface text-ink ring-2 ring-inset ring-marker" : "bg-surface text-ink-3 ring-1 ring-inset ring-line-strong"
                 }`}
               >
-                {x.done ? <IconCheck size={14} /> : i + 1}
+                {x.done ? (
+                  <IconCheck size={14} />
+                ) : x.status === "running" ? (
+                  <span className="size-2 animate-pulse rounded-full bg-ink motion-reduce:animate-none" />
+                ) : (
+                  i + 1
+                )}
               </span>
               <div className="min-w-0 flex-1">
                 <p className={`flex items-center gap-2 text-sm ${x.done ? "text-ink-3" : current ? "font-semibold text-ink" : "font-medium text-ink-2"}`}>
                   {current ? <Icon size={16} className="text-ink-2" /> : null}
                   {x.title}
-                  <span className="sr-only">{x.done ? " (done)" : current ? " (next step)" : " (to do)"}</span>
+                  {x.status === "running" ? <span className="rounded-full bg-info-wash px-2 py-0.5 text-2xs font-semibold text-info">In progress</span> : null}
+                  {x.status === "failed" ? <span className="rounded-full bg-warning-wash px-2 py-0.5 text-2xs font-semibold text-warning">Didn&apos;t finish</span> : null}
+                  <span className="sr-only">{x.done ? " (done)" : x.status === "running" ? " (in progress)" : current ? " (next step)" : " (to do)"}</span>
                 </p>
                 {current ? (
                   <>
                     <p className="mt-1 max-w-[60ch] text-sm text-ink-2">{x.why}</p>
                     <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
                       {canWrite || OPEN_TO_ALL.includes(x.id) ? (
-                        <ButtonLink href={x.href}>
+                        <ButtonLink href={x.href} variant={x.status === "running" ? "secondary" : undefined}>
                           {x.cta}
                           <IconArrowRight size={16} />
                         </ButtonLink>

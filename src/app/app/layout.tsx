@@ -37,7 +37,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const progress = focus ? setupProgress(await loadSetupSignals(store, focus, org)) : null;
   const setup =
     focus && progress && !progress.complete
-      ? { siteId: focus.id, name: focus.name, done: progress.done, total: progress.total, next: progress.next ? { title: progress.next.title, href: progress.next.href } : null }
+      ? {
+          siteId: focus.id,
+          name: focus.name,
+          done: progress.done,
+          total: progress.total,
+          next: progress.next ? { title: progress.next.title, href: progress.next.href } : null,
+          scanning: progress.steps.some((s) => s.status === "running"),
+        }
       : null;
 
   return (
