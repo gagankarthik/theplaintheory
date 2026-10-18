@@ -79,8 +79,10 @@ export function ScoreRing({ value, label, size = 64 }: { value: number; label: s
         <circle cx="32" cy="32" r={r} fill="none" stroke="var(--color-line)" strokeWidth="6" />
         <circle cx="32" cy="32" r={r} fill="none" stroke={tone} strokeWidth="6" strokeLinecap="round" strokeDasharray={`${(value / 100) * c} ${c}`} />
       </svg>
-      <span className="absolute text-sm font-semibold tabular-nums" aria-hidden>
-        {value}%
+      {/* The figure scales with the ring so it always fits inside it; small rings drop the % sign. */}
+      <span className="absolute font-semibold leading-none tabular-nums tracking-[-0.02em]" style={{ fontSize: Math.round(size * (size < 48 ? 0.3 : 0.22)) }} aria-hidden>
+        {value}
+        {size < 48 ? null : "%"}
       </span>
     </div>
   );

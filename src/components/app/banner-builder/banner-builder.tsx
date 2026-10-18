@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, useTransition } from "react";
 import { publishSite, saveConfig } from "@/app/app/sites/[propertyId]/actions";
 import type { ActionResult } from "@/lib/action-result";
 import {
@@ -8,8 +8,9 @@ import {
   IconAlert,
   IconCheck,
   IconChevronDown,
-  IconChevronRight,
+  IconArrowRight,
   IconDesktop,
+  IconEye,
   IconLayoutBar,
   IconLayoutModal,
   IconLayoutPill,
@@ -51,6 +52,39 @@ const POSITION_LABEL: Record<Position, string> = {
   "bottom-left": "Bottom left",
   "bottom-right": "Bottom right",
 };
+/** Whether the live preview is shown: a per-browser preference, read safely (storage can be blocked). */
+const PREVIEW_PREF = "pt:banner-preview";
+const previewListeners = new Set<() => void>();
+let previewMemory = true; // used when storage is blocked
+function subscribePreviewPref(fn: () => void) {
+  previewListeners.add(fn);
+  return () => previewListeners.delete(fn);
+}
+function readPreviewPref() {
+  try {
+    const v = localStorage.getItem(PREVIEW_PREF);
+    return v === null ? previewMemory : v !== "0";
+  } catch {
+    return previewMemory;
+  }
+}
+function writePreviewPref(on: boolean) {
+  previewMemory = on;
+  try {
+    localStorage.setItem(PREVIEW_PREF, on ? "1" : "0");
+  } catch {}
+  previewListeners.forEach((fn) => fn());
+}
+
+/** Room to keep the preview pinned above the controls and still edit comfortably: a large, tall screen. */
+const ROOMY = "(min-width: 1024px) and (min-height: 860px)";
+function subscribeRoomy(fn: () => void) {
+  const m = window.matchMedia(ROOMY);
+  m.addEventListener("change", fn);
+  return () => m.removeEventListener("change", fn);
+}
+const readRoomy = () => window.matchMedia(ROOMY).matches;
+
 /** The preview frame's own origin: preview messages go only there and are only accepted from there. */
 function frameOrigin(f: HTMLIFrameElement | null) {
   try {
@@ -164,6 +198,44 @@ export function BannerBuilder({
   const controls = useRef<HTMLDivElement>(null);
   const [framework, setFramework] = useState<Framework>("gdpr");
   const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
+  // The live preview sits right above the controls being edited; the Preview button hides or shows
+  // it, remembered in this browser.
+  // Two ways to preview, by screen. A large, tall screen pins the live preview above the controls (the
+  // Preview button hides or shows it, remembered). Anything smaller (laptops, tablets, phones) has no
+  // room for both, so editing gets the whole screen and Preview switches to a full-height preview.
+  const roomy = useSyncExternalStore(subscribeRoomy, readRoomy, () => true);
+  const pinnedPref = useSyncExternalStore(subscribePreviewPref, readPreviewPref, () => true);
+  const [previewing, setPreviewing] = useState(false);
+  const showPreview = roomy ? pinnedPref : previewing;
+  const editing = roomy || !previewing;
+  const top = useRef<HTMLDivElement>(null);
+  const togglePreview = () => {
+    if (roomy) return writePreviewPref(!pinnedPref);
+    setPreviewing((v) => !v);
+  };
+  // Switching between editing and previewing on a small screen starts at the toolbar, once the view has changed.
+  const wasPreviewing = useRef(previewing);
+  useEffect(() => {
+    if (wasPreviewing.current === previewing) return;
+    wasPreviewing.current = previewing;
+    top.current?.scrollIntoView({ block: "start" });
+  }, [previewing]);
+  // Previewing on a small screen: the frame fills exactly what's left of the screen below the toolbar
+  // and the preview's own controls (which wrap differently on every width), measured, not guessed.
+  useEffect(() => {
+    if (roomy || !previewing) return;
+    const fit = () => {
+      const f = frame.current;
+      const t = top.current;
+      if (!f || !t) return;
+      const landing = parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) || 0;
+      const above = f.getBoundingClientRect().top - t.getBoundingClientRect().top;
+      f.style.height = `${Math.max(260, Math.floor(window.innerHeight - landing - above - 20))}px`;
+    };
+    fit();
+    window.addEventListener("resize", fit);
+    return () => window.removeEventListener("resize", fit);
+  }, [roomy, previewing, device]);
   const [state, setState] = useState<ActionResult>(null);
   const [pending, start] = useTransition();
   const toast = useToast();
@@ -342,9 +414,11 @@ export function BannerBuilder({
   ];
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,460px)_minmax(0,1fr)]">
+    // Previewing on a small screen: a screen's height of room, so the toolbar can sit at the top and the
+    // preview fill the rest.
+    <div className="mx-auto max-w-[960px] space-y-4" style={!roomy && previewing ? { minHeight: "calc(100dvh - 64px)" } : undefined}>
       {restoredAt && unsaved ? (
-        <Alert tone="info" title="We kept your unsaved edits" className="xl:col-span-2">
+        <Alert tone="info" title="We kept your unsaved edits">
           <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <span>
               From <DateText iso={restoredAt} mode="relative" />. Save the draft to keep them, or start again from the saved version.
@@ -355,8 +429,74 @@ export function BannerBuilder({
           </span>
         </Alert>
       ) : null}
-      {/* controls: above the preview on phones and tablets, beside it on wide screens */}
-      <div ref={controls} className="min-w-0 scroll-mt-20 self-start overflow-hidden rounded-lg border border-line bg-surface">
+      {/* toolbar: the fairness score and the Preview button */}
+      <div ref={top} className="flex flex-wrap items-center justify-between gap-3">
+        <button
+          type="button"
+          onClick={() => go(TABS.indexOf("review"))}
+          className="flex min-h-11 items-center gap-2.5 rounded-full border border-line bg-surface py-1 pl-1.5 pr-4 text-left transition-colors duration-150 hover:bg-raised"
+        >
+          <ScoreRing value={fairness.score} label="Fairness score" size={36} />
+          <span className="text-sm">
+            <span className="font-medium text-ink">Fairness</span> <span className="text-ink-3">{fairnessSummary}</span>
+          </span>
+        </button>
+        <Button variant={showPreview ? "secondary" : "primary"} size="sm" onClick={togglePreview} aria-pressed={showPreview} aria-controls="banner-preview">
+          {!roomy && previewing ? <IconArrowRight size={16} aria-hidden className="rotate-180" /> : <IconEye size={16} aria-hidden />}
+          {roomy ? (showPreview ? "Hide preview" : "Preview") : previewing ? "Back to editing" : "Preview"}
+        </Button>
+      </div>
+
+      {/* The live preview: pinned above the controls on a roomy screen, else the whole view until "Back to editing". */}
+      {showPreview ? (
+        <section id="banner-preview" aria-labelledby="preview-h" className={`z-20 overflow-hidden rounded-lg border border-line bg-raised ${roomy ? "sticky top-[64px] shadow-[0_8px_24px_-16px_rgb(0_0_0/0.25)]" : ""}`}>
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line bg-surface px-3 py-1.5">
+            <h2 id="preview-h" className="text-sm font-medium text-ink">
+              Live preview <span className="font-normal text-ink-3">{unsaved ? "with your unsaved edits" : "of the saved version"}</span>
+            </h2>
+            <div className="flex flex-wrap items-center gap-2">
+              <Segmented
+                size="sm"
+                label="Preview region"
+                value={framework}
+                onChange={setFramework}
+                options={FRAMEWORKS.map((f) => ({ value: f, label: FRAMEWORK_META[f].name, title: FRAMEWORK_META[f].region }))}
+              />
+              <Segmented
+                size="sm"
+                label="Preview device"
+                value={device}
+                onChange={setDevice}
+                options={[
+                  { value: "desktop", label: <IconDesktop size={16} title="Desktop" /> },
+                  { value: "mobile", label: <IconMobileApp size={16} title="Mobile" /> },
+                ]}
+              />
+            </div>
+          </div>
+          <div className="p-1.5 sm:p-2">
+            <div className="mx-auto overflow-hidden rounded-md border border-line-strong bg-surface transition-[max-width] duration-300 ease-out" style={{ maxWidth: device === "mobile" ? 390 : "100%" }}>
+              <div className="flex h-7 items-center gap-1.5 border-b border-line bg-raised px-3" aria-hidden>
+                <span className="size-2 rounded-full bg-line-strong" />
+                <span className="size-2 rounded-full bg-line-strong" />
+                <span className="size-2 rounded-full bg-line-strong" />
+                <span className="ml-3 truncate rounded-sm bg-surface px-2 py-0.5 text-xs text-ink-3">{property.domain}</span>
+              </div>
+              <iframe
+                ref={frame}
+                src="/preview-frame"
+                title={`Banner preview for ${FRAMEWORK_META[framework].region}`}
+                className="block w-full bg-surface"
+                style={roomy ? { height: device === "mobile" ? "clamp(300px, 46vh, 520px)" : "clamp(240px, 34vh, 360px)" } : undefined}
+                onLoad={send}
+              />
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      {/* controls (kept mounted while previewing on a small screen, so nothing is lost) */}
+      <div ref={controls} hidden={!editing} className="min-w-0 scroll-mt-20 rounded-lg border border-line bg-surface">
         <Steps<BuilderTab> label="Banner setup steps" idBase="banner" items={stepItems} value={tab} onChange={setTab} />
 
         <TabPanel idBase="banner" value={tab}>
@@ -706,7 +846,7 @@ export function BannerBuilder({
         </TabPanel>
 
         {canWrite ? (
-          <div className="sticky bottom-0 z-10 space-y-3 border-t border-line bg-surface px-5 py-4 sm:px-6">
+          <div className="sticky bottom-0 z-10 space-y-2 border-t border-line bg-surface px-4 py-2.5 sm:px-6">
             <FormMessage state={state?.error ? { error: state.error } : null} />
             {tab === "review" && (blocked || nothingNew) ? (
               <p id="publish-why" className={`flex items-start gap-2 text-xs ${blocked ? "font-medium text-destructive" : "text-ink-3"}`}>
@@ -716,20 +856,16 @@ export function BannerBuilder({
                   : "Nothing new to publish: visitors already see this version."}
               </p>
             ) : null}
-            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-              <p className="inline-flex items-center gap-2 text-xs text-ink-3" aria-live="polite">
-                <StatusDot tone={unsaved ? "warn" : unpublished ? "idle" : "ok"} label={unsaved ? "Unsaved" : unpublished ? "Not live" : "Live"} size={7} />
-                {status}
-              </p>
-            </div>
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
               {idx > 0 ? (
                 <Button variant="quiet" onClick={() => go(idx - 1)}>
                   Back
                 </Button>
-              ) : (
-                <span />
-              )}
+              ) : null}
+              <p className="mr-auto inline-flex min-w-0 items-center gap-2 text-xs text-ink-3" aria-live="polite">
+                <StatusDot tone={unsaved ? "warn" : unpublished ? "idle" : "ok"} label={unsaved ? "Unsaved" : unpublished ? "Not live" : "Live"} size={7} />
+                <span className="truncate">{status}</span>
+              </p>
               <div className="flex gap-2">
                 <Button variant="secondary" onClick={save} disabled={pending || !unsaved}>
                   Save draft
@@ -752,58 +888,6 @@ export function BannerBuilder({
         )}
       </div>
 
-      {/* preview */}
-      <section aria-labelledby="preview-h" className="min-w-0 xl:sticky xl:top-6 xl:self-start">
-        <h2 id="preview-h" className="sr-only">
-          Live preview
-        </h2>
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-          <Segmented
-            size="sm"
-            label="Preview region"
-            value={framework}
-            onChange={setFramework}
-            options={FRAMEWORKS.map((f) => ({ value: f, label: FRAMEWORK_META[f].name, title: FRAMEWORK_META[f].region }))}
-          />
-          <Segmented
-            size="sm"
-            label="Preview device"
-            value={device}
-            onChange={setDevice}
-            options={[
-              { value: "desktop", label: <IconDesktop size={16} title="Desktop" /> },
-              { value: "mobile", label: <IconMobileApp size={16} title="Mobile" /> },
-            ]}
-          />
-        </div>
-        <div className="overflow-hidden rounded-lg border border-line bg-raised p-2 sm:p-4">
-          <div className="mx-auto overflow-hidden rounded-md border border-line-strong bg-surface transition-[max-width] duration-300 ease-out" style={{ maxWidth: device === "mobile" ? 390 : "100%" }}>
-            <div className="flex h-8 items-center gap-1.5 border-b border-line bg-raised px-3" aria-hidden>
-              <span className="size-2.5 rounded-full bg-line-strong" />
-              <span className="size-2.5 rounded-full bg-line-strong" />
-              <span className="size-2.5 rounded-full bg-line-strong" />
-              <span className="ml-3 truncate rounded-sm bg-surface px-2 py-0.5 text-xs text-ink-3">{property.domain}</span>
-            </div>
-            <iframe ref={frame} src="/preview-frame" title={`Banner preview for ${FRAMEWORK_META[framework].region}`} className="block h-[480px] w-full bg-surface sm:h-[560px]" onLoad={send} />
-          </div>
-        </div>
-        <p className="mt-3 text-xs text-ink-3">
-          {FRAMEWORK_META[framework].name} notice ({FRAMEWORK_META[framework].region}){unsaved ? ", with your unsaved edits" : ""}. Visitors see the last published version.
-        </p>
-
-        <button
-          type="button"
-          onClick={() => go(TABS.indexOf("review"))}
-          className="mt-4 flex min-h-14 w-full items-center gap-3 rounded-lg border border-line bg-surface px-4 py-3 text-left transition-colors duration-150 hover:bg-raised"
-        >
-          <ScoreRing value={fairness.score} label="Fairness score" size={40} />
-          <span className="min-w-0 flex-1">
-            <span className="block text-sm font-medium text-ink">Fairness check</span>
-            <span className="block text-xs text-ink-3">{fairnessSummary}</span>
-          </span>
-          <IconChevronRight size={16} aria-hidden className="shrink-0 text-ink-3" />
-        </button>
-      </section>
     </div>
   );
 }
