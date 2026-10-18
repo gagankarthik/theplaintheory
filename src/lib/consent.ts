@@ -157,7 +157,7 @@ const receiptPayload = (r: ConsentReceipt) => ({
  */
 export async function recordConsent(input: ConsentInput, headers: Headers): Promise<Outcome<ConsentReceiptSummary & { followUp: FollowUp }>> {
   const store = await getStore();
-  const property = await store.getPropertyBySiteKey(input.siteKey);
+  const property = await propertyForIngest(input.siteKey);
   if (!property) return { ok: false, reason: "not_found" };
   if (!originAllowed(headers, property)) return { ok: false, reason: "forbidden_origin" };
 
@@ -206,7 +206,7 @@ export async function recordConsent(input: ConsentInput, headers: Headers): Prom
  */
 export async function recordLeak(input: LeakInput, headers: Headers): Promise<Outcome<{ id: string; followUp: FollowUp }>> {
   const store = await getStore();
-  const property = await store.getPropertyBySiteKey(input.siteKey);
+  const property = await propertyForIngest(input.siteKey);
   if (!property) return { ok: false, reason: "not_found" };
   if (!originAllowed(headers, property)) return { ok: false, reason: "forbidden_origin" };
   const leak: LeakReport = {
@@ -230,12 +230,29 @@ export async function recordLeak(input: LeakInput, headers: Headers): Promise<Ou
   return { ok: true, value: { id: leak.id, followUp } };
 }
 
+/**
+ * The site behind a key for the high-volume ingest calls (consent, banner events, leaks), kept per
+ * server instance for 30 s: a busy site reads its record once per instance every 30 s instead of on
+ * every visitor's request. Unknown keys are cached too (briefly), so a bad key can't hammer the
+ * store. A domain or webhook change reaches ingest within 30 s.
+ */
+const INGEST_TTL_MS = 30_000;
+const ingestCache = new Map<string, { at: number; property: Property | null }>();
+async function propertyForIngest(siteKey: string): Promise<Property | null> {
+  const hit = ingestCache.get(siteKey);
+  if (hit && Date.now() - hit.at < INGEST_TTL_MS) return hit.property;
+  const property = await (await getStore()).getPropertyBySiteKey(siteKey);
+  if (ingestCache.size > 5_000) ingestCache.clear();
+  ingestCache.set(siteKey, { at: Date.now(), property });
+  return property;
+}
+
 /** Banner impression or bounce, counted per day for opt-in/bounce rates and plan limits. */
 export async function recordBannerEvent(input: EventInput, headers: Headers): Promise<Outcome<null>> {
-  const store = await getStore();
-  const property = await store.getPropertyBySiteKey(input.siteKey);
+  const property = await propertyForIngest(input.siteKey);
   if (!property) return { ok: false, reason: "not_found" };
   if (!originAllowed(headers, property)) return { ok: false, reason: "forbidden_origin" };
+  const store = await getStore();
   await store.recordPageview(property.id, today(), input.kind);
   return { ok: true, value: null };
 }

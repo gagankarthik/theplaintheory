@@ -5,6 +5,7 @@ import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { S3Client } from "@aws-sdk/client-s3";
 import { SESv2Client } from "@aws-sdk/client-sesv2";
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
+import { NodeHttpHandler } from "@smithy/node-http-handler";
 
 /**
  * One place that builds AWS SDK clients.
@@ -23,7 +24,10 @@ const credentials =
     ? { accessKeyId: process.env.PT_AWS_ACCESS_KEY_ID, secretAccessKey: process.env.PT_AWS_SECRET_ACCESS_KEY }
     : undefined;
 
-const config = { region: awsRegion, credentials, maxAttempts: 3 };
+// Bounded waits: a stuck socket fails fast and the SDK retries, instead of hanging the request.
+// Keep-alive connections are reused across invocations of a warm function.
+const requestHandler = new NodeHttpHandler({ connectionTimeout: 1_000, requestTimeout: 5_000 });
+const config = { region: awsRegion, credentials, maxAttempts: 3, requestHandler };
 /** Region, credentials and retries for clients built elsewhere (e.g. SQS in lib/crawler). */
 export const awsClientConfig = config;
 

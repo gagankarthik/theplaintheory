@@ -6,7 +6,9 @@ import { gsap } from "gsap";
  */
 export { gsap };
 
-export const reducedMotion = () => typeof window === "undefined" || window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+import { reducedMotion } from "./reduced-motion";
+
+export { reducedMotion };
 
 /** Brand easing: a weighty settle, matching --ease-spring in globals.css. */
 export const EASE = "expo.out";

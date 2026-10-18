@@ -1,4 +1,5 @@
 import "server-only";
+import { after } from "next/server";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
@@ -92,8 +93,10 @@ export const getSession = cache(async function getSession(): Promise<Session | n
   const now = Date.now();
   if (now - Date.parse(rec!.lastSeenAt) > TOUCH_AFTER_MS) {
     const iso = new Date(now).toISOString();
-    await store.touchSession(rec!.id, iso);
-    await store.updateUser(rec!.userId, { lastActiveAt: iso }).catch(() => undefined);
+    // Bookkeeping, not part of the answer: written after the response, never delaying the page.
+    after(() =>
+      Promise.all([store.touchSession(rec!.id, iso), store.updateUser(rec!.userId, { lastActiveAt: iso })]).catch((e) => console.error("[session] touch failed", e)),
+    );
   }
   return { sid: claims.sid, userId: claims.userId, email: claims.email, orgId: claims.orgId };
 });
@@ -124,9 +127,9 @@ const loadUserContext = cache(async () => {
   const session = await getSession();
   if (!session) redirect("/auth/login");
   const store = await getStore();
-  const user = await store.getUser(session.userId);
+  // independent reads, in parallel
+  const [user, memberships] = await Promise.all([store.getUser(session.userId), store.listMemberships(session.userId)]);
   if (!user) redirect("/auth/login");
-  const memberships = await store.listMemberships(user.id);
   const active = memberships.find((m) => m.orgId === session.orgId) ?? memberships[0];
   if (!active) redirect("/onboarding");
   const org = await store.getOrg(active.orgId);

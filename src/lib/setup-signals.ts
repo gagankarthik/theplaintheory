@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { rangeDays } from "@/lib/analytics";
 import { STALE_SCAN_MS } from "@/lib/crawler";
 import { PHASE_LABEL, remainingLabel, scanEta } from "@/lib/scan-eta";
@@ -13,15 +14,19 @@ import type { Organization, Property } from "@/lib/types";
  * days of page-view counters. Three small reads, so the layout can afford it for the site in focus.
  */
 export async function loadSetupSignals(store: Store, property: Property, org: Pick<Organization, "dpo">): Promise<SetupSignals> {
-  const days = rangeDays(90);
-  const [[scan], receipts, counters] = await Promise.all([
-    store.listScans(property.id, 1),
-    store.listReceipts(property.id, { limit: 1 }),
-    store.listCounters(property.id, days[0], days[days.length - 1]),
-  ]);
+  const [[scan], receipts, counters] = await setupReads(store, property.id);
   const decided = receipts.length > 0;
   return { ...base(property, org, scan, decided, counters.some((c) => c.views > 0)), scan: scanSignal(scan) };
 }
+
+/**
+ * The three reads, shared by everything in one request (React cache): the layout's sidebar and the
+ * site overview both need them for the same site.
+ */
+const setupReads = cache((store: Store, propertyId: string) => {
+  const days = rangeDays(90);
+  return Promise.all([store.listScans(propertyId, 1), store.listReceipts(propertyId, { limit: 1 }), store.listCounters(propertyId, days[0], days[days.length - 1])]);
+});
 
 /** The checklist's view of the latest scan: alive and in flight, failed, or nothing to say. */
 export function scanSignal(scan: ScanReport | undefined, now = Date.now()): SetupSignals["scan"] {

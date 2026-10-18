@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, type ReactNode } from "react";
 import { IconClose } from "@/components/icons";
-import { gsap, reducedMotion } from "@/lib/motion";
+import { reducedMotion } from "@/lib/reduced-motion";
 
 /**
  * Modal built on native <dialog>: the browser traps focus, Esc closes, the page behind is inert under
@@ -34,7 +34,8 @@ export function Dialog({
       opener.current = document.activeElement;
       d.showModal();
       // Rises into place; the native backdrop fades in with it.
-      if (!reducedMotion()) gsap.fromTo(d, { y: 12, opacity: 0 }, { y: 0, opacity: 1, duration: 0.24, ease: "power2.out", clearProps: "transform,opacity" });
+      // (the browser's own Web Animations API: no animation library in the dashboard bundle)
+      if (!reducedMotion()) d.animate([{ transform: "translateY(12px)", opacity: 0 }, { transform: "none", opacity: 1 }], { duration: 240, easing: "cubic-bezier(0.33, 1, 0.68, 1)" });
     } else if (!open && d.open) {
       d.close();
     }

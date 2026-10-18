@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { IconAlert, IconCheck, IconClose } from "@/components/icons";
-import { gsap, reducedMotion } from "@/lib/motion";
+import { reducedMotion } from "@/lib/reduced-motion";
 
 type Tone = "success" | "error";
 interface ToastItem {
@@ -36,11 +36,12 @@ function ToastCard({ item, onDone }: { item: ToastItem; onDone: () => void }) {
 
   // Rises in from below; fades out to the side before it's removed.
   useLayoutEffect(() => {
-    if (ref.current && !reducedMotion()) gsap.fromTo(ref.current, { y: 12, autoAlpha: 0 }, { y: 0, autoAlpha: 1, duration: 0.24, ease: "power2.out" });
+    if (ref.current && !reducedMotion()) ref.current.animate([{ transform: "translateY(12px)", opacity: 0 }, { transform: "none", opacity: 1 }], { duration: 240, easing: "cubic-bezier(0.33, 1, 0.68, 1)" });
   }, []);
   const dismiss = useCallback(() => {
     if (!ref.current || reducedMotion()) return onDone();
-    gsap.to(ref.current, { x: 32, autoAlpha: 0, duration: 0.2, ease: "power2.out", onComplete: onDone });
+    const out = ref.current.animate([{ transform: "none", opacity: 1 }, { transform: "translateX(32px)", opacity: 0 }], { duration: 200, easing: "cubic-bezier(0.33, 1, 0.68, 1)", fill: "forwards" });
+    out.onfinish = onDone;
   }, [onDone]);
 
   useEffect(() => {
