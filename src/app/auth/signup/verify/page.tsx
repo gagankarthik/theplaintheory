@@ -11,12 +11,12 @@ import { getSignedInUser } from "@/lib/auth/session";
 export const metadata: Metadata = {
   title: "Confirm your email",
   description: "Enter the 6-digit code we emailed you to finish creating your Plain Theory account.",
-  alternates: { canonical: "/signup/verify" },
+  alternates: { canonical: "/auth/signup/verify" },
 };
 
 export default async function SignupVerifyPage() {
   // The local auth driver signs people in at sign-up; there's no code to confirm.
-  if (!isCognito()) redirect("/signup");
+  if (!isCognito()) redirect("/auth/signup");
   if (await getSignedInUser()) redirect("/app");
   const pending = await readPendingSignup((await cookies()).get(SIGNUP_COOKIE)?.value);
   const masked = pending ? maskEmail(pending.email) : undefined;

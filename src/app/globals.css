@@ -3,6 +3,26 @@
 /* Short viewports (small laptops, landscape phones): layouts compress vertically. */
 @custom-variant short (@media (max-height: 880px));
 @custom-variant shorter (@media (max-height: 740px));
+@custom-variant shortest (@media (max-height: 600px));
+
+/*
+ * Our own consent SDK's floating Privacy choices button (its host says which view is up): shown only on
+ * a page that asks for it with [data-consent-fab] (the landing page). The banner itself is never hidden.
+ */
+#plain-consent[data-view="fab"] {
+  display: none;
+}
+body:has([data-consent-fab]) #plain-consent[data-view="fab"] {
+  display: block;
+}
+/*
+ * In the dashboard, sign-in, onboarding and the staff console our own consent UI has no place: the
+ * script isn't loaded there, but after a client-side navigation from the website its host is still
+ * in the page. Named by their roots (.pt-app, .auth), so the banner previews (a bare page) still show.
+ */
+body:has(.pt-app, .auth) #plain-consent {
+  display: none !important;
+}
 /* Dark theme, scoped by the attribute the dashboard sets on <html> (marketing stays light). */
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
@@ -67,6 +87,9 @@
   --color-focus: #0f0f0f;
   --color-success: var(--color-jade);
   --color-success-wash: var(--color-jade-wash);
+  /* information and gentle suggestions: blue (AA on white 6.7, on its wash 5.9) */
+  --color-info: #1d4ed8;
+  --color-info-wash: #eaf1fe;
   --color-warning: var(--color-amber);
   --color-warning-wash: var(--color-amber-wash);
   --color-destructive: var(--color-rose);
@@ -80,9 +103,10 @@
   --color-jade: #066b4c;
   --color-jade-bright: #12a174;
   --color-jade-wash: #e3f4ec;
-  --color-amber: #8a5205;
-  --color-amber-bright: #c98510;
-  --color-amber-wash: #fcf0d8;
+  /* warnings read orange: text AA on white, paper and the wash; the bright one is for dots and icons */
+  --color-amber: #b04a00;
+  --color-amber-bright: #d96500;
+  --color-amber-wash: #fff1e3;
   --color-rose: #b8233a;
   --color-rose-wash: #fce8eb;
   /* Marketing site ("One motif": soot, white and lime, from the I/O mark). Never themed. */
@@ -244,11 +268,13 @@
   --color-jade: #4fd6a7;
   --color-jade-bright: #2fc08f;
   --color-jade-wash: #10291f;
-  --color-amber: #f2b45c;
-  --color-amber-bright: #f0a53a;
-  --color-amber-wash: #2c2210;
+  --color-amber: #ff9f4a;
+  --color-amber-bright: #ff8a1f;
+  --color-amber-wash: #2e1c0c;
   --color-rose: #ff7d8e;
   --color-rose-wash: #36161c;
+  --color-info: #8ab4ff;
+  --color-info-wash: #111a2c;
   --color-risk-low: #2fc08f;
   --color-risk-medium: #f0a53a;
   --color-risk-high: #f27a45;

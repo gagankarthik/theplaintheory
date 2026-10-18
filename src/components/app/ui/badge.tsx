@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
 /**
- * Semantic tones: success (jade), warning (amber), danger (rose), neutral and info (ink on paper).
+ * Semantic tones: success (jade, green), warning (amber, orange), danger (rose, red), info (blue), and neutral.
  * Consent tones are aliases kept for existing callers: released = success, held = warning,
  * declined = danger. "brand" (the lime "on" wash) marks the current item only, e.g. the current plan.
  */
@@ -18,7 +18,7 @@ const TONE: Record<BadgeTone, string> = {
   held: WARNING,
   declined: DANGER,
   neutral: "bg-paper text-ink-2 ring-1 ring-inset ring-line",
-  info: "bg-surface text-ink ring-1 ring-inset ring-line-strong",
+  info: "bg-info-wash text-info",
   brand: "bg-selected text-on-selected",
 };
 
@@ -40,7 +40,7 @@ function Glyph({ tone }: { tone: BadgeTone }) {
     case "brand":
       return <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-current" />;
     case "info":
-      return <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-ink-3" />;
+      return <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-current" />;
     default:
       return null;
   }

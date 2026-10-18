@@ -6,7 +6,9 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: "*",
       allow: "/",
-      disallow: ["/app", "/admin", "/api", "/onboarding", "/preview-frame", "/demo", "/login", "/signup", "/forgot-password", "/reset-password"],
+      // Private surfaces only. Sign-in and sign-up stay crawlable so Google can read their noindex;
+      // blocked here, they could still be listed as bare URLs.
+      disallow: ["/app", "/admin", "/api", "/onboarding", "/preview-frame", "/demo", "/suspended"],
     },
     sitemap: absoluteUrl("/sitemap.xml"),
     host: site.url,

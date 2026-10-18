@@ -26,7 +26,7 @@ export default async function WebhooksPage(props: PageProps<"/app/sites/[propert
   const description = (
     <>
       Tell your CRM, CDP and warehouse when consent changes, so a withdrawal is honoured everywhere.{" "}
-      <Link href="/docs#api" className="font-medium text-ink underline underline-offset-2 hover:no-underline">
+      <Link href="/docs#webhooks" className="font-medium text-ink underline underline-offset-2 hover:no-underline">
         Webhook docs
       </Link>
     </>

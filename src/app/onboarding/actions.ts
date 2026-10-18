@@ -67,7 +67,7 @@ const field = (form: FormData, key: string) => {
 
 export async function createWorkspace(_: OnboardState, form: FormData): Promise<OnboardState> {
   const session = await getSignedInUser();
-  if (!session) redirect("/login");
+  if (!session) redirect("/auth/login");
   const parsed = schema.safeParse(
     Object.fromEntries(["kind", "org", "teamSize", "dataRegion", "site", "domain", "plan", "interval", "currency"].map((k) => [k, field(form, k)])),
   );
@@ -107,8 +107,9 @@ export async function createWorkspace(_: OnboardState, form: FormData): Promise<
   await recordAudit({ orgId, actor, action: "property.created", target: { type: "property", id: property.id, label: property.domain } });
   await setActiveOrg(orgId);
 
-  const install = `/app/sites/${property.id}/install`;
-  if (d.plan === "free") redirect(install);
+  // the site overview opens on the setup checklist
+  const overview = `/app/sites/${property.id}`;
+  if (d.plan === "free") redirect(overview);
 
   const url = await createCheckoutUrl({
     org,
@@ -116,7 +117,7 @@ export async function createWorkspace(_: OnboardState, form: FormData): Promise<
     plan: planById(d.plan),
     interval: d.interval,
     currency: d.currency,
-    successPath: `${install}?checkout=success`,
+    successPath: `${overview}?checkout=success`,
     cancelPath: "/app/billing?checkout=cancelled",
   });
   // Checkout not connected (e.g. local dev): the workspace exists on Free; billing explains why.

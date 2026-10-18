@@ -1,14 +1,13 @@
 import Link from "next/link";
 import { IconArrowRight } from "@/components/icons";
 import { COMPLIANCE } from "@/components/marketing/compliance/content";
-import { FinalCta } from "@/components/marketing/final-cta";
 import { PageHero } from "@/components/marketing/page-hero";
 import { COMPLIANCE_SLUGS } from "@/lib/marketing-routes";
 import { pageMetadata } from "@/lib/seo";
 
 export const metadata = pageMetadata({
-  title: "Regulations",
-  description: "How Plain Theory helps your website meet cookie consent rules under India's DPDP Act, the GDPR and UK GDPR, and California's CCPA and CPRA.",
+  title: "Cookie Consent Laws: GDPR, CCPA and DPDP",
+  description: "Cookie consent rules under the GDPR and UK GDPR, CCPA and CPRA, and the DPDP Act 2023, and how one banner and one consent log meet each of them.",
   path: "/compliance",
 });
 
@@ -47,7 +46,6 @@ export default function CompliancePage() {
         </ul>
         <p className="mx-auto mt-6 max-w-[1440px] text-[0.9375rem] text-mute-ink">Plain Theory is software, not legal advice. Your lawyer decides what your website needs.</p>
       </section>
-      <FinalCta />
     </>
   );
 }

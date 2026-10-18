@@ -174,10 +174,10 @@ export const COMPLIANCE: Record<ComplianceSlug, ComplianceContent> = {
   dpdpa: {
     slug: "dpdpa",
     name: "DPDPA",
-    title: "DPDPA consent readiness for India",
+    title: "DPDP Act consent management, explained plainly",
     description:
-      "What India's DPDP Act 2023 and DPDP Rules 2025 require for consent: itemised notices, a clear affirmative act, easy withdrawal and DPO contacts.",
-    lead: "India's Digital Personal Data Protection Act, 2023 makes consent the main basis for processing personal data. The DPDP Rules, 2025 set out how notices must look and when each duty starts.",
+      "What the DPDP Act 2023 and DPDP Rules 2025 require for consent: itemised notices in 22 languages, a clear affirmative act, easy withdrawal and records.",
+    lead: "The Digital Personal Data Protection Act, 2023 makes consent the main basis for processing personal data. The DPDP Rules, 2025 set out how notices must look and when each duty starts.",
     appliesTo: [
       { label: "Who", value: "Anyone processing digital personal data in India, or offering goods or services to people in India" },
       { label: "Model", value: "Opt-in: consent must be given by a clear affirmative action before processing" },

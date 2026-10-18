@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useActionState, useEffect, useState } from "react";
 import { createSite } from "@/app/app/actions";
 import { type ActionResult } from "@/lib/action-result";
 import { IconPlus } from "@/components/icons";
@@ -12,6 +13,19 @@ import { TextField } from "@/components/app/ui/field";
 
 export function AddSite({ atLimit, planName, limit }: { atLimit: boolean; planName: string; limit: number | null }) {
   const [open, setOpen] = useState(false);
+  // /app?add=1 (the site switcher's "Add a site") opens the dialog straight away
+  const params = useSearchParams();
+  const router = useRouter();
+  const asked = params.get("add") === "1";
+  const [answered, setAnswered] = useState(false);
+  if (asked !== answered) {
+    setAnswered(asked);
+    if (asked) setOpen(true);
+  }
+  // then drop ?add=1, so a reload or Back doesn't open it again
+  useEffect(() => {
+    if (asked) router.replace("/app", { scroll: false });
+  }, [asked, router]);
   const [state, action] = useActionState<ActionResult, FormData>(createSite, null);
 
   return (
@@ -20,7 +34,7 @@ export function AddSite({ atLimit, planName, limit }: { atLimit: boolean; planNa
         <IconPlus size={18} />
         Add site
       </Button>
-      <Dialog open={open} onClose={() => setOpen(false)} title="Add a site" description={atLimit ? undefined : "You'll get the install snippet right after."}>
+      <Dialog open={open} onClose={() => setOpen(false)} title="Add a site" description={atLimit ? undefined : "Next, its overview walks you through getting it live."}>
         {atLimit ? (
           <div className="space-y-4">
             <p className="text-sm text-ink-2">

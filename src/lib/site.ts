@@ -64,3 +64,13 @@ export const legal: {
 };
 
 export const absoluteUrl = (path = "/") => new URL(path, site.url).toString();
+
+/** A development origin: localhost, a loopback address, or a .local / .test / .localhost name. */
+const isLocalOrigin = (url: string) => /^https?:\/\/(localhost|127\.\d+\.\d+\.\d+|\[::1\]|[^/]+\.(local|test|localhost))(:\d+)?$/i.test(url);
+
+/**
+ * The origin customers' sites talk to: the install snippet, the consent API and the config URL a
+ * customer copies. It is never a development address; a local run shows the live service's.
+ */
+export const publicUrl = isLocalOrigin(site.url) ? "https://www.theplaintheory.in" : site.url;
+

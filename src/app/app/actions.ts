@@ -19,7 +19,7 @@ export async function signOut() {
   const session = await getSession();
   if (session) await recordUserAudit(session.userId, session.email, "auth.logout");
   await destroySession();
-  redirect("/login");
+  redirect("/auth/login");
 }
 
 export async function switchOrg(orgId: string) {
@@ -56,5 +56,5 @@ export async function createSite(_: ActionResult, form: FormData): Promise<Actio
     return failure(e);
   }
   revalidatePath("/app");
-  redirect(`/app/sites/${property.id}/install`);
+  redirect(`/app/sites/${property.id}`);
 }

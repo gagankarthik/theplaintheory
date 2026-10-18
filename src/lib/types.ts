@@ -17,6 +17,8 @@ export interface User {
   /** Cognito user pool `sub` (AUTH_DRIVER=cognito). Linked by e-mail at sign-up and refreshed at each sign-in. */
   cognitoSub?: string;
   passwordChangedAt?: string;
+  /** an outstanding password reset (local auth driver): HMAC digest of the e-mailed code, single use, 15 minutes */
+  passwordReset?: { digest: string; expiresAt: string; attempts: number };
   /**
    * Two-factor sign-in, run by the app for both auth drivers (Cognito's own MFA isn't used).
    * Present exactly when at least one factor (authenticator app or passkey) is set up, so `user.mfa`
@@ -138,6 +140,7 @@ export type AuditAction =
   | "member.removed"
   | "property.created"
   | "property.deleted"
+  | "property.renamed"
   | "property.published"
   | "banner.updated"
   | "regions.updated"

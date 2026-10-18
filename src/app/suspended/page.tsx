@@ -15,7 +15,7 @@ const date = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "
 /** Shown instead of the dashboard when the member's active organization is suspended by Plain Theory staff. */
 export default async function SuspendedPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const session = await getSession();
-  if (!session) redirect("/login");
+  if (!session) redirect("/auth/login");
   const { org: requested } = await searchParams;
   const store = await getStore();
   const memberships = await store.listMemberships(session.userId);

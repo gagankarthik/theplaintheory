@@ -10,15 +10,15 @@ import { getStore } from "@/lib/store";
 export const metadata: Metadata = {
   title: "Two-factor sign-in",
   description: "Use your passkey or the code from your authenticator app to finish signing in to Plain Theory.",
-  alternates: { canonical: "/login/verify" },
+  alternates: { canonical: "/auth/login/verify" },
 };
 
 export default async function VerifyPage() {
   // Only reachable straight after a correct password; the challenge cookie lasts 5 minutes.
   const challenge = await verifyMfaChallenge((await cookies()).get(MFA_COOKIE)?.value);
-  if (!challenge) redirect("/login");
+  if (!challenge) redirect("/auth/login");
   const user = await (await getStore()).getUser(challenge.userId);
-  if (!user?.mfa) redirect("/login");
+  if (!user?.mfa) redirect("/auth/login");
   const passkeys = passkeysOf(user.mfa).length > 0;
   return (
     <>

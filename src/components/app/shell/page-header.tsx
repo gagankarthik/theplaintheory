@@ -1,10 +1,16 @@
-import { Breadcrumbs, type Crumb } from "./breadcrumbs";
+import Link from "next/link";
+import { IconArrowRight } from "@/components/icons";
+/** One step above this page: `href` makes it the back link. */
+export interface Crumb {
+  href?: string;
+  label: string;
+}
 import { LiveRefresh } from "./live-refresh";
 
 /**
- * Page heading band: breadcrumbs, the page's single h1, its description and actions. Breadcrumbs come
- * from the shell (organization / site / section) on every page; pass `crumbs` only to name a page
- * below its section (the last crumb is used as the leaf) or to keep a filtered link back.
+ * Page heading band: the page's single h1, its description and actions. No breadcrumb trail: the
+ * sidebar and the site switcher already say where you are. A page one level below a list (a receipt,
+ * a user) passes `crumbs`, and gets one "back" link to the nearest crumb that has a link.
  */
 export function PageHeader({
   title,
@@ -25,9 +31,15 @@ export function PageHeader({
 }) {
   return (
     <header className="relative mb-6 pt-5 sm:mb-8 sm:pt-7 print:mb-4 print:pt-0">
-      <div className="print:hidden">
-        <Breadcrumbs crumbs={crumbs} title={title} />
-      </div>
+      {(() => {
+        const back = crumbs?.slice(0, -1).filter((c) => c.href).at(-1);
+        return back?.href ? (
+          <Link href={back.href} className="mb-3 inline-flex min-h-11 items-center gap-1.5 text-sm text-ink-3 transition-colors hover:text-ink print:hidden sm:min-h-0">
+            <IconArrowRight size={14} aria-hidden className="rotate-180" />
+            {back.label}
+          </Link>
+        ) : null;
+      })()}
       <div className="relative flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
           {eyebrow ? <div className="eyebrow mb-2">{eyebrow}</div> : null}

@@ -27,10 +27,10 @@ function render({ subject, paragraphs, action }: Message) {
   const html = `<!doctype html><html lang="en"><body style="margin:0;background:#f4f5f8;font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:#0b1020">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 16px">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:16px;border:1px solid #e5e7ee">
-<tr><td style="padding:28px 32px 8px;font-size:15px;font-weight:600;color:#2e2bd6">${escape(site.name)}</td></tr>
+<tr><td style="padding:28px 32px 8px;font-size:15px;font-weight:600;color:#0f0f0f">${escape(site.name)}</td></tr>
 <tr><td style="padding:8px 32px 0;font-size:20px;font-weight:600;line-height:1.3">${escape(subject)}</td></tr>
 ${paragraphs.map((p) => `<tr><td style="padding:14px 32px 0;font-size:15px;line-height:1.6;color:#3b4256">${escape(p)}</td></tr>`).join("")}
-${action ? `<tr><td style="padding:24px 32px 4px"><a href="${escape(action.url)}" style="display:inline-block;background:#2e2bd6;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:12px 22px;border-radius:999px">${escape(action.label)}</a></td></tr>
+${action ? `<tr><td style="padding:24px 32px 4px"><a href="${escape(action.url)}" style="display:inline-block;background:#0f0f0f;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:12px 22px;border-radius:999px">${escape(action.label)}</a></td></tr>
 <tr><td style="padding:12px 32px 0;font-size:12px;line-height:1.5;color:#646b80">Or paste this link into your browser:<br>${escape(action.url)}</td></tr>` : ""}
 <tr><td style="padding:28px 32px 28px;font-size:12px;color:#646b80;border-top:1px solid #e5e7ee;margin-top:24px">You received this because someone used ${escape(site.name)} with this address. Questions? ${escape(site.email)}</td></tr>
 </table></td></tr></table></body></html>`;

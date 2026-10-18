@@ -5,7 +5,8 @@
  *
  * Tokens: spacing on a 4px base (layout in 8px steps); type on a 1.2 scale (--mk-step-*), fluid between
  * steps with clamp(); leading tightens as size grows (1.1 display, 1.25 titles, 1.55 to 1.6 body);
- * body measure capped at 65ch; transitions 150 to 300ms, ease-out, nothing looping.
+ * body measure capped at 65ch; transitions 150 to 300ms, ease-out. Reveals and word masks run once; the
+ * only loops are the snippet caret and the switch's ping, both off for reduced motion.
  */
 
 .mk {
@@ -270,5 +271,223 @@
 @media (prefers-reduced-motion: reduce) {
   .mk-swap {
     animation: none;
+  }
+}
+
+/* ---------- Reveal on scroll (MotionRoot). At rest without JS and for reduced motion. ---------- */
+[data-reveal] {
+  transition:
+    opacity 0.7s var(--ease-out),
+    transform 0.9s var(--ease-spring);
+  transition-delay: calc(var(--i, 0) * 70ms);
+}
+.mk-motion [data-reveal]:not([data-reveal="words"]):not([data-in]) {
+  opacity: 0;
+  transform: translateY(28px);
+}
+.mk-motion [data-reveal="scale"]:not([data-in]) {
+  transform: translateY(16px) scale(0.96);
+}
+
+/* Words: each word rises out of its own mask. */
+.mk-w {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: top;
+  /* room for descenders inside the mask, given back to the line */
+  padding-bottom: 0.1em;
+  margin-bottom: -0.1em;
+}
+.mk-w > span {
+  display: inline-block;
+  transition: transform 0.9s var(--ease-spring);
+  transition-delay: calc(var(--wi, 0) * 55ms);
+}
+.mk-motion [data-reveal="words"]:not([data-in]) .mk-w > span {
+  transform: translateY(110%);
+}
+/* The hero's words rise on first paint, not on scroll. */
+@keyframes mk-word {
+  from {
+    transform: translateY(110%);
+  }
+}
+.mk-words-load .mk-w > span {
+  animation: mk-word 0.85s var(--ease-spring) both;
+  animation-delay: calc(var(--wi, 0) * 70ms + 80ms);
+}
+
+/* ---------- Hero: the mark assembles, then turns with the scroll. ---------- */
+@keyframes mk-stem-in {
+  from {
+    transform: translateY(18%);
+    opacity: 0;
+  }
+}
+@keyframes mk-ring-in {
+  from {
+    transform: scale(0.55);
+    opacity: 0;
+  }
+}
+@keyframes mk-stem-drift {
+  to {
+    transform: translateY(-14%);
+  }
+}
+@keyframes mk-ring-drift {
+  to {
+    transform: translateY(12%) scale(0.92);
+  }
+}
+.mk-hero-stem {
+  animation: mk-stem-in 1.1s var(--ease-spring) 0.1s both;
+}
+.mk-hero-ring,
+.mk-hero-stem-drift,
+.mk-hero-ring-drift {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.mk-hero-ring {
+  animation: mk-ring-in 1.3s var(--ease-spring) 0.2s both;
+}
+@supports (animation-timeline: scroll()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .mk-hero-stem-drift,
+    .mk-hero-ring-drift {
+      animation: mk-stem-drift linear both;
+      animation-timeline: scroll(root);
+      animation-range: 0 100vh;
+    }
+    .mk-hero-ring-drift {
+      animation-name: mk-ring-drift;
+    }
+  }
+}
+/* movement only, never opacity, so the hero's text paints at once and LCP is not delayed */
+@keyframes mk-up {
+  from {
+    transform: translateY(14px);
+  }
+}
+.mk-up {
+  animation: mk-up 0.8s var(--ease-spring) both;
+  animation-delay: var(--d, 0ms);
+}
+
+/* ---------- Fill sweep: a tile floods with lime from the bottom on hover. ---------- */
+.mk-sweep {
+  background-image: linear-gradient(var(--color-lime), var(--color-lime));
+  background-repeat: no-repeat;
+  background-position: bottom;
+  background-size: 100% 0%;
+  transition:
+    background-size 0.45s var(--ease-spring),
+    color 0.25s var(--ease-out);
+}
+.mk-sweep:hover,
+.mk-sweep:focus-visible {
+  background-size: 100% 100%;
+  color: var(--color-soot);
+}
+
+/* ---------- Install track: the line between the steps fills as the section scrolls by. ---------- */
+@keyframes mk-track {
+  from {
+    transform: scaleX(0);
+  }
+}
+@keyframes mk-track-y {
+  from {
+    transform: scaleY(0);
+  }
+}
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .mk-track-fill {
+      animation: mk-track-y linear both;
+      animation-timeline: view();
+      animation-range: entry 60% cover 55%;
+    }
+    @media (min-width: 768px) {
+      .mk-track-fill {
+        animation-name: mk-track;
+      }
+    }
+  }
+}
+
+/* Caret after the install snippet. */
+@keyframes mk-blink {
+  50% {
+    opacity: 0;
+  }
+}
+.mk-caret {
+  animation: mk-blink 1.1s steps(1) infinite;
+}
+
+/* FAQ answers open by height, not a jump. */
+.mk-fold {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.4s var(--ease-spring);
+}
+.mk-fold[data-open] {
+  grid-template-rows: 1fr;
+}
+.mk-fold > div {
+  overflow: hidden;
+}
+
+/* The analytics switch asks to be pressed until it has been. */
+@keyframes mk-ping {
+  0% {
+    box-shadow: 0 0 0 0 rgb(218 250 156 / 0.55);
+  }
+  70%,
+  100% {
+    box-shadow: 0 0 0 0.35em rgb(218 250 156 / 0);
+  }
+}
+.mk-ping {
+  animation: mk-ping 2s var(--ease-out) infinite;
+}
+
+/* Phone menu sheet slides down from the bar. */
+@keyframes mk-sheet {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+#mk-mobile:not([hidden]) > div {
+  animation: mk-sheet 0.28s var(--ease-out) both;
+}
+
+/* Mobile snap scroller without a visible bar. */
+.mk-snap {
+  scrollbar-width: none;
+}
+.mk-snap::-webkit-scrollbar {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mk-words-load .mk-w > span,
+  .mk-hero-stem,
+  .mk-hero-ring,
+  .mk-up,
+  .mk-caret,
+  .mk-ping,
+  #mk-mobile:not([hidden]) > div {
+    animation: none;
+  }
+  [data-reveal],
+  .mk-w > span,
+  .mk-sweep,
+  .mk-fold {
+    transition: none;
   }
 }

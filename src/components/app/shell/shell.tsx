@@ -7,7 +7,6 @@ import { signOut, switchOrg } from "@/app/app/actions";
 import { BrandMark } from "@/components/brand/logo";
 import {
   IconAlert,
-  IconArrowRight,
   IconBalance,
   IconBilling,
   IconBook,
@@ -36,9 +35,17 @@ import { ThemeScope, ThemeToggle } from "@/components/theme/theme";
 import { can } from "@/lib/auth/rbac";
 import type { Role } from "@/lib/types";
 import { PublishButton } from "@/components/app/sites/publish-button";
-import { BreadcrumbProvider, type Crumb } from "./breadcrumbs";
 import { Dropdown, MenuLabel, MenuSeparator, menuItemClass } from "./dropdown";
 import { NavDrawer, NavGroups, NavRail, type NavGroup, type NavTab } from "./nav";
+
+/** How far the site in focus has got with setup (its Overview carries the full checklist). */
+export interface SetupSummary {
+  siteId: string;
+  name: string;
+  done: number;
+  total: number;
+  next: { title: string; href: string } | null;
+}
 
 interface ShellProps {
   user: { name: string; email: string };
@@ -48,53 +55,89 @@ interface ShellProps {
   properties: { id: string; name: string; domain: string; dirty: boolean; published?: boolean; /** failing fairness checks, which block publishing */ blocked?: number }[];
   /** read from the `pt-sidebar` cookie on the server so the first paint has the right width */
   initialCollapsed?: boolean;
-  /** the last site visited (`pt-site` cookie), so organization pages keep showing its sections */
+  /** the last site visited (`pt-site` cookie): the site switcher opens on it from organization pages */
   initialSiteId?: string;
+  /** setup progress of the site in focus while it isn't live yet (null once it is) */
+  setup?: SetupSummary | null;
   children: React.ReactNode;
 }
 
-/** Site sections, grouped by job: see the site, configure what visitors get, prove what happened. */
-const siteGroups = (id: string): NavGroup[] => [
+/**
+ * A site's sections, in the order the work happens: set the site up (find the cookies, sort them,
+ * design and localise the notice, install it), watch it, keep the records, and the site's own
+ * settings at the end. Overview carries the setup progress while the site isn't live.
+ */
+const siteGroups = (id: string, setup?: SetupSummary | null): NavGroup[] => [
   {
     tabs: [
-      { href: `/app/sites/${id}`, label: "Overview", icon: IconOverview, exact: true },
-      { href: `/app/sites/${id}/dpdp`, label: "DPDP readiness", icon: IconBalance },
+      {
+        href: `/app/sites/${id}`,
+        label: "Overview",
+        icon: IconOverview,
+        exact: true,
+        ...(setup && setup.siteId === id ? { badge: { text: `${setup.done}/${setup.total}`, label: `, setup ${setup.done} of ${setup.total} done` } } : {}),
+      },
     ],
   },
   {
-    label: "Configure",
+    label: "Set up",
     tabs: [
+      { href: `/app/sites/${id}/scanner`, label: "Scanner", icon: IconRadar },
+      { href: `/app/sites/${id}/trackers`, label: "Cookie catalog", icon: IconCookie },
       { href: `/app/sites/${id}/banner`, label: "Banner studio", icon: IconBrush },
       { href: `/app/sites/${id}/regions`, label: "Regions", icon: IconRegion },
       { href: `/app/sites/${id}/languages`, label: "Languages", icon: IconPlainText },
-      { href: `/app/sites/${id}/trackers`, label: "Cookie catalog", icon: IconCookie },
-      { href: `/app/sites/${id}/scanner`, label: "Scanner", icon: IconRadar },
       { href: `/app/sites/${id}/install`, label: "Install", icon: IconInstall },
     ],
   },
   {
-    label: "Prove",
+    label: "Monitor",
+    tabs: [
+      { href: `/app/sites/${id}/leaks`, label: "Leaks", icon: IconAlert },
+      { href: `/app/sites/${id}/dpdp`, label: "DPDP readiness", icon: IconBalance },
+    ],
+  },
+  {
+    label: "Records",
     tabs: [
       { href: `/app/sites/${id}/logs`, label: "Consent log", icon: IconLogs },
-      { href: `/app/sites/${id}/leaks`, label: "Leaks", icon: IconAlert },
-      { href: `/app/sites/${id}/evidence`, label: "Evidence", icon: IconReceipt },
+      { href: `/app/sites/${id}/evidence`, label: "Evidence Pack", icon: IconReceipt },
+    ],
+  },
+  {
+    label: "Site",
+    tabs: [
       { href: `/app/sites/${id}/webhooks`, label: "Webhooks", icon: IconPlug },
+      { href: `/app/sites/${id}/settings`, label: "Site settings", icon: IconSettings },
     ],
   },
 ];
 
+/** Organization pages: every site, the people, the plan, and the organization's own settings and records. */
 const orgTabs = (role: Role): NavTab[] => [
+  { href: "/app", label: "Sites", icon: IconSites, exact: true },
   { href: "/app/team", label: "Team", icon: IconTeam },
-  { href: "/app/billing", label: "Billing", icon: IconBilling },
+  ...(can(role, "billing:manage") ? [{ href: "/app/billing", label: "Billing", icon: IconBilling }] : []),
   { href: "/app/settings", label: "Settings", icon: IconSettings },
   // the audit trail and control status are for owners, admins and auditors (rbac "audit:read")
   ...(can(role, "audit:read")
     ? [
         { href: "/app/audit", label: "Audit log", icon: IconChain },
-        { href: "/app/security", label: "Security", icon: IconShieldCheck },
+        { href: "/app/security", label: "Security controls", icon: IconShieldCheck },
       ]
     : []),
 ];
+
+/** The organization's items, grouped: where your work lives, how the account is run, its own records. */
+const orgGroups = (role: Role): NavGroup[] => {
+  const tabs = orgTabs(role);
+  const pick = (...hrefs: string[]) => tabs.filter((t) => hrefs.includes(t.href));
+  return [
+    { tabs: pick("/app", "/app/team") },
+    { label: "Manage", tabs: pick("/app/billing", "/app/settings") },
+    { label: "Governance", tabs: pick("/app/audit", "/app/security") },
+  ].filter((g) => g.tabs.length);
+};
 
 export const SIDEBAR_COOKIE = "pt-sidebar";
 export const SITE_COOKIE = "pt-site";
@@ -162,24 +205,42 @@ const SEARCH_FROM = 7;
 const switcherTrigger =
   "flex h-10 min-w-0 max-w-full items-center gap-2 rounded-full px-1.5 text-left text-sm transition-colors duration-150 hover:bg-raised aria-expanded:bg-raised sm:pr-2.5";
 
-/** Organization switcher in the top bar. */
-function OrgSwitcher({ org, orgs, full }: { org: ShellProps["org"]; orgs: ShellProps["orgs"]; /** always show the name (the phone drawer) */ full?: boolean }) {
+/** Organization switcher in the top bar, with the organization's own pages one click away from anywhere. */
+function OrgSwitcher({
+  org,
+  orgs,
+  role,
+  full,
+  compact,
+}: {
+  org: ShellProps["org"];
+  orgs: ShellProps["orgs"];
+  role: Role;
+  /** fill the width and always show the name (the sidebar, the phone drawer) */
+  full?: boolean;
+  /** the avatar alone (the collapsed sidebar) */
+  compact?: boolean;
+}) {
   const [, startTransition] = useTransition();
   return (
     <Dropdown
       label={`Organization: ${org.name}. Switch organization`}
       title="Organizations"
-      triggerClassName={`${switcherTrigger} ${full ? "w-full" : ""}`}
+      triggerClassName={compact ? "grid size-10 place-items-center rounded-[10px] transition-colors duration-150 hover:bg-raised aria-expanded:bg-raised" : `${switcherTrigger} ${full ? "w-full rounded-[10px]" : ""}`}
       search={orgs.length >= SEARCH_FROM ? { label: "Find an organization", placeholder: "Find an organization" } : undefined}
       trigger={
-        <>
+        compact ? (
           <OrgAvatar name={org.name} />
-          <span className={`min-w-0 ${full ? "block flex-1" : "hidden md:block"}`}>
-            <span className="block max-w-[16ch] truncate text-sm font-semibold leading-tight text-ink">{org.name}</span>
-            <span className="block truncate text-2xs capitalize leading-tight text-ink-3">{org.plan} plan</span>
-          </span>
-          <UpDown />
-        </>
+        ) : (
+          <>
+            <OrgAvatar name={org.name} />
+            <span className={`min-w-0 ${full ? "block flex-1" : "hidden md:block"}`}>
+              <span className={`block truncate text-sm font-semibold leading-tight text-ink ${full ? "" : "max-w-[16ch]"}`}>{org.name}</span>
+              <span className="block truncate text-2xs capitalize leading-tight text-ink-3">{org.plan} plan</span>
+            </span>
+            <UpDown />
+          </>
+        )
       }
     >
       {(close, q) => {
@@ -207,6 +268,18 @@ function OrgSwitcher({ org, orgs, full }: { org: ShellProps["org"]; orgs: ShellP
             ))}
             {list.length === 0 ? <p className="px-2.5 py-3 text-sm text-ink-3">No organization matches.</p> : null}
             <MenuSeparator />
+            <MenuLabel>{org.name}</MenuLabel>
+            {orgTabs(role)
+              .filter((t) => t.href !== "/app/audit" && t.href !== "/app/security")
+              .map((t) => {
+                const Icon = t.icon;
+                return (
+                  <Link key={t.href} href={t.href} role="menuitem" tabIndex={-1} onClick={close} className={menuItemClass}>
+                    <Icon size={16} className="shrink-0 text-ink-3" /> {t.label}
+                  </Link>
+                );
+              })}
+            <MenuSeparator />
             <Link href="/onboarding/new" role="menuitem" tabIndex={-1} onClick={close} className={menuItemClass}>
               <IconPlus size={16} className="shrink-0 text-ink-3" /> Create organization
             </Link>
@@ -217,14 +290,45 @@ function OrgSwitcher({ org, orgs, full }: { org: ShellProps["org"]; orgs: ShellP
   );
 }
 
-/** Site switcher in the top bar: the site whose sections the nav lists. Switching opens its overview. */
-function SiteSwitcher({ org, properties, focus, onAll }: { org: ShellProps["org"]; properties: ShellProps["properties"]; focus?: ShellProps["properties"][number]; onAll: boolean }) {
+/**
+ * Site switcher in the top bar: the site whose sections the nav lists. Switching keeps the section
+ * you're on (Banner on one site opens Banner on the next), else opens the site's overview.
+ */
+function SiteSwitcher({
+  org,
+  properties,
+  focus,
+  onAll,
+  section,
+  full,
+  compact,
+}: {
+  org: ShellProps["org"];
+  properties: ShellProps["properties"];
+  focus?: ShellProps["properties"][number];
+  onAll: boolean;
+  /** the current site sub-path, e.g. "/banner" */
+  section: string;
+  /** fill the width (the sidebar) */
+  full?: boolean;
+  /** the site chip alone (the collapsed sidebar) */
+  compact?: boolean;
+}) {
   const router = useRouter();
   if (!focus) {
     return (
-      <Link href="/app" className="inline-flex h-10 items-center gap-2 rounded-full px-3 text-sm font-medium text-ink ring-1 ring-inset ring-boundary transition-colors duration-150 hover:bg-raised">
-        <IconPlus size={16} /> <span className="hidden sm:inline">Add your first site</span>
-        <span className="sm:hidden">Add a site</span>
+      <Link
+        href="/app?add=1"
+        aria-label={compact ? "Add your first site" : undefined}
+        className={`inline-flex h-10 items-center gap-2 rounded-full text-sm font-medium text-ink ring-1 ring-inset ring-boundary transition-colors duration-150 hover:bg-raised ${compact ? "w-10 justify-center" : `px-3 ${full ? "w-full rounded-[10px]" : ""}`}`}
+      >
+        <IconPlus size={16} />
+        {compact ? null : (
+          <>
+            <span className="hidden sm:inline">Add your first site</span>
+            <span className="sm:hidden">Add a site</span>
+          </>
+        )}
       </Link>
     );
   }
@@ -234,21 +338,25 @@ function SiteSwitcher({ org, properties, focus, onAll }: { org: ShellProps["org"
       label={current ? `Site: ${current.name}. Switch site` : "All sites. Switch site"}
       title="Sites"
       width="w-80"
-      triggerClassName={switcherTrigger}
+      triggerClassName={
+        compact
+          ? "relative grid size-10 place-items-center rounded-[10px] transition-colors duration-150 hover:bg-raised aria-expanded:bg-raised"
+          : `${switcherTrigger} ${full ? "w-full rounded-[10px] bg-raised ring-1 ring-inset ring-line hover:bg-paper" : ""}`
+      }
       search={properties.length >= SEARCH_FROM ? { label: "Find a site", placeholder: "Find a site by name or domain" } : undefined}
       trigger={
         <>
           {current ? <SiteChip name={current.name} current /> : <span aria-hidden className="grid size-7 shrink-0 place-items-center rounded-[8px] bg-paper text-ink-2 ring-1 ring-inset ring-line-strong"><IconSites size={15} /></span>}
-          <span className="min-w-0">
-            <span className="block max-w-[18ch] truncate text-sm font-medium leading-tight text-ink">{current ? current.name : "All sites"}</span>
-            <span className="hidden max-w-[22ch] truncate font-mono text-2xs leading-tight text-ink-3 sm:block">{current ? current.domain : `${properties.length} in ${org.name}`}</span>
+          <span className={compact ? "sr-only" : `min-w-0 ${full ? "flex-1" : ""}`}>
+            <span className={`block truncate text-sm font-medium leading-tight text-ink ${full ? "" : "max-w-[18ch]"}`}>{current ? current.name : "All sites"}</span>
+            <span className={`truncate font-mono text-2xs leading-tight text-ink-3 ${full ? "block" : "hidden max-w-[22ch] sm:block"}`}>{current ? current.domain : `${properties.length} in ${org.name}`}</span>
           </span>
           {current?.dirty ? (
-            <span title="Unpublished changes" className="size-2 shrink-0 rounded-full border-2 border-amber-bright">
+            <span title="Unpublished changes" className={`size-2 shrink-0 rounded-full border-2 border-amber-bright ${compact ? "absolute right-1 top-1 bg-surface" : ""}`}>
               <span className="sr-only">Unpublished changes</span>
             </span>
           ) : null}
-          <UpDown />
+          {compact ? null : <UpDown />}
         </>
       }
     >
@@ -279,7 +387,9 @@ function SiteSwitcher({ org, properties, focus, onAll }: { org: ShellProps["org"
                   tabIndex={-1}
                   onClick={() => {
                     close();
-                    router.push(`/app/sites/${p.id}`);
+                    // the section, without a record id (a receipt belongs to one site only)
+                    const keep = section.split("/").slice(0, 2).join("/");
+                    router.push(`/app/sites/${p.id}${keep}`);
                   }}
                   className={menuItemClass}
                 >
@@ -297,7 +407,7 @@ function SiteSwitcher({ org, properties, focus, onAll }: { org: ShellProps["org"
             })}
             {list.length === 0 ? <p className="px-2.5 py-3 text-sm text-ink-3">No site matches.</p> : null}
             <MenuSeparator />
-            <Link href="/app" role="menuitem" tabIndex={-1} onClick={close} className={menuItemClass}>
+            <Link href="/app?add=1" role="menuitem" tabIndex={-1} onClick={close} className={menuItemClass}>
               <IconPlus size={16} className="shrink-0 text-ink-3" /> Add a site
             </Link>
           </>
@@ -334,13 +444,8 @@ function UserMenu({ user, org, role }: { user: ShellProps["user"]; org: ShellPro
             <IconSettings size={16} className="shrink-0 text-ink-3" /> Account
           </Link>
           <Link href="/app/account#two-factor" role="menuitem" tabIndex={-1} onClick={close} className={menuItemClass}>
-            <IconLock size={16} className="shrink-0 text-ink-3" /> Security
+            <IconLock size={16} className="shrink-0 text-ink-3" /> Sign-in security
           </Link>
-          {can(role, "billing:manage") ? (
-            <Link href="/app/billing" role="menuitem" tabIndex={-1} onClick={close} className={menuItemClass}>
-              <IconBilling size={16} className="shrink-0 text-ink-3" /> Billing and plan
-            </Link>
-          ) : null}
           <div className="px-2.5 py-2">
             <p aria-hidden className="mb-1.5 text-xs text-ink-3">
               Theme
@@ -354,9 +459,6 @@ function UserMenu({ user, org, role }: { user: ShellProps["user"]; org: ShellPro
           <Link href="/contact?topic=support" role="menuitem" tabIndex={-1} onClick={close} className={menuItemClass}>
             <IconInfo size={16} className="shrink-0 text-ink-3" /> Get support
           </Link>
-          <Link href="/" role="menuitem" tabIndex={-1} onClick={close} className={menuItemClass}>
-            <IconArrowRight size={16} className="shrink-0 rotate-180 text-ink-3" /> Back to website
-          </Link>
           <MenuSeparator />
           <form action={signOut}>
             <button type="submit" role="menuitem" tabIndex={-1} className={`${menuItemClass} hover:!bg-destructive-wash hover:!text-destructive`}>
@@ -369,7 +471,7 @@ function UserMenu({ user, org, role }: { user: ShellProps["user"]; org: ShellPro
   );
 }
 
-export function Shell({ user, org, role, orgs, properties, initialCollapsed = false, initialSiteId, children }: ShellProps) {
+export function Shell({ user, org, role, orgs, properties, initialCollapsed = false, initialSiteId, setup, children }: ShellProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(initialCollapsed);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -391,42 +493,40 @@ export function Shell({ user, org, role, orgs, properties, initialCollapsed = fa
     if (currentId) document.cookie = `${SITE_COOKIE}=${currentId}; path=/app; max-age=31536000; samesite=lax`;
   }, [currentId]);
 
-  const toggleSidebar = () => {
-    const next = !collapsed;
-    setCollapsed(next);
-    document.cookie = `${SIDEBAR_COOKIE}=${next ? "collapsed" : "expanded"}; path=/; max-age=31536000; samesite=lax`;
-  };
+  const toggleSidebar = useCallback(() => setCollapsed((was) => !was), []);
+  // remember the choice, so the server paints the sidebar at the right width next time
+  useEffect(() => {
+    document.cookie = `${SIDEBAR_COOKIE}=${collapsed ? "collapsed" : "expanded"}; path=/; max-age=31536000; samesite=lax`;
+  }, [collapsed]);
+  // "[" collapses and expands the sidebar, as in Linear and Vercel, unless you're typing
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "[" || e.metaKey || e.ctrlKey || e.altKey) return;
+      const t = e.target;
+      if (t instanceof Element && t.closest("input, textarea, select, [contenteditable=true], [role=menu], [role=dialog]")) return;
+      e.preventDefault();
+      toggleSidebar();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [toggleSidebar]);
 
   const focus = properties.find((p) => p.id === focusId);
-  // A site's sections show only on that site's own pages. All sites and the Organization and personal
-  // pages show the Organization group alone: a site's sections there would suggest the page belongs to
-  // that site, and would contradict the switcher reading "All sites".
   const sitePage = /^\/app\/sites\/[^/]+/.test(pathname);
-  const groups: NavGroup[] = [
-    ...(focus && sitePage ? siteGroups(focus.id) : []),
-    { label: "Organization", tabs: [{ href: "/app", label: "All sites", icon: IconSites, exact: true }, ...orgTabs(role)] },
-  ];
-
-  // Breadcrumb trail for every page header: organization, then the site, then the section.
-  const resolveTrail = useCallback(
-    (path: string): Crumb[] => {
-      const root: Crumb = { label: org.name, href: "/app" };
-      if (path === "/app") return [{ label: org.name }, { label: "All sites", href: "/app" }];
-      const m = path.match(/^\/app\/sites\/([^/]+)/);
-      const site = m ? properties.find((p) => p.id === m[1]) : undefined;
-      const tabs = [...(site ? siteGroups(site.id).flatMap((g) => g.tabs) : []), ...orgTabs(role), { href: "/app/account", label: "Account", icon: IconLock }];
-      const hit = tabs.filter((t) => isActive(t, path)).sort((a, b) => b.href.length - a.href.length)[0];
-      const trail: Crumb[] = [root];
-      if (site) trail.push({ label: site.name, href: `/app/sites/${site.id}` });
-      // the overview's own crumb is the site itself
-      if (hit && !(site && hit.href === `/app/sites/${site.id}`)) trail.push({ label: hit.label, href: hit.href });
-      return trail;
-    },
-    [org.name, properties, role],
-  );
+  // One scope at a time: a site's pages list its sections (and the way back to all sites); the
+  // organization's pages list the organization's items. Never both, so the list never doubles up.
+  const onSite = Boolean(focus && sitePage);
+  const groups: NavGroup[] = onSite && focus ? siteGroups(focus.id, setup) : orgGroups(role);
+  // Before a site's first publish its checklist leads the way there, so the bar shows the status only.
+  const firstPublishPending = Boolean(focus && focus.published === false && setup?.siteId === focus.id);
 
   const publishControls =
-    focus && currentId && can(role, "property:write") ? (
+    focus && currentId && firstPublishPending ? (
+      <span className="hidden items-center gap-1.5 text-xs text-ink-3 lg:inline-flex">
+        <span aria-hidden className="size-2 rounded-full border-2 border-amber-bright" />
+        Not published yet
+      </span>
+    ) : focus && currentId && can(role, "property:write") ? (
       <div className="flex items-center gap-2.5">
         {focus.dirty ? (
           // same words as the page's publish badge, so the two never disagree
@@ -457,11 +557,11 @@ export function Shell({ user, org, role, orgs, properties, initialCollapsed = fa
       pathname={pathname}
       collapsed={isCollapsed}
       isActive={isActive}
-      siteLabel={focus ? `${focus.name} sections` : undefined}
+      label={onSite && focus ? `${focus.name} sections` : `${org.name} organization`}
       empty={
-        focus ? null : (
+        focus || onSite ? null : (
           <Link
-            href="/app"
+            href="/app?add=1"
             className={`flex h-10 items-center gap-2 rounded-full text-sm font-medium text-ink ring-1 ring-inset ring-boundary transition-colors duration-150 hover:bg-raised ${isCollapsed ? "justify-center" : "px-3"}`}
           >
             <IconPlus size={16} />
@@ -475,7 +575,6 @@ export function Shell({ user, org, role, orgs, properties, initialCollapsed = fa
   return (
     <ToastProvider>
       <ThemeScope />
-      <BreadcrumbProvider resolve={resolveTrail}>
         <div className="pt-app min-h-dvh bg-canvas text-ink">
           <a
             href="#main"
@@ -484,58 +583,81 @@ export function Shell({ user, org, role, orgs, properties, initialCollapsed = fa
             Skip to content
           </a>
 
-          <header className="sticky top-0 z-40 border-b border-line bg-surface print:hidden">
-            <div className="flex h-14 items-center gap-1 px-2 sm:gap-1.5 sm:px-4">
-              <button
-                ref={menuButton}
-                type="button"
-                onClick={() => setMenuOpen(true)}
-                aria-expanded={menuOpen}
-                aria-controls="app-menu"
-                className="grid size-10 shrink-0 place-items-center rounded-full text-ink transition-colors duration-150 hover:bg-raised md:hidden"
-              >
-                <svg aria-hidden width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
-                  <path d="M4 7h16M4 12h16M4 17h16" />
-                </svg>
-                <span className="sr-only">Open menu</span>
-              </button>
-              <Link href="/app" aria-label="Plain Theory dashboard home" className="grid size-10 shrink-0 place-items-center rounded-full transition-colors duration-150 hover:bg-raised">
-                <BrandMark size={24} variant="mono" className="text-ink" />
-              </Link>
-
-              {/* Where you are: organization / site */}
-              <div className="hidden min-w-0 items-center sm:flex">
-                <span aria-hidden className="mx-0.5 text-lg font-light text-line-input">
-                  /
-                </span>
-                <OrgSwitcher org={org} orgs={orgs} />
-              </div>
-              <div className="flex min-w-0 items-center">
-                <span aria-hidden className="mx-0.5 hidden text-lg font-light text-line-input sm:inline">
-                  /
-                </span>
-                <SiteSwitcher org={org} properties={properties} focus={focus} onAll={pathname === "/app"} />
-              </div>
-
-              <div className="ml-auto flex shrink-0 items-center gap-1.5">
-                <div className="hidden sm:block">{publishControls}</div>
-                <Link href="/docs" className="hidden h-10 items-center rounded-full px-3 text-sm text-ink-2 transition-colors duration-150 hover:bg-raised hover:text-ink lg:inline-flex">
-                  Docs
-                </Link>
-                <UserMenu user={user} org={org} role={role} />
-              </div>
-            </div>
-            {/* phones: the publish controls get their own strip under the bar */}
-            {publishControls ? <div className="flex justify-end border-t border-line px-3 py-1.5 sm:hidden">{publishControls}</div> : null}
-          </header>
-
           <div className="flex">
-            <NavRail collapsed={collapsed} onToggle={toggleSidebar}>
+            {/* Desktop and tablet: the sidebar runs the full height. Its head is the mark and the
+                organization, then that scope's sections; the site switcher leads the bar beside it. */}
+            <NavRail
+              collapsed={collapsed}
+              onToggle={toggleSidebar}
+              fullHeight
+              header={
+                <>
+                  <div className={`flex h-14 shrink-0 items-center border-b border-line ${collapsed ? "justify-center px-3" : "gap-1 px-3"}`}>
+                    <Link href="/app" aria-label="Plain Theory dashboard home" className="grid size-10 shrink-0 place-items-center rounded-full transition-colors duration-150 hover:bg-raised">
+                      <BrandMark size={24} variant="mono" className="text-ink" />
+                    </Link>
+                    {collapsed ? null : (
+                      <div className="min-w-0 flex-1">
+                        <OrgSwitcher org={org} orgs={orgs} role={role} full />
+                      </div>
+                    )}
+                  </div>
+                  {/* collapsed: the organization as its avatar, under the mark */}
+                  {collapsed ? (
+                    <div className="flex shrink-0 justify-center border-b border-line px-3 py-3">
+                      <OrgSwitcher org={org} orgs={orgs} role={role} compact />
+                    </div>
+                  ) : null}
+                </>
+              }
+            >
               {nav(collapsed)}
             </NavRail>
-            <main id="main" tabIndex={-1} className="min-w-0 flex-1 overflow-x-clip outline-none">
-              <div className="mx-auto w-full max-w-[1240px] px-4 pb-20 sm:px-6 lg:px-8 print:p-0">{children}</div>
-            </main>
+
+            <div className="flex min-w-0 flex-1 flex-col">
+              <header className="sticky top-0 z-40 border-b border-line bg-surface print:hidden">
+                <div className="flex h-14 items-center gap-1 px-2 sm:gap-1.5 sm:px-4 md:px-6">
+                  {/* phones: the menu and the mark are in the bar too; the site switcher leads it everywhere */}
+                  <button
+                    ref={menuButton}
+                    type="button"
+                    onClick={() => setMenuOpen(true)}
+                    aria-expanded={menuOpen}
+                    aria-controls="app-menu"
+                    className="grid size-10 shrink-0 place-items-center rounded-full text-ink transition-colors duration-150 hover:bg-raised md:hidden"
+                  >
+                    <svg aria-hidden width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
+                      <path d="M4 7h16M4 12h16M4 17h16" />
+                    </svg>
+                    <span className="sr-only">Open menu</span>
+                  </button>
+                  <div className="flex min-w-0 items-center">
+                    <Link href="/app" aria-label="Plain Theory dashboard home" className="grid size-10 shrink-0 place-items-center rounded-full transition-colors duration-150 hover:bg-raised md:hidden">
+                      <BrandMark size={24} variant="mono" className="text-ink" />
+                    </Link>
+                    <span aria-hidden className="mx-0.5 text-lg font-light text-line-input md:hidden">
+                      /
+                    </span>
+                    <SiteSwitcher org={org} properties={properties} focus={focus} onAll={pathname === "/app"} section={match?.[2] ?? ""} />
+                  </div>
+
+                  <div className="ml-auto flex shrink-0 items-center gap-1.5">
+                    <div className="hidden sm:block">{publishControls}</div>
+                    <Link href="/docs" className="hidden h-10 items-center gap-2 rounded-full px-3 text-sm text-ink-2 transition-colors duration-150 hover:bg-raised hover:text-ink lg:inline-flex">
+                      <IconBook size={16} aria-hidden className="shrink-0" />
+                      Docs
+                    </Link>
+                    <UserMenu user={user} org={org} role={role} />
+                  </div>
+                </div>
+                {/* phones: the publish controls get their own strip under the bar */}
+                {publishControls ? <div className="flex justify-end border-t border-line px-3 py-1.5 sm:hidden">{publishControls}</div> : null}
+              </header>
+
+              <main id="main" tabIndex={-1} className="min-w-0 flex-1 overflow-x-clip outline-none">
+                <div className="mx-auto w-full max-w-[1240px] px-4 pb-20 sm:px-6 lg:px-8 print:p-0">{children}</div>
+              </main>
+            </div>
           </div>
 
           <NavDrawer
@@ -547,14 +669,13 @@ export function Shell({ user, org, role, orgs, properties, initialCollapsed = fa
             }}
             header={
               <div className="min-w-0 flex-1">
-                <OrgSwitcher org={org} orgs={orgs} full />
+                <OrgSwitcher org={org} orgs={orgs} role={role} full />
               </div>
             }
           >
             {nav(false)}
           </NavDrawer>
         </div>
-      </BreadcrumbProvider>
     </ToastProvider>
   );
 }

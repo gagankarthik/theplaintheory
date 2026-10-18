@@ -8,7 +8,7 @@ const SETUP = ["Account", "Verify email", "Organization", "Plan"] as const;
  */
 export function SetupSteps({ current = 0 }: { current?: number }) {
   return (
-    <nav aria-label="Setup progress" className="mb-9 short:mb-6">
+    <nav aria-label="Setup progress" className="mb-9 short:mb-6 shorter:mb-4 shortest:hidden">
       <ol className="flex items-start">
         {SETUP.map((s, i) => {
           const done = i < current;

@@ -1,13 +1,12 @@
 import { pageMetadata } from "@/lib/seo";
 import Image from "next/image";
 import { PICTURES } from "@/components/marketing/picture-credits";
-import { FinalCta } from "@/components/marketing/final-cta";
 import { PageHero } from "@/components/marketing/page-hero";
 import { Section } from "@/components/marketing/primitives";
 import { ROLES, ROLE_INFO } from "@/lib/auth/rbac";
 
 export const metadata = pageMetadata({
-  title: "Security",
+  title: "Security and Consent Data Protection",
   description: "How Plain Theory protects consent data: encryption, data residency, a tamper-evident consent log, two-factor sign-in, audit trails and SOC 2 preparation.",
   path: "/security",
   socialTitle: "How we protect consent data",
@@ -198,7 +197,6 @@ export default function SecurityPage() {
         </div>
       </Section>
 
-      <FinalCta title="Put consent records on solid ground" />
     </>
   );
 }

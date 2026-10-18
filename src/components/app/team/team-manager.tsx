@@ -253,7 +253,7 @@ export function TeamManager({
             align: "right" as const,
             cell: (i: InviteRow) => (
               <span className="inline-flex items-center gap-1">
-                {site ? <CopyButton value={`${site}/signup?email=${encodeURIComponent(i.email)}`} label="Copy invite link" /> : null}
+                {site ? <CopyButton value={`${site}/auth/signup?invite=${i.id}&email=${encodeURIComponent(i.email)}`} label="Copy invite link" /> : null}
                 <Button variant="danger-quiet" size="sm" onClick={() => setRevoking(i)}>
                   Revoke<span className="sr-only"> invite for {i.email}</span>
                 </Button>

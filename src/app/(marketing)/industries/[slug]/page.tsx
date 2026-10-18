@@ -20,7 +20,9 @@ export async function generateMetadata(props: PageProps<"/industries/[slug]">): 
   const { slug } = await props.params;
   const industry = industryBySlug(slug);
   if (!industry) return {};
-  return pageMetadata({ title: `${industry.title}`, description: industry.lead, path: `/industries/${industry.slug}` });
+  // the lead runs long for a search snippet: the one-line summary plus the laws, kept within 160 characters
+  const description = `${industry.summary} Cookie consent under GDPR, CCPA and the DPDP Act, with proof of every choice.`;
+  return pageMetadata({ title: `${industry.title}`, description, path: `/industries/${industry.slug}` });
 }
 
 export default async function IndustryPage(props: PageProps<"/industries/[slug]">) {
@@ -56,7 +58,7 @@ export default async function IndustryPage(props: PageProps<"/industries/[slug]"
             </h1>
             <p className="mt-6 max-w-[56ch] text-[1.125rem] leading-[1.55]">{industry.lead}</p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <Link href="/signup" className="mk-stem mk-stem-lime">
+              <Link href="/auth/signup" className="mk-stem mk-stem-lime">
                 Start free
               </Link>
               <Link href="/contact?topic=sales" className="mk-stem mk-stem-white">
@@ -143,7 +145,7 @@ export default async function IndustryPage(props: PageProps<"/industries/[slug]"
             <p className="mt-2 text-[1rem]">Real blocking and a 90-day consent log on the free plan. No card needed.</p>
           </div>
           <div className="flex flex-wrap gap-3">
-            <Link href="/signup" className="mk-stem mk-stem-soot">
+            <Link href="/auth/signup" className="mk-stem mk-stem-soot">
               Start free
             </Link>
             <Link href="/contact?topic=sales" className="mk-stem mk-stem-white">

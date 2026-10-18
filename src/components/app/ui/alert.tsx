@@ -4,7 +4,7 @@ import { IconAlert, IconCheck, IconInfo } from "@/components/icons";
 export type AlertTone = "info" | "success" | "warning" | "danger";
 
 const TONE: Record<AlertTone, { box: string; icon: string; title: string }> = {
-  info: { box: "border-line-strong bg-surface", icon: "text-ink-2", title: "text-ink" },
+  info: { box: "border-info/30 bg-info-wash", icon: "text-info", title: "text-info" },
   success: { box: "border-success/35 bg-success-wash", icon: "text-success", title: "text-success" },
   warning: { box: "border-warning/35 bg-warning-wash", icon: "text-warning", title: "text-warning" },
   danger: { box: "border-destructive/35 bg-destructive-wash", icon: "text-destructive", title: "text-destructive" },

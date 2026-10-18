@@ -9,7 +9,7 @@ import { REFRESH_AFTER_SECONDS, SESSION_COOKIE, sessionCookieOptions, signSessio
  *
  * Customers (/app, /onboarding, /suspended), with the customer session cookie:
  * - No valid token (missing, tampered, idle more than 30 minutes, or past the 12-hour absolute
- *   lifetime) redirects to /login.
+ *   lifetime) redirects to /auth/login.
  * - A valid token is re-issued with a fresh idle window (sliding expiry), at most once a minute.
  *
  * Staff console (/admin), with the separate staff cookie (staff-token.ts): the same, with a 1-hour idle
@@ -55,7 +55,7 @@ export async function proxy(request: NextRequest) {
     return res;
   }
   const url = request.nextUrl.clone();
-  url.pathname = "/login";
+  url.pathname = "/auth/login";
   url.search = request.nextUrl.pathname.startsWith("/app") ? `?next=${encodeURIComponent(request.nextUrl.pathname + request.nextUrl.search)}` : "";
   const res = NextResponse.redirect(url);
   res.cookies.delete(SESSION_COOKIE);

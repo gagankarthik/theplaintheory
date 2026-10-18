@@ -37,6 +37,24 @@ export async function deleteSite(propertyId: string, confirmDomain: string): Pro
   redirect("/app");
 }
 
+const siteNameSchema = z.object({ name: z.string().trim().min(2, "Give the site a name of at least 2 characters.").max(60, "Use at most 60 characters.") });
+
+/** Rename a site. The domain and site key stay: the installed script keeps working. */
+export async function renameSite(propertyId: string, _: ActionResult, form: FormData): Promise<ActionResult> {
+  try {
+    const ctx = await requireProperty(propertyId, "property:write");
+    const parsed = siteNameSchema.safeParse({ name: form.get("name") });
+    if (!parsed.success) return invalid(parsed.error);
+    if (parsed.data.name === ctx.property.name) return { ok: "Site details saved." };
+    await ctx.store.updateProperty(propertyId, { name: parsed.data.name });
+    await auditSite(ctx, "property.renamed", { from: ctx.property.name, to: parsed.data.name });
+  } catch (e) {
+    return failure(e);
+  }
+  revalidatePath("/app", "layout");
+  return { ok: "Site details saved." };
+}
+
 /* ---------------- banner config ---------------- */
 
 export async function saveConfig(propertyId: string, input: Omit<BannerConfig, "version">): Promise<ActionResult> {

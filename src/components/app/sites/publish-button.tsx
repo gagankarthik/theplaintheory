@@ -52,7 +52,7 @@ export function PublishButton({ propertyId, dirty, size = "md" }: { propertyId: 
         title={dirty ? "Review what goes live, then publish" : "Everything saved is already live"}
         onClick={review}
       >
-        {!dirty ? <IconCheck size={size === "sm" ? 16 : 18} /> : null}
+        {!dirty ? <IconCheck size={size === "sm" ? 16 : 18} className="text-success" /> : null}
         {dirty ? "Publish" : "Published"}
       </Button>
 

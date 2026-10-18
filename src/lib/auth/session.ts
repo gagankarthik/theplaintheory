@@ -122,10 +122,10 @@ export async function requireUser(opts: { allowWithoutMfa?: boolean } = {}) {
 /** Session, user, memberships and active org, read once per request (React cache) whatever the MFA option. */
 const loadUserContext = cache(async () => {
   const session = await getSession();
-  if (!session) redirect("/login");
+  if (!session) redirect("/auth/login");
   const store = await getStore();
   const user = await store.getUser(session.userId);
-  if (!user) redirect("/login");
+  if (!user) redirect("/auth/login");
   const memberships = await store.listMemberships(user.id);
   const active = memberships.find((m) => m.orgId === session.orgId) ?? memberships[0];
   if (!active) redirect("/onboarding");

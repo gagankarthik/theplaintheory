@@ -12,8 +12,8 @@ import { site } from "@/lib/site";
 import type { LeadTopic } from "@/lib/types";
 
 export const metadata = pageMetadata({
-  title: "Contact us",
-  description: "Talk to sales, raise a support ticket, or reach our enterprise and partner teams from one form. Every request gets a reference number and a reply within one business day.",
+  title: "Contact Sales and Support",
+  description: "Talk to sales, raise a support ticket or reach our enterprise and partner teams from one form. Every request gets a reference number and a reply within a day.",
   path: "/contact",
   socialTitle: "How can we help?",
 });

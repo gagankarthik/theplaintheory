@@ -23,7 +23,7 @@ import { FRAMEWORK_META } from "@/lib/defaults";
 import { toPublicConfig } from "@/lib/public-config";
 import type { BannerConfig, BannerCopy, Framework, Layout, Position, Property } from "@/lib/types";
 import { FormMessage, useToast } from "@/components/app/ui/toast";
-import { Segmented, TabPanel, Tabs } from "@/components/app/ui/tabs";
+import { Segmented, Steps, TabPanel } from "@/components/app/ui/tabs";
 import { Alert } from "@/components/app/ui/alert";
 import { Badge } from "@/components/app/ui/badge";
 import { Button, ButtonLink } from "@/components/app/ui/button";
@@ -112,7 +112,7 @@ function ContrastNote({ a, b, what }: { a: string; b: string; what: string }) {
   const ok = r >= 4.5;
   return (
     <p className={`flex items-start gap-1.5 text-xs ${ok ? "text-ink-3" : "font-medium text-destructive"}`}>
-      {ok ? <IconCheck size={14} aria-hidden className="mt-px shrink-0" /> : <IconAlert size={14} aria-hidden className="mt-px shrink-0" />}
+      {ok ? <IconCheck size={14} aria-hidden className="mt-px shrink-0 text-success" /> : <IconAlert size={14} aria-hidden className="mt-px shrink-0" />}
       {what}: <span className="tabular-nums">{r.toFixed(1)}:1</span>
       {ok ? (r >= 7 ? " passes AAA" : " passes AA") : " is below the 4.5:1 minimum. Visitors with low vision may not be able to read it."}
     </p>
@@ -137,7 +137,7 @@ const STEPS: { id: BuilderTab; label: string; hint: string }[] = [
   { id: "text", label: "Wording", hint: "What visitors read in each region, in plain words." },
   { id: "categories", label: "Purposes", hint: "What each category does, the data it uses and how long it's kept." },
   { id: "behaviour", label: "Behaviour", hint: "Signals to your tags and when to ask again." },
-  { id: "review", label: "Review", hint: "Check fairness and linked details, then publish." },
+  { id: "review", label: "Review and publish", hint: "Check fairness and linked details, then publish." },
 ];
 const TABS = STEPS.map((x) => x.id);
 
@@ -254,20 +254,15 @@ export function BannerBuilder({
       ? `Ready to publish. ${fairness.warnings.length} suggestion${fairness.warnings.length > 1 ? "s" : ""} to review.`
       : "Every check passes for the regions you have turned on.";
 
-  const stepItems = STEPS.map((x) => {
+  // A step is done once you've moved past it with nothing failing on it; issues show as a dot.
+  const stepItems = STEPS.map((x, i) => {
     const issues = issuesFor(x.id);
     return {
       value: x.id,
-      label: (
-        <span className="inline-flex items-center gap-2">
-          {x.label}
-          {issues.fail ? (
-            <StatusDot tone="bad" size={7} label={`${issues.fail} failing`} />
-          ) : issues.warn ? (
-            <StatusDot tone="warn" size={7} label={`${issues.warn} to review`} />
-          ) : null}
-        </span>
-      ),
+      label: x.label,
+      done: i < idx && !issues.fail,
+      flag: issues.fail ? ("fail" as const) : issues.warn ? ("warn" as const) : undefined,
+      flagLabel: issues.fail ? `${issues.fail} failing ${issues.fail === 1 ? "check" : "checks"}` : issues.warn ? `${issues.warn} to review` : undefined,
     };
   });
   const updateCategory = (i: number, patch: Partial<Draft["categories"][number]>) => set("categories", draft.categories.map((x, j) => (j === i ? { ...x, ...patch } : x)));
@@ -310,10 +305,16 @@ export function BannerBuilder({
     <div className="grid gap-6 xl:grid-cols-[minmax(0,460px)_minmax(0,1fr)]">
       {/* controls: above the preview on phones and tablets, beside it on wide screens */}
       <div ref={controls} className="min-w-0 scroll-mt-20 self-start overflow-hidden rounded-lg border border-line bg-surface">
-        <Tabs<BuilderTab> label="Banner setup steps" idBase="banner" items={stepItems} value={tab} onChange={setTab} />
+        <Steps<BuilderTab> label="Banner setup steps" idBase="banner" items={stepItems} value={tab} onChange={setTab} />
 
         <TabPanel idBase="banner" value={tab}>
-          <p className="px-5 pt-4 text-sm text-ink-3 sm:px-6">{STEPS[idx].hint}</p>
+          <div className="px-5 pt-5 sm:px-6">
+            <p className="eyebrow">
+              Step {idx + 1} of {STEPS.length}
+            </p>
+            <h2 className="mt-1 text-base font-semibold text-ink">{STEPS[idx].label}</h2>
+            <p className="mt-1 text-sm text-ink-3">{STEPS[idx].hint}</p>
+          </div>
           <fieldset disabled={!canWrite} className="min-w-0">
             <legend className="sr-only">{STEPS[idx].label} settings</legend>
             {tab === "design" ? (

@@ -11,7 +11,7 @@ export const metadata: Metadata = { title: "New organization", robots: { index: 
 
 /** Additional organization for an existing user (e.g. an agency adding a client). */
 export default async function NewOrgPage() {
-  if (!(await getSignedInUser())) redirect("/login");
+  if (!(await getSignedInUser())) redirect("/auth/login");
   return (
     <div className="pt-app min-h-dvh bg-canvas text-ink">
       <header className="container-page flex h-16 items-center justify-between border-b border-line">

@@ -10,12 +10,14 @@ export const metadata: Metadata = {
   title: "Page not found",
   description: "This page doesn't exist or has moved. Find what you need from the links below.",
   robots: { index: false, follow: true },
+  // a missing page has no canonical of its own (never the home page's)
+  alternates: { canonical: null },
 };
 
 const PLACES = [
   { href: "/pricing", title: "Pricing", body: "Plans in USD, EUR, GBP and INR, priced per account." },
   { href: "/docs", title: "Documentation", body: "Install the script and configure your banner." },
-  { href: "/compliance/dpdpa", title: "DPDPA readiness", body: "What India's DPDP Rules ask for, and when." },
+  { href: "/compliance/dpdpa", title: "DPDPA readiness", body: "What the DPDP Act and Rules ask for, and when." },
   { href: "/contact", title: "Contact", body: "Sales, support, partners and enterprise." },
 ];
 

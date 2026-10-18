@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { JsonLd } from "@/components/marketing/json-ld";
 import { Board } from "@/components/marketing/landing/board";
-import { Closing } from "@/components/marketing/landing/closing";
 import { ConsentSwitch } from "@/components/marketing/landing/consent-switch";
 import { FaqCards, type FaqCard } from "@/components/marketing/landing/faq-cards";
 import { Hero } from "@/components/marketing/landing/hero";
@@ -93,7 +92,6 @@ export default async function HomePage() {
       <Laws />
       <Industries />
       <FaqCards items={items} />
-      <Closing />
     </>
   );
 }

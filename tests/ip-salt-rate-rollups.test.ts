@@ -38,14 +38,28 @@ describe("IP hashing", () => {
     expect(ipRateKey("198.51.100.4")).not.toBe(a);
   });
 
-  it("fails fast in production when the secret is missing or empty", () => {
+  it("fails fast in production when no secret is set at all", () => {
     vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("SESSION_SECRET", "");
     vi.stubEnv("IP_HASH_SECRET", "");
     expect(() => ipHashSecret()).toThrow(/IP_HASH_SECRET/);
     vi.stubEnv("IP_HASH_SECRET", "   ");
     expect(() => ipRateKey("198.51.100.4")).toThrow(/IP_HASH_SECRET/);
     vi.stubEnv("IP_HASH_SECRET", "set");
     expect(ipHashSecret()).toBe("set");
+  });
+
+  it("in production without IP_HASH_SECRET, derives a separate key from SESSION_SECRET instead of failing", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("IP_HASH_SECRET", "");
+    vi.stubEnv("SESSION_SECRET", "a-session-secret-of-reasonable-length");
+    const k = ipHashSecret();
+    expect(k).toBeTruthy();
+    expect(k).not.toContain("a-session-secret");
+    expect(ipHashSecret()).toBe(k);
+    expect(ipRateKey("198.51.100.4")).toBe(ipRateKey("198.51.100.9"));
+    vi.stubEnv("SESSION_SECRET", "another-session-secret-value-here");
+    expect(ipHashSecret()).not.toBe(k);
   });
 
   it("allows a dev secret only in development and test", () => {

@@ -77,7 +77,7 @@ export const PLANS: Plan[] = [
     summary: "For a small business with a site or two.",
     features: [
       "2 sites, 50k banner views a month",
-      "Notices in all 22 Indian languages",
+      "Notices in all 22 DPDP languages",
       "1-year consent log with CSV export",
       "Leak detection when trackers fire after a decline",
     ],

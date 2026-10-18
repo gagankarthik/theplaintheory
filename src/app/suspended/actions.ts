@@ -11,7 +11,7 @@ import { getStore } from "@/lib/store";
  */
 export async function switchFromSuspended(form: FormData) {
   const session = await getSession();
-  if (!session) redirect("/login");
+  if (!session) redirect("/auth/login");
   const orgId = z.string().min(1).max(64).safeParse(form.get("orgId"));
   if (!orgId.success) redirect("/suspended");
   const store = await getStore();

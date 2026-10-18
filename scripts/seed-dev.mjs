@@ -78,7 +78,7 @@ if (result.password) {
   const creds = {
     email: result.email,
     password: result.password,
-    url: "http://localhost:3000/login",
+    url: "http://localhost:3000/auth/login",
     note: "Local dev only (STORE_DRIVER=local, AUTH_DRIVER=local). Start the app with `npm run dev:local`. Regenerate with `npm run seed:dev -- --reset`.",
   };
   writeFileSync(credentialsPath, `${JSON.stringify(creds, null, 2)}\n`, { mode: 0o600 });

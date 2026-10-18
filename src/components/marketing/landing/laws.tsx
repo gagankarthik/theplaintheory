@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { siAngular, siReact, siSvelte, siVuedotjs, siWordpress, type SimpleIcon } from "simple-icons";
 import { IconArrowRight } from "@/components/icons";
+import { Words } from "../motion";
 import { PICTURES } from "../picture-credits";
 
 /** What one installation answers to, each tile opening its guide. */
@@ -25,16 +26,16 @@ const STACK: { name: string; icon: SimpleIcon }[] = [
 ];
 
 const TILE =
-  "group relative flex aspect-[3/2] flex-col justify-between rounded-[18px] bg-soot-2 p-6 transition-colors duration-150 hover:bg-soot-3 focus-visible:!rounded-[18px]";
+  "mk-sweep group relative flex aspect-[3/2] flex-col justify-between rounded-[18px] bg-soot-2 p-6 focus-visible:!rounded-[18px] max-md:aspect-auto max-md:min-h-[132px]";
 const NAME = "text-[clamp(1.375rem,2vw,1.8rem)] font-semibold leading-[1.05] tracking-[-0.03em]";
 
 function Arrow() {
-  return <IconArrowRight size={20} className="self-end text-mute transition-transform duration-150 group-hover:translate-x-1 group-hover:text-lime" />;
+  return <IconArrowRight size={20} className="self-end text-mute transition-transform duration-300 group-hover:-rotate-45 group-hover:text-soot group-focus-visible:-rotate-45 group-focus-visible:text-soot" />;
 }
 
-function LawTile({ name, href }: { name: string; href: string }) {
+function LawTile({ name, href, i = 0 }: { name: string; href: string; i?: number }) {
   return (
-    <li>
+    <li data-reveal style={{ "--i": i % 4 } as React.CSSProperties}>
       <Link href={href} className={TILE}>
         <span className={NAME}>{name}</span>
         <Arrow />
@@ -49,15 +50,15 @@ export function Laws() {
     <section id="laws" aria-labelledby="laws-title" className="scroll-mt-16 bg-soot px-2.5 py-12 text-white md:py-16">
       <ul className="mx-auto grid max-w-[1440px] grid-cols-2 gap-1.5 md:grid-cols-4 md:gap-2">
         <li className="col-span-2 flex min-h-[120px] rounded-[18px] bg-lime p-6 text-soot md:aspect-[3/1] md:min-h-0">
-          <h2 id="laws-title" className="max-w-[10ch] text-[clamp(2.25rem,4.2vw,3.75rem)]">
-            One install covers
+          <h2 id="laws-title" data-reveal="words" className="max-w-[10ch] text-[clamp(2.25rem,4.2vw,3.75rem)]">
+            <Words text="One install covers" />
           </h2>
         </li>
-        {LAWS.slice(0, 6).map((l) => (
-          <LawTile key={l.name} {...l} />
+        {LAWS.slice(0, 6).map((l, i) => (
+          <LawTile key={l.name} {...l} i={i + 2} />
         ))}
-        <li className="relative col-span-2 overflow-hidden rounded-[18px] bg-soot-2 p-6 md:aspect-[3/1]">
-          <div className="mk-ring-mask absolute -right-[6%] top-1/2 aspect-square w-[46%] -translate-y-1/2 max-md:w-[52%]">
+        <li data-reveal className="group relative col-span-2 overflow-hidden rounded-[18px] bg-soot-2 p-6 md:aspect-[3/1]">
+          <div className="mk-ring-mask absolute transition-transform duration-700 ease-[var(--ease-spring)] group-hover:-rotate-6 group-hover:scale-105 -right-[6%] top-1/2 aspect-square w-[46%] -translate-y-1/2 max-md:w-[52%]">
             <Image src={PICTURES.accountBook.src} alt={PICTURES.accountBook.alt} fill sizes="(min-width: 768px) 24vw, 50vw" className="object-cover object-[40%_30%]" />
           </div>
           <p className={`relative max-w-[48%] ${NAME}`}>Kept like a ledger</p>
@@ -65,13 +66,13 @@ export function Laws() {
             Every consent record is chained to the one before it, so a changed or missing entry shows.
           </p>
         </li>
-        <LawTile {...LAWS[6]} />
-        <li>
+        <LawTile {...LAWS[6]} i={1} />
+        <li data-reveal style={{ "--i": 2 } as React.CSSProperties}>
           <Link href="/docs#frameworks" className={TILE}>
             <span className="sr-only">Install guides for React, Vue, Svelte, Angular and WordPress</span>
             <span aria-hidden className="flex flex-wrap gap-3">
-              {STACK.map(({ name, icon }) => (
-                <svg key={name} width={28} height={28} viewBox="0 0 24 24" fill="currentColor">
+              {STACK.map(({ name, icon }, i) => (
+                <svg key={name} width={28} height={28} viewBox="0 0 24 24" fill="currentColor" className="transition-transform duration-300 group-hover:-translate-y-1" style={{ transitionDelay: `${i * 40}ms` }}>
                   <path d={icon.path} />
                 </svg>
               ))}

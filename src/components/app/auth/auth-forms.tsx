@@ -17,7 +17,7 @@ import {
   verifyLoginPasskey,
   verifySignup,
   type AuthState,
-} from "@/app/(auth)/actions";
+} from "@/app/auth/actions";
 import { IconEye } from "@/components/icons";
 import { Button } from "@/components/app/ui/button";
 import { FormMessage } from "@/components/app/ui/toast";
@@ -117,7 +117,7 @@ export function LoginForm({ next, notice }: { next?: string; notice?: string }) 
       <div>
         <PasswordField autoComplete="current-password" maxLength={256} error={state?.fieldErrors?.password} />
         <div className="-mb-2 flex justify-end">
-          <Link href="/forgot-password" className="inline-flex min-h-11 items-center text-sm font-medium text-brand underline-offset-4 hover:underline">
+          <Link href="/auth/forgot-password" className="inline-flex min-h-11 items-center text-sm font-medium text-brand underline-offset-4 hover:underline">
             Forgot password?
           </Link>
         </div>
@@ -128,7 +128,7 @@ export function LoginForm({ next, notice }: { next?: string; notice?: string }) 
       </SubmitButton>
       <p className="text-center text-sm text-ink-3">
         New here?{" "}
-        <Link href="/signup" className="font-semibold text-brand underline-offset-4 hover:underline">
+        <Link href="/auth/signup" className="font-semibold text-brand underline-offset-4 hover:underline">
           Create an account
         </Link>
       </p>
@@ -136,7 +136,20 @@ export function LoginForm({ next, notice }: { next?: string; notice?: string }) 
   );
 }
 
-export function SignupForm({ formToken, plan, passwordHint, email }: { formToken: string; plan?: string; passwordHint: string; email?: string }) {
+export function SignupForm({
+  formToken,
+  plan,
+  passwordHint,
+  email,
+  invited = false,
+}: {
+  formToken: string;
+  plan?: string;
+  passwordHint: string;
+  email?: string;
+  /** from a team invite: the address is the invited one and can't change, and the button says what happens */
+  invited?: boolean;
+}) {
   const [state, action] = useActionState<AuthState, FormData>(signup, null);
   const formRef = useRef<HTMLFormElement>(null);
   useFocusOnError(state, formRef);
@@ -157,7 +170,16 @@ export function SignupForm({ formToken, plan, passwordHint, email }: { formToken
           defaultValue={state?.name}
           error={state?.fieldErrors?.name}
         />
-        <TextField id="email" label="Work email" autoComplete="email" {...EMAIL_INPUT} defaultValue={state?.email ?? email} error={state?.fieldErrors?.email} />
+        <TextField
+          id="email"
+          label="Work email"
+          autoComplete="email"
+          {...EMAIL_INPUT}
+          defaultValue={invited ? email : (state?.email ?? email)}
+          readOnly={invited}
+          hint={invited ? "The address you were invited with." : undefined}
+          error={state?.fieldErrors?.email}
+        />
       </div>
       <PasswordField
         autoComplete="new-password"
@@ -167,8 +189,8 @@ export function SignupForm({ formToken, plan, passwordHint, email }: { formToken
         error={state?.fieldErrors?.password}
       />
       <FormMessage state={summary(state)} />
-      <SubmitButton className="w-full" pending="Creating account">
-        Create account
+      <SubmitButton className="w-full" pending={invited ? "Joining" : "Creating account"}>
+        {invited ? "Create account and join" : "Create account"}
       </SubmitButton>
       <p className="text-xs leading-relaxed text-ink-3">
         By creating an account you agree to the{" "}
@@ -183,7 +205,7 @@ export function SignupForm({ formToken, plan, passwordHint, email }: { formToken
       </p>
       <p className="text-center text-sm text-ink-3">
         Already have an account?{" "}
-        <Link href="/login" className="font-semibold text-brand underline-offset-4 hover:underline">
+        <Link href="/auth/login" className="font-semibold text-brand underline-offset-4 hover:underline">
           Sign in
         </Link>
       </p>
@@ -436,7 +458,7 @@ export function ForgotPasswordForm() {
       </SubmitButton>
       <p className="text-center text-sm text-ink-3">
         Remembered it?{" "}
-        <Link href="/login" className="font-semibold text-brand underline-offset-4 hover:underline">
+        <Link href="/auth/login" className="font-semibold text-brand underline-offset-4 hover:underline">
           Back to sign in
         </Link>
       </p>

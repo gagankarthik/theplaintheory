@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { IconArrowRight } from "@/components/icons";
 import { useState } from "react";
+import { Words } from "../motion";
 
 export interface FaqCard {
   topic: string;
@@ -23,8 +24,8 @@ export function FaqCards({ items }: { items: FaqCard[] }) {
     <section aria-labelledby="faq-title" className="on-light bg-chalk px-5 py-16 sm:px-8 md:py-24">
       <div className="mx-auto max-w-[1440px] md:grid md:grid-cols-12">
         <div className="md:col-span-8 md:col-start-3">
-          <h2 id="faq-title" className="text-[clamp(2.25rem,4.2vw,3.75rem)]">
-            Asked before buying
+          <h2 id="faq-title" data-reveal="words" className="text-[clamp(2.25rem,4.2vw,3.75rem)]">
+            <Words text="Asked before buying" />
           </h2>
           <p className="mb-8 mt-3 flex flex-wrap items-center gap-x-3 text-[1.125rem] leading-[1.55] text-mute-ink">
             Something else? Our team replies within one business day.
@@ -38,11 +39,11 @@ export function FaqCards({ items }: { items: FaqCard[] }) {
               const on = i === open;
               const tone = TONES[i % TONES.length];
               return (
-                <li key={item.q} className={`relative ${i ? "-mt-3" : ""}`} style={{ zIndex: i }}>
+                <li key={item.q} data-reveal className={`relative ${i ? "-mt-3" : ""}`} style={{ zIndex: i, "--i": i } as React.CSSProperties}>
                   {/* the tab and the card are one filled shape */}
                   <div
                     className={`${tone} w-fit rounded-t-[14px] px-5 pt-2.5 pb-1 text-[1rem] font-medium`}
-                    style={{ marginLeft: `min(${i * 9}%, ${i * 150}px)` }}
+                    style={{ marginLeft: `min(${i * 9}%, ${i * 150}px, calc(100% - 9rem))` }}
                   >
                     {item.topic}
                   </div>
@@ -53,19 +54,24 @@ export function FaqCards({ items }: { items: FaqCard[] }) {
                         aria-expanded={on}
                         aria-controls={`faq-${i}`}
                         onClick={() => setOpen(on ? -1 : i)}
-                        className="flex min-h-[5.5rem] w-full items-center justify-between gap-6 px-5 py-5 text-left text-[clamp(1.375rem,2vw,1.8rem)] font-medium leading-[1.15] tracking-[-0.025em] sm:px-7"
+                        className="group/q flex min-h-[5.5rem] w-full cursor-pointer items-center justify-between gap-6 px-5 py-5 text-left text-[clamp(1.375rem,2vw,1.8rem)] font-medium leading-[1.15] tracking-[-0.025em] sm:px-7"
                       >
                         {item.q}
-                        <span aria-hidden className={`size-[0.7em] shrink-0 rounded-full border-[0.18em] border-current transition-transform ${on ? "scale-75 bg-current" : ""}`} />
+                        <span aria-hidden className={`size-[0.7em] shrink-0 rounded-full border-[0.18em] border-current transition-[transform,background-color] duration-300 ease-[var(--ease-spring)] ${on ? "scale-75 bg-current" : "group-hover/q:scale-110"}`} />
                       </button>
                     </h3>
-                    <div id={`faq-${i}`} hidden={!on} className="px-5 pb-8 sm:px-7">
-                      <p className="max-w-[50ch] text-[1.125rem] leading-[1.55]">{item.a}</p>
-                      {item.link ? (
-                        <Link href={item.link.href} className="mk-link mt-4 inline-block font-medium">
-                          {item.link.label}
-                        </Link>
-                      ) : null}
+                    {/* opens by height; inert while closed, so it leaves the tab order and the reading order */}
+                    <div id={`faq-${i}`} className="mk-fold" data-open={on || undefined} inert={!on}>
+                      <div>
+                        <div className="px-5 pb-8 sm:px-7">
+                          <p className="max-w-[50ch] text-[1.125rem] leading-[1.55]">{item.a}</p>
+                          {item.link ? (
+                            <Link href={item.link.href} className="mk-link mt-4 inline-block font-medium">
+                              {item.link.label}
+                            </Link>
+                          ) : null}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </li>

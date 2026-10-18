@@ -12,6 +12,7 @@ const HELD = ["Google Analytics 4 (_ga, _gid)", "Microsoft Clarity (_clck, _clsk
  */
 export function ConsentSwitch() {
   const [on, setOn] = useState(false);
+  const [touched, setTouched] = useState(false);
   return (
     <section
       id="blocking"
@@ -35,8 +36,11 @@ export function ConsentSwitch() {
               role="switch"
               aria-checked={on}
               aria-label="Analytics"
-              onClick={() => setOn((v) => !v)}
-              className={`relative h-[1.5em] w-[2.7em] shrink-0 rounded-full ring-1 ring-inset transition-colors duration-300 ${on ? "bg-lime ring-lime" : "bg-soot-3 ring-white/45"}`}
+              onClick={() => {
+                setOn((v) => !v);
+                setTouched(true);
+              }}
+              className={`relative h-[1.5em] w-[2.7em] shrink-0 cursor-pointer rounded-full ring-1 ring-inset transition-colors duration-300 ${on ? "bg-lime ring-lime" : "bg-soot-3 ring-white/45"} ${touched ? "" : "mk-ping"}`}
             >
               <span
                 className={`absolute top-[0.15em] block size-[1.2em] rounded-full bg-white transition-transform duration-300 ease-[var(--ease-spring)] ${
@@ -52,16 +56,39 @@ export function ConsentSwitch() {
 
         <div className="xl:pb-24">
           <h2 id="switch-title" className="text-[clamp(2.25rem,4.2vw,3.75rem)]" aria-live="polite">
-            Analytics is {on ? "released." : "held."}
+            Analytics is{" "}
+            <span key={String(on)} className={`mk-swap inline-block rounded-[0.18em] px-[0.12em] -mx-[0.12em] ${on ? "bg-soot text-lime" : ""}`}>
+              {on ? "released." : "held."}
+            </span>
           </h2>
+          {touched ? null : (
+            <p className="mt-3 text-[1rem] text-mute-ink md:hidden" aria-hidden>
+              Try the switch above.
+            </p>
+          )}
           <p className="mt-5 max-w-[30rem] text-[1.125rem] leading-[1.55] text-soot">
             {on
               ? "The visitor said yes, so these run now, and their decision is written to the consent log:"
               : "Until a visitor turns a category on, every script in it waits where it is. Nothing loads, nothing is set:"}
           </p>
-          <ul className="mk-rings mt-4 space-y-1.5 text-[1.125rem] text-soot">
-            {HELD.map((h) => (
-              <li key={h}>{h}</li>
+          <ul className="mt-4 space-y-2 text-[1.125rem] text-soot">
+            {HELD.map((h, i) => (
+              <li key={h} className="flex items-center gap-3">
+                {/* the ring (off) fills and takes a tick (on), one after another */}
+                <span aria-hidden className="relative grid size-[1.15em] shrink-0 place-items-center">
+                  <span className={`absolute inset-0 rounded-full border-[0.2em] border-soot transition-colors duration-300 ${on ? "bg-soot" : ""}`} style={{ transitionDelay: `${i * 90}ms` }} />
+                  <svg
+                    viewBox="0 0 12 12"
+                    className={`relative size-[0.62em] text-lime transition-[transform,opacity] duration-300 ease-[var(--ease-spring)] ${on ? "scale-100 opacity-100" : "scale-0 opacity-0"}`}
+                    style={{ transitionDelay: `${i * 90 + 120}ms` }}
+                  >
+                    <path d="M2 6.5 5 9.5 10 3" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </span>
+                <span className={`transition-opacity duration-300 ${on ? "" : "opacity-70"}`} style={{ transitionDelay: `${i * 90}ms` }}>
+                  {h}
+                </span>
+              </li>
             ))}
           </ul>
         </div>

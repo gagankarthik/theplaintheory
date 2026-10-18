@@ -50,7 +50,8 @@ export async function inviteMember(_: ActionResult, form: FormData): Promise<Act
     const inviteId = id("inv");
     await store.createInvite({ id: inviteId, orgId: org.id, email, role: parsed.data.role, invitedBy: user.email, createdAt: new Date().toISOString() });
     await auditTeam(org, user, "member.invited", { id: inviteId, label: email, type: "invite" }, { role: parsed.data.role });
-    const link = absoluteUrl(`/signup?email=${encodeURIComponent(email)}`);
+    // the invite id (random, unguessable) lets the sign-up page show which team this is; the email prefills
+    const link = absoluteUrl(`/auth/signup?invite=${inviteId}&email=${encodeURIComponent(email)}`);
     const mail = await inviteEmail(email, org.name, user.name || user.email, parsed.data.role, link);
     revalidatePath("/app/team");
     return {

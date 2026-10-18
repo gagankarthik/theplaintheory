@@ -8,6 +8,7 @@ import { invalid, type ActionResult } from "@/lib/action-result";
 import { recordAudit, recordUserAudit } from "@/lib/audit";
 import { allowCodeEmail } from "@/lib/auth/code-limits";
 import { CODE_MISMATCH, maskEmail } from "@/lib/auth/cognito-errors";
+import { checkLocalReset, issueLocalReset } from "@/lib/auth/local-reset";
 import { allowIpAttempt, isLocked, registerFailure } from "@/lib/auth/lockout";
 import { verifySecondFactor } from "@/lib/auth/mfa";
 import { parseAuthenticationJson, passkeyAuthenticationOptions, verifyPasskeyAssertion } from "@/lib/auth/passkeys";
@@ -30,6 +31,7 @@ import { requestContext } from "@/lib/request-context";
 import { checkFormGuard, honeypotFilled } from "@/lib/form-guard";
 import { rateLimiter, retryAfterText } from "@/lib/rate-limit";
 import { DISPOSABLE_EMAIL_MESSAGE, isDisposableEmail } from "@/lib/spam";
+import { hashPassword } from "@/lib/crypto";
 import { getStore } from "@/lib/store";
 import type { User } from "@/lib/types";
 import { emailSchema, plainTextSchema } from "@/lib/validation";
@@ -69,7 +71,7 @@ async function finishSignIn(user: User, next: string, opts: { orgId?: string } =
       path: "/",
       maxAge: MFA_CHALLENGE_SECONDS,
     });
-    redirect("/login/verify");
+    redirect("/auth/login/verify");
   }
   await createSession({ userId: user.id, email: user.email, orgId: opts.orgId });
   await recordUserAudit(user.id, user.email, "auth.login", { mfa: false });
@@ -126,7 +128,7 @@ export async function login(_: AuthState, form: FormData): Promise<AuthState> {
       const limit = await allowCodeEmail(ipKey, parsed.data.email);
       if (limit.address) await cognitoResendCode(parsed.data.email);
       await setPendingSignup({ email: parsed.data.email, password: parsed.data.password, next, sentAt: Date.now() });
-      redirect("/signup/verify");
+      redirect("/auth/signup/verify");
     }
     if (r.user) {
       await recordUserAudit(r.user.id, r.user.email, "auth.login_failed", { reason: r.reason });
@@ -226,7 +228,7 @@ export async function verifyLoginPasskey(response: unknown): Promise<AuthState> 
 /** Abandon a pending second-factor step. */
 export async function cancelLoginCode() {
   (await cookies()).delete(MFA_COOKIE);
-  redirect("/login");
+  redirect("/auth/login");
 }
 
 /* ---------------- sign up ---------------- */
@@ -250,7 +252,7 @@ export async function signup(_: AuthState, form: FormData): Promise<AuthState> {
 
   // Honeypot filled: a bot. Send it somewhere harmless without creating anything.
   const guard = checkFormGuard(form, "signup");
-  if (guard.status === "bot") redirect("/login");
+  if (guard.status === "bot") redirect("/auth/login");
   if (guard.status === "retry") return { error: guard.error, formToken: guard.formToken, ...keep };
 
   const parsed = signupSchema.safeParse({ name, email, password: String(form.get("password") ?? "") });
@@ -275,7 +277,7 @@ export async function signup(_: AuthState, form: FormData): Promise<AuthState> {
       plan: PLANS_FOR_ONBOARDING.includes(plan) ? plan : undefined,
       sentAt: Date.now(),
     });
-    redirect("/signup/verify");
+    redirect("/auth/signup/verify");
   }
 
   const invites = await acceptInvites(r.user);
@@ -312,7 +314,7 @@ async function resendSignupCode(email: string, pending: PendingSignup | null, ip
 }
 
 export async function verifySignup(_: AuthState, form: FormData): Promise<AuthState> {
-  if (!isCognito()) redirect("/signup");
+  if (!isCognito()) redirect("/auth/signup");
   const jar = await cookies();
   const pending = await readPendingSignup(jar.get(SIGNUP_COOKIE)?.value);
   const typed = String(form.get("email") ?? "");
@@ -343,11 +345,11 @@ export async function verifySignup(_: AuthState, form: FormData): Promise<AuthSt
   // Confirmed. With the password from this browser's sign-up, sign straight in; otherwise ask for it.
   const signedIn = pending?.email === email && pending.password ? await cognitoSignIn(email, pending.password) : null;
   jar.delete(SIGNUP_COOKIE);
-  if (!signedIn?.ok) redirect("/login?confirmed=1");
+  if (!signedIn?.ok) redirect("/auth/login?confirmed=1");
 
   const user = await linkCognitoUser({ ...signedIn.identity, name: signedIn.identity.name ?? pending?.name });
   // A sign-in lockout still applies; they can sign in by hand once it lifts.
-  if (isLocked(user)) redirect("/login?confirmed=1");
+  if (isLocked(user)) redirect("/auth/login?confirmed=1");
   const invites = await acceptInvites(user);
   const store = await getStore();
   const memberships = invites.length ? invites : await store.listMemberships(user.id);
@@ -359,20 +361,26 @@ export async function verifySignup(_: AuthState, form: FormData): Promise<AuthSt
 /** Start over with a different address. */
 export async function restartSignup() {
   (await cookies()).delete(SIGNUP_COOKIE);
-  redirect("/signup");
+  redirect("/auth/signup");
 }
 
-/* ---------------- forgot and reset password (Cognito) ---------------- */
+/* ---------------- forgot and reset password (Cognito, or the local driver's own codes) ---------------- */
 
 const forgotSchema = z.object({ email: emailSchema("Enter the email you signed up with, like name@company.com.") });
 
+/** Send a reset code by e-mail: Cognito's, or the local driver's own (lib/auth/local-reset). */
+async function sendResetCode(email: string) {
+  if (!isCognito()) return issueLocalReset(email);
+  const { cognitoForgotPassword } = await import("@/lib/auth/cognito");
+  await cognitoForgotPassword(email);
+}
+
 /**
- * Ask Cognito to e-mail a reset code. The response is the same whether or not the address has an
- * account; only a network over its limit is told to wait.
+ * E-mail a reset code. The response is the same whether or not the address has an account; only a
+ * network over its limit is told to wait.
  */
 export async function requestPasswordReset(_: AuthState, form: FormData): Promise<AuthState> {
   const typed = String(form.get("email") ?? "");
-  if (!isCognito()) return { error: "Password reset by email isn't available in this environment. Ask a workspace owner or support@theplaintheory.in.", email: typed };
   const parsed = forgotSchema.safeParse({ email: typed });
   if (!parsed.success) return { ...invalid(parsed.error), email: typed };
   const email = parsed.data.email;
@@ -385,12 +393,11 @@ export async function requestPasswordReset(_: AuthState, form: FormData): Promis
     if (!coolingDown) {
       const limit = await allowCodeEmail(ipKey, email);
       if (!limit.network) return { error: `Too many reset requests came from your network. Try again in ${retryAfterText(limit.retryAfterMs)}.`, email: typed };
-      const { cognitoForgotPassword } = await import("@/lib/auth/cognito");
-      if (limit.address) await cognitoForgotPassword(email);
+      if (limit.address) await sendResetCode(email);
     }
     jar.set(RESET_COOKIE, await signPendingReset({ email, sentAt: coolingDown ? prior!.sentAt : Date.now() }), pendingCookieOptions());
   }
-  redirect("/reset-password");
+  redirect("/auth/reset-password");
 }
 
 const resetSchema = z
@@ -405,7 +412,6 @@ const resetSchema = z
   .refine((d) => d.password === d.confirm, { path: ["confirm"], message: "The new passwords don't match." });
 
 export async function resetPassword(_: AuthState, form: FormData): Promise<AuthState> {
-  if (!isCognito()) redirect("/forgot-password");
   const jar = await cookies();
   const pending = await readPendingReset(jar.get(RESET_COOKIE)?.value);
   const typed = String(form.get("email") ?? "");
@@ -418,14 +424,13 @@ export async function resetPassword(_: AuthState, form: FormData): Promise<AuthS
     email = parsed.data;
   }
   const { ipKey } = await requestContext();
-  const { cognitoConfirmForgotPassword, cognitoForgotPassword, cognitoGlobalSignOut } = await import("@/lib/auth/cognito");
 
   if (form.get("intent") === "resend") {
     const availableAt = resendAvailableAt(pending?.email === email ? pending.sentAt : undefined);
     if (availableAt > Date.now()) return { error: `Wait ${secondsLeft(availableAt)} seconds before sending another code.`, resendAt: availableAt, email: typed };
     const limit = await allowCodeEmail(ipKey, email);
     if (!limit.network) return { error: `Too many reset requests came from your network. Try again in ${retryAfterText(limit.retryAfterMs)}.`, email: typed };
-    if (limit.address) await cognitoForgotPassword(email);
+    if (limit.address) await sendResetCode(email);
     const sentAt = Date.now();
     jar.set(RESET_COOKIE, await signPendingReset({ email, sentAt }), pendingCookieOptions());
     return { ok: `If an account uses ${maskEmail(email)}, we sent it a new code. It can take a minute to arrive.`, resendAt: resendAvailableAt(sentAt), email: typed };
@@ -437,31 +442,39 @@ export async function resetPassword(_: AuthState, form: FormData): Promise<AuthS
   if (weak) return { error: weak, fieldErrors: { password: [weak] }, email: typed };
   if (!(await allowIpAttempt(ipKey))) return { error: "Too many attempts from your network. Wait 15 minutes and try again.", email: typed };
 
-  const r = await cognitoConfirmForgotPassword(email, parsed.data.code, parsed.data.password);
-  if (!r.ok) {
-    const f = r.failure;
-    const field = f.kind === "code_mismatch" || f.kind === "code_expired" ? "code" : f.kind === "password_policy" ? "password" : null;
-    return { error: f.message, fieldErrors: field ? { [field]: [f.message] } : undefined, email: typed };
+  const store = await getStore();
+  const now = new Date().toISOString();
+  if (isCognito()) {
+    const { cognitoConfirmForgotPassword, cognitoGlobalSignOut } = await import("@/lib/auth/cognito");
+    const r = await cognitoConfirmForgotPassword(email, parsed.data.code, parsed.data.password);
+    if (!r.ok) {
+      const f = r.failure;
+      const field = f.kind === "code_mismatch" || f.kind === "code_expired" ? "code" : f.kind === "password_policy" ? "password" : null;
+      return { error: f.message, fieldErrors: field ? { [field]: [f.message] } : undefined, email: typed };
+    }
+    // every Cognito token for this person stops working too
+    await cognitoGlobalSignOut(email);
+  } else {
+    const r = await checkLocalReset(email, parsed.data.code);
+    if (!r.ok) return { error: r.message, fieldErrors: { code: [r.message] }, email: typed };
+    await store.updateUser(r.user.id, { passwordHash: await hashPassword(parsed.data.password), passwordReset: undefined });
   }
 
-  // New password: every app session and every Cognito token for this person stops working.
-  const store = await getStore();
+  // New password: every app session for this person stops working.
   const user = await store.getUserByEmail(email);
   if (user) {
-    const now = new Date().toISOString();
     const revoked = await store.revokeUserSessions(user.id, now);
     // Proving the inbox also clears a sign-in lockout.
     await store.updateUser(user.id, { passwordChangedAt: now, loginFailures: undefined, lockedUntil: undefined });
     await recordUserAudit(user.id, user.email, "auth.password_reset", { sessionsRevoked: revoked });
   }
-  await cognitoGlobalSignOut(email);
   jar.delete(RESET_COOKIE);
   jar.delete(SESSION_COOKIE);
-  redirect("/login?reset=1");
+  redirect("/auth/login?reset=1");
 }
 
 /** Start the reset again with a different address. */
 export async function restartReset() {
   (await cookies()).delete(RESET_COOKIE);
-  redirect("/forgot-password");
+  redirect("/auth/forgot-password");
 }

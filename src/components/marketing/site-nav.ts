@@ -25,6 +25,16 @@ export interface NavMenu {
   groups: NavGroup[];
 }
 
+/** The four product pages, each with its one-line summary: for the Platform menu and their cross-links. */
+export const FEATURE_LINKS: NavLink[] = [
+  { href: "/cookie-consent", title: "Consent banner", description: "A cookie banner that holds trackers until visitors agree." },
+  { href: "/cookie-scanner", title: "Cookie scanner", description: "Every cookie, storage key, script and pixel your site sets." },
+  { href: "/google-consent-mode", title: "Google Consent Mode v2", description: "Google's consent signals, sent from the visitor's choice." },
+  { href: "/consent-log", title: "Consent records", description: "A hash-chained log of every choice, ready for an auditor." },
+];
+
+const FEATURE_LINE = Object.fromEntries(FEATURE_LINKS.map((l) => [l.href, l.description])) as Record<string, string>;
+
 /** The plain pricing link: inside the Platform menu, and in the footer. */
 export const PRICING: NavLink = { href: "/pricing", title: "Pricing" };
 
@@ -35,22 +45,23 @@ export const PLATFORM: NavMenu = {
     {
       heading: "Collect consent",
       links: [
-        { href: "/#inside", title: "Consent banner" },
-        { href: "/#inside", title: "Script blocking" },
-        { href: "/#inside", title: "Banner studio" },
+        { href: "/cookie-consent", title: "Consent banner", description: FEATURE_LINE["/cookie-consent"] },
+        { href: "/cookie-consent#blocking", title: "Script blocking" },
+        { href: "/cookie-consent#studio", title: "Banner studio" },
+        { href: "/google-consent-mode", title: "Google Consent Mode", description: FEATURE_LINE["/google-consent-mode"] },
       ],
     },
     {
       heading: "Find and prove",
       links: [
-        { href: "/#inside", title: "Cookie scanner" },
-        { href: "/#inside", title: "Consent records and audit" },
+        { href: "/cookie-scanner", title: "Cookie scanner", description: FEATURE_LINE["/cookie-scanner"] },
+        { href: "/consent-log", title: "Consent records and audit", description: FEATURE_LINE["/consent-log"] },
         { href: "/#inside", title: "Integrations" },
       ],
     },
     {
       heading: "Plans",
-      links: [PRICING, { href: "/signup", title: "Start free" }, { href: "/contact?topic=enterprise", title: "Enterprise" }],
+      links: [PRICING, { href: "/auth/signup", title: "Start free" }, { href: "/contact?topic=enterprise", title: "Enterprise" }],
       viewAll: { href: "/pricing#compare", title: "Compare plans" },
     },
   ],

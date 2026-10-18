@@ -22,8 +22,6 @@ export const safeUrl = (u: string | undefined) => (u && /^https?:\/\//i.test(u) 
 
 const ruleFor = (cfg: PublicConfig, f: Framework): RegionRule => (cfg.regions[f] || cfg.regions.generic)!;
 
-const BADGE: Partial<Record<Framework, string>> = { gdpr: "GDPR", ccpa: "CCPA", dpdpa: "DPDPA" };
-
 /** Copy and categories for the chosen language, falling back to the region default. */
 function localize({ cfg, framework, lang }: RenderInput) {
   const rule = ruleFor(cfg, framework);
@@ -72,7 +70,8 @@ function themeVars(t: PublicConfig["theme"]) {
 
 const svg = (d: string, w = 16) =>
   `<svg width="${w}" height="${w}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="${d}"/></svg>`;
-const SHIELD = svg("M12 3l7.5 3v5.5c0 4.6-3.2 8.3-7.5 9.5-4.3-1.2-7.5-4.9-7.5-9.5V6zM9 12l2 2 4-4");
+/** The privacy-choices mark: a consent switch, its track outlined and its knob filled. */
+const SWITCH = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false"><rect x="2" y="6.5" width="20" height="11" rx="5.5"/><circle cx="16.5" cy="12" r="3" fill="currentColor" stroke="none"/></svg>`;
 const CHEVRON = svg("M9 6l6 6-6 6", 14);
 const CLOSE = svg("M6 6l12 12M18 6L6 18");
 const CARET = svg("M6 15l6-6 6 6", 14);
@@ -82,9 +81,8 @@ const btn = (action: string, label: string, cls: string) => `<button type="butto
 /** Reject and accept carry equal weight when `equal` (required for GDPR/DPDPA: no dark patterns). */
 const choices = (c: RegionRule["copy"], equal: boolean) => btn("reject", c.rejectAll, equal ? "p" : "s") + btn("accept", c.acceptAll, "p");
 
-function head(id: string, title: string, framework: Framework, extra = "") {
-  const badge = BADGE[framework] ? `<span class="bd">${BADGE[framework]} notice</span>` : "";
-  return `<div class="hd"><h2 id="${id}">${esc(title)}</h2>${badge}${extra}</div>`;
+function head(id: string, title: string, extra = "") {
+  return `<div class="hd"><h2 id="${id}">${esc(title)}</h2>${extra}</div>`;
 }
 
 function shell(cfg: PublicConfig, code: string, cls: string, inner: string) {
@@ -96,7 +94,7 @@ const link = (href: string, label: string) => `<a href="${esc(href)}" target="_b
 /* ---------- views ---------- */
 
 export function bannerHtml(input: RenderInput): string {
-  const { cfg, framework } = input;
+  const { cfg } = input;
   const t = cfg.theme;
   const { copy: c, code } = localize(input);
   if (t.layout === "pill") return pillHtml(input);
@@ -109,7 +107,7 @@ export function bannerHtml(input: RenderInput): string {
     code,
     `${layout} ${esc(t.position)}`,
     `<div class="b" ${role} aria-labelledby="pt-t" aria-describedby="pt-d">
-<div class="tx">${head("pt-t", c.title, framework)}<p id="pt-d">${esc(c.body)} ${policy}</p></div>
+<div class="tx">${head("pt-t", c.title)}<p id="pt-d">${esc(c.body)} ${policy}</p></div>
 <div class="bt">${btn("prefs", c.customize, "s c")}${choices(c, t.equalButtons)}</div></div>`,
   );
 }
@@ -119,18 +117,17 @@ export function bannerHtml(input: RenderInput): string {
  * Reject and Accept always carry equal weight here, whatever equalButtons says.
  */
 function pillHtml(input: RenderInput): string {
-  const { cfg, framework } = input;
+  const { cfg } = input;
   const { copy: c, code } = localize(input);
   const policyUrl = safeUrl(cfg.policyUrl);
   const policy = policyUrl ? link(policyUrl, c.policyLabel) : "";
-  const badge = BADGE[framework] ? `<span class="bd">${BADGE[framework]} notice</span>` : "";
   return shell(
     cfg,
     code,
     "pill",
     `<div class="b" role="region" aria-labelledby="pt-t">
-<button type="button" class="pt" data-a="expand" aria-expanded="false" aria-controls="pt-pp">${SHIELD}<span id="pt-t">${esc(c.title)}</span>${CARET}</button>
-<div class="pp" id="pt-pp" hidden>${badge}<p id="pt-d">${esc(c.body)} ${policy}</p>
+<button type="button" class="pt" data-a="expand" aria-expanded="false" aria-controls="pt-pp">${SWITCH}<span id="pt-t">${esc(c.title)}</span>${CARET}</button>
+<div class="pp" id="pt-pp" hidden><p id="pt-d">${esc(c.body)} ${policy}</p>
 <div class="bt">${btn("prefs", c.customize, "s c")}${choices(c, true)}</div></div></div>`,
   );
 }
@@ -187,7 +184,7 @@ export function prefsHtml(input: RenderInput): string {
     code,
     "modal pf",
     `<div class="b" role="dialog" aria-modal="true" aria-labelledby="pt-t" aria-describedby="pt-i">
-${head("pt-t", "Customise Consent Preferences", framework, languagePicker(input, rule, code) + `<button type="button" class="x" data-a="close" aria-label="Close preferences">${CLOSE}</button>`)}
+${head("pt-t", "Customise Consent Preferences", languagePicker(input, rule, code) + `<button type="button" class="x" data-a="close" aria-label="Close preferences">${CLOSE}</button>`)}
 <div class="sc"><div class="in"><p id="pt-i" class="cl">${esc(c.body)}${extra}</p><button type="button" class="mo" data-a="more" aria-controls="pt-i" aria-expanded="false">Show more</button></div>
 <ul class="ac">${rows}</ul>${dpdpa ? rightsHtml(cfg) : ""}</div>
 <div class="bt">${btn("reject", L[0], eq)}${btn("save", L[1], "s")}${btn("accept", L[2], "p")}</div>
@@ -197,5 +194,5 @@ ${head("pt-t", "Customise Consent Preferences", framework, languagePicker(input,
 
 export function fabHtml(input: RenderInput): string {
   const { code } = localize(input);
-  return shell(input.cfg, code, input.cfg.theme.fabSide == "right" ? "fab r" : "fab", `<button type="button" data-a="prefs" aria-haspopup="dialog">${SHIELD}<span class="l">Privacy choices</span></button>`);
+  return shell(input.cfg, code, input.cfg.theme.fabSide == "right" ? "fab r" : "fab", `<button type="button" data-a="prefs" aria-haspopup="dialog">${SWITCH}<span class="l">Privacy choices</span></button>`);
 }

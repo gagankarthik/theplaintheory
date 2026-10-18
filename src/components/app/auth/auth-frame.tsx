@@ -9,7 +9,7 @@ import "@/app/auth.css";
 const CUSTOMER_POINTS = [
   { icon: IconHeld, title: "Tracking waits for a yes", body: "Analytics and advertising tags stay off until visitors agree." },
   { icon: IconChain, title: "Proof you can show", body: "Every choice is kept as a tamper-evident consent record." },
-  { icon: IconServer, title: "Stored in India", body: "Accounts and consent records live in Mumbai by default." },
+  { icon: IconServer, title: "One data region", body: "Accounts and consent records stay in a single region, encrypted." },
 ];
 
 const STAFF_POINTS = [
@@ -20,18 +20,19 @@ const STAFF_POINTS = [
 /**
  * Frame for every sign-in page: the form column on the left (mark top-left, legal links at the foot) and a
  * calm brand panel on the right with what is true of the product. One column on phones. Follows the
- * dashboard's light or dark theme.
+ * dashboard's light or dark theme. From lg the frame is pinned to the viewport: the panel never moves,
+ * spacing tightens on short screens, and only the form column scrolls if a window is shorter still.
  */
 export function AuthFrame({ staff = false, children }: { staff?: boolean; children: React.ReactNode }) {
   const points = staff ? STAFF_POINTS : CUSTOMER_POINTS;
   return (
-    <div className={`auth ${switzer.variable} grid min-h-dvh bg-surface text-ink lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]`}>
+    <div className={`auth ${switzer.variable} grid min-h-dvh bg-surface text-ink lg:h-dvh lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)] lg:overflow-hidden`}>
       <ThemeScript />
       <ThemeScope />
       <a href="#main" className="sr-only z-[100] rounded-full bg-brand-solid px-4 py-2 text-sm font-medium text-on-brand-solid focus:not-sr-only focus:fixed focus:left-4 focus:top-4">
         Skip to content
       </a>
-      <div className="flex min-h-dvh flex-col px-5 py-6 sm:px-10">
+      <div className="flex min-h-dvh flex-col px-5 py-6 sm:px-10 lg:min-h-0 lg:overflow-y-auto short:py-4 shortest:py-1.5">
         <div className="flex items-center gap-3">
           <Link href="/" aria-label="Plain Theory home" className="inline-flex min-h-11 items-center gap-2.5">
             <BrandMark size={26} variant="mono" />
@@ -44,10 +45,11 @@ export function AuthFrame({ staff = false, children }: { staff?: boolean; childr
             </span>
           ) : null}
         </div>
-        <main id="main" tabIndex={-1} className="flex flex-1 items-center justify-center py-10 outline-none">
+        <main id="main" tabIndex={-1} className="flex flex-1 items-center justify-center py-10 outline-none short:py-6 shorter:py-4 shortest:py-2">
           <div className="w-full max-w-[440px]">{children}</div>
         </main>
-        <nav aria-label="Legal" className="flex flex-wrap gap-x-5 text-[0.8125rem] text-ink-3">
+        {/* right-aligned: the bottom-left corner belongs to the floating Privacy choices button */}
+        <nav aria-label="Legal" className="flex flex-wrap justify-end gap-x-5 text-[0.8125rem] text-ink-3">
           <Link href="/legal/privacy" className="inline-flex min-h-11 items-center hover:text-ink">
             Privacy
           </Link>
@@ -58,7 +60,7 @@ export function AuthFrame({ staff = false, children }: { staff?: boolean; childr
             Help
           </Link>
           {staff ? (
-            <Link href="/login" className="inline-flex min-h-11 items-center hover:text-ink">
+            <Link href="/auth/login" className="inline-flex min-h-11 items-center hover:text-ink">
               Customer sign-in
             </Link>
           ) : null}
@@ -70,9 +72,9 @@ export function AuthFrame({ staff = false, children }: { staff?: boolean; childr
           <rect x="0" y="0" width="36" height="180" rx="18" fill="#262626" />
           <path d="M166 60a60 60 0 1 1-120 0 60 60 0 1 1 120 0z M132 60a26 26 0 1 0-52 0 26 26 0 1 0 52 0z" fill="#dafa9c" fillRule="evenodd" />
         </svg>
-        <div className="relative flex h-full max-w-[480px] flex-col justify-center px-12 py-16">
+        <div className="relative flex h-full max-w-[480px] flex-col justify-center px-12 py-16 shorter:py-8">
           <p className="text-[clamp(2.25rem,3.6vw,3.25rem)] font-semibold leading-[1.02] tracking-[-0.045em]">{staff ? "Staff console" : "Consent, made plain."}</p>
-          <ul className="mt-10 space-y-6">
+          <ul className="mt-10 space-y-6 shorter:mt-6 shorter:space-y-4">
             {points.map(({ icon: Icon, title, body }) => (
               <li key={title} className="flex gap-4">
                 <span className="grid size-10 shrink-0 place-items-center rounded-[12px] bg-[#1a1a1a] text-[#dafa9c]">

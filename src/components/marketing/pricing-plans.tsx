@@ -4,10 +4,10 @@ import { PLANS, SELF_SERVE_PLANS, currencyInfo, type Plan } from "@/lib/plans";
 import { compactNumber, formatMoney, quote, retentionLabel, type Currency, type Period } from "./pricing/billing";
 
 const CTA: Record<Plan["id"], { label: string; href: string }> = {
-  free: { label: "Start free", href: "/signup" },
-  starter: { label: "Choose Starter", href: "/signup?plan=starter" },
-  growth: { label: "Choose Growth", href: "/signup?plan=growth" },
-  business: { label: "Choose Business", href: "/signup?plan=business" },
+  free: { label: "Start free", href: "/auth/signup" },
+  starter: { label: "Choose Starter", href: "/auth/signup?plan=starter" },
+  growth: { label: "Choose Growth", href: "/auth/signup?plan=growth" },
+  business: { label: "Choose Business", href: "/auth/signup?plan=business" },
   enterprise: { label: "Talk to sales", href: "/contact?topic=sales" },
 };
 

@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 import { DEFAULT_KICKER, OG_SIZE, OgCard } from "@/lib/og-card";
 
-export const alt = "Plain Theory: consent management for GDPR, CCPA and India's DPDPA";
+export const alt = "Plain Theory: consent management for GDPR, CCPA and the DPDP Act";
 export const size = OG_SIZE;
 export const contentType = "image/png";
 

@@ -1,19 +1,17 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
 import { ResetPasswordForm } from "@/components/app/auth/auth-forms";
 import { maskEmail } from "@/lib/auth/cognito-errors";
 import { RESET_COOKIE, readPendingReset, resendAvailableAt } from "@/lib/auth/pending";
-import { isCognito, passwordHint } from "@/lib/auth/provider";
+import { passwordHint } from "@/lib/auth/provider";
 
 export const metadata: Metadata = {
   title: "Set a new password",
   description: "Enter the code from your email and choose a new Plain Theory password.",
-  alternates: { canonical: "/reset-password" },
+  alternates: { canonical: "/auth/reset-password" },
 };
 
 export default async function ResetPasswordPage() {
-  if (!isCognito()) redirect("/forgot-password");
   const pending = await readPendingReset((await cookies()).get(RESET_COOKIE)?.value);
   const masked = pending ? maskEmail(pending.email) : undefined;
 

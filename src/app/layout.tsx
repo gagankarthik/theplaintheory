@@ -3,7 +3,6 @@ import { JetBrains_Mono } from "next/font/google";
 import { site } from "@/lib/site";
 import { switzer } from "./fonts/switzer";
 import "./globals.css";
-import Script from "next/script";
 
 // Interface face: Switzer, the website's face (self-hosted), for the site, sign-in, dashboard and console.
 // Set on <html> so portalled menus and dialogs get it too. Data face: JetBrains Mono for figures,
@@ -22,7 +21,6 @@ export const metadata: Metadata = {
   authors: [{ name: site.name, url: site.url }],
   creator: site.name,
   publisher: site.name,
-  alternates: { canonical: "/" },
   openGraph: {
     type: "website",
     locale: "en_US",
@@ -43,6 +41,11 @@ export const metadata: Metadata = {
     googleBot: { index: true, follow: true, "max-image-preview": "large", "max-snippet": -1 },
   },
   formatDetection: { telephone: false },
+  // Search Console and Bing Webmaster verification, set per environment (no tag when unset)
+  verification: {
+    google: process.env.GOOGLE_SITE_VERIFICATION || undefined,
+    other: process.env.BING_SITE_VERIFICATION ? { "msvalidate.01": process.env.BING_SITE_VERIFICATION } : undefined,
+  },
 };
 
 export const viewport: Viewport = {
@@ -56,16 +59,9 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${switzer.variable} ${dataFont.variable}`}>
+    // data-scroll-behavior: smooth scrolling for in-page anchors only, not on route changes (Next reads it)
+    <html lang="en" suppressHydrationWarning data-scroll-behavior="smooth" className={`${switzer.variable} ${dataFont.variable}`}>
       <body>
-      <Script
-          src="https://d34dtur9cre43o.cloudfront.net/sdk/v1/plain-consent.js"
-          data-site="pk_cCHNxnAZH9iKfdjV"
-          data-api="https://www.theplaintheory.in/api/v1"
-          data-config-url="https://d34dtur9cre43o.cloudfront.net/c/pk_cCHNxnAZH9iKfdjV.json"
-          data-gcm="true"
-          strategy="beforeInteractive"
-        />
         {children}
       </body>
     </html>

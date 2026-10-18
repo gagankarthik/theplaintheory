@@ -77,7 +77,8 @@ export function PlanPicker({
         </div>
       </div>
 
-      <ul className="grid gap-px overflow-hidden rounded-lg border border-line bg-line md:grid-cols-2 xl:grid-cols-4">
+      {/* each plan its own rounded card, so the current plan's edge follows its corners */}
+      <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {plans.map((p) => {
           const isCurrent = p.id === current;
           const upgrade = rank(p.id) > rank(current);
@@ -85,7 +86,11 @@ export function PlanPicker({
           const next = rank(p.id) === rank(current) + 1;
           const canBuy = purchasable[p.id]?.[interval];
           return (
-            <li key={p.id} aria-current={isCurrent ? "true" : undefined} className={`relative flex flex-col bg-surface p-5 sm:p-6 ${isCurrent ? "ring-2 ring-inset ring-marker" : ""}`}>
+            <li
+              key={p.id}
+              aria-current={isCurrent ? "true" : undefined}
+              className={`relative flex flex-col rounded-lg bg-surface p-5 sm:p-6 ${isCurrent ? "ring-2 ring-inset ring-marker" : "ring-1 ring-inset ring-line"}`}
+            >
               <div className="flex items-center justify-between gap-2">
                 <h3 className="text-base font-semibold">{p.name}</h3>
                 {isCurrent ? <Badge tone="brand">Current plan</Badge> : null}

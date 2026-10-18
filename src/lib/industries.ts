@@ -36,12 +36,12 @@ const CAP = {
   leaks: { title: "Leak alerts", body: "If a tracker fires after a visitor declines, it shows up with the page and the script, so it can be fixed.", href: "/#inside" },
   gcm: { title: "Google Consent Mode v2", body: "Ad and analytics tags receive the visitor's choice the moment it is made.", href: "/docs#consent-mode" },
   gpc: { title: "Global Privacy Control", body: "A browser's GPC signal is honoured as an opt-out of sale and sharing.", href: "/compliance/ccpa" },
-  languages: { title: "Notices in 22 Indian languages", body: "The notice is shown in the visitor's language, from Assamese to Urdu, on paid plans.", href: "/compliance/dpdpa" },
+  languages: { title: "Notices in 22 languages", body: "The notice is shown in the visitor's language, from Assamese to Urdu, on paid plans.", href: "/compliance/dpdpa" },
   regions: { title: "Region rules", body: "The visitor's location decides which law's notice and defaults they get.", href: "/docs#regions" },
   evidence: { title: "Evidence Pack", body: "One export with the banner you showed, the signals you honoured and the receipts, for an auditor or regulator.", href: "/security" },
   webhooks: { title: "Withdrawal webhooks", body: "Signed webhooks tell your CRM and tools when someone withdraws consent, on the Business plan.", href: "/docs" },
   team: { title: "Teams and roles", body: "Owners, admins, editors, auditors and viewers, with an audit trail of who changed what.", href: "/security" },
-  residency: { title: "Data stored in Mumbai", body: "Consent records live in AWS ap-south-1 by default. EU or US residency is available on Enterprise, by arrangement.", href: "/security" },
+  residency: { title: "Single-region storage", body: "Consent records stay in one data region, encrypted at rest and in transit. Dedicated data residency is available on Enterprise.", href: "/security" },
 } satisfies Record<string, Capability>;
 
 export const INDUSTRIES: Industry[] = [

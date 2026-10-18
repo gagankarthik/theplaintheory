@@ -37,7 +37,7 @@ async function countFailure(user: User) {
   if (next.locked) {
     await recordUserAudit(user.id, user.email, "auth.locked", { minutes: 15 });
     await destroySession();
-    redirect("/login");
+    redirect("/auth/login");
   }
 }
 

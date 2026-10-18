@@ -2,132 +2,58 @@ import Link from "next/link";
 import { ButtonLink } from "@/components/app/ui/button";
 import { Card, CardHeader } from "@/components/app/ui/card";
 import { Progress } from "@/components/app/ui/progress";
-import { IconArrowRight, IconBrush, IconCheck, IconInstall, IconReceipt, IconScan, IconSpark } from "@/components/icons";
+import { IconArrowRight, IconBrush, IconCheck, IconCookie, IconInstall, IconRadar, IconReceipt, IconSpark } from "@/components/icons";
+import type { SetupProgress, SetupStepId } from "@/lib/setup";
 
-export interface SetupState {
-  propertyId: string;
-  domain: string;
-  /** the banner was saved at least once (config version moved past the default) */
-  bannerEdited: boolean;
-  trackers: number;
-  published: boolean;
-  /** the script has loaded on the site at least once */
-  seen: boolean;
-  decisions: number;
-  canWrite: boolean;
-}
+const ICON: Record<SetupStepId, typeof IconBrush> = {
+  scan: IconRadar,
+  review: IconCookie,
+  banner: IconBrush,
+  publish: IconSpark,
+  install: IconInstall,
+  decision: IconReceipt,
+};
 
-interface Step {
-  id: string;
-  title: string;
-  done: boolean;
-  why: string;
-  cta: string;
-  href: string;
-  icon: typeof IconBrush;
-  /** the public docs section that explains this step */
-  docs: string;
-}
-
-function steps(s: SetupState): Step[] {
-  const base = `/app/sites/${s.propertyId}`;
-  return [
-    {
-      id: "banner",
-      title: "Make the banner yours",
-      done: s.bannerEdited,
-      why: "Pick the layout, colours and wording visitors see. The fairness check keeps Accept and Reject equally easy.",
-      cta: "Open the banner builder",
-      href: `${base}/banner`,
-      icon: IconBrush,
-      docs: "/docs#banner",
-    },
-    {
-      id: "trackers",
-      title: "List the trackers on your site",
-      done: s.trackers > 0,
-      why: `Scan ${s.domain} or add them by hand. Each one is held until the visitor allows its category.`,
-      cta: "Scan for trackers",
-      href: `${base}/trackers`,
-      icon: IconScan,
-      docs: "/docs#scanner",
-    },
-    {
-      id: "publish",
-      title: "Publish the banner",
-      done: s.published,
-      why: "Publishing pushes your banner to our CDN. Visitors only ever see the published version, never a draft.",
-      cta: "Review and publish",
-      href: `${base}/banner`,
-      icon: IconSpark,
-      docs: "/docs#banner",
-    },
-    {
-      id: "install",
-      title: "Add the script to your site",
-      done: s.seen,
-      why: "One script tag in your site's <head>. This step completes when the banner loads on your site for the first time.",
-      cta: "Get the snippet",
-      href: `${base}/install`,
-      icon: IconInstall,
-      docs: "/docs#install",
-    },
-    {
-      id: "decision",
-      title: "Record the first consent decision",
-      done: s.decisions > 0,
-      why: "Open your site in a private window and choose on the banner. Every choice becomes a tamper-evident receipt.",
-      cta: "Open the consent log",
-      href: `${base}/logs`,
-      icon: IconReceipt,
-      docs: "/docs#analytics",
-    },
-  ];
-}
-
-export const setupComplete = (s: SetupState) => steps(s).every((x) => x.done);
+/** Steps anyone in the organization can take; the rest need an owner, admin or editor. */
+const OPEN_TO_ALL: SetupStepId[] = ["install", "decision"];
 
 /**
- * Getting started, as steps: what's done, the one thing to do next (expanded, with its button),
- * and what comes after. Shown on a site's overview until everything is done.
+ * Getting started, as a checklist: what's done, the one thing to do next (expanded, with the page's
+ * only primary button), and what comes after as quiet rows. Shown on a site's overview until every
+ * step is done; the sidebar's progress card points here.
  */
-export function SetupGuide(state: SetupState) {
-  const list = steps(state);
-  const done = list.filter((x) => x.done).length;
-  const next = list.findIndex((x) => !x.done);
-
+export function SetupGuide({ domain, progress, canWrite }: { domain: string; progress: SetupProgress; canWrite: boolean }) {
+  const { steps, done, total, next } = progress;
   return (
     <Card aria-labelledby="setup-h" className="overflow-hidden">
       <CardHeader
         titleId="setup-h"
-        title={`Set up ${state.domain}`}
-        description="Five steps to a live, compliant banner."
+        title={`Get ${domain} live`}
+        description={`${total} steps, in order. Each one ticks itself off when it's done.`}
         actions={
           <div className="w-full sm:w-48">
             <p className="mb-1.5 flex justify-between text-xs text-ink-3">
               <span>Progress</span>
               <span className="font-medium tabular-nums text-ink">
-                {done} of {list.length}
+                {done} of {total}
               </span>
             </p>
-            <Progress label="Setup progress" value={done} max={list.length} valueText={`${done} of ${list.length} steps done`} size="sm" />
+            <Progress label="Setup progress" value={done} max={total} valueText={`${done} of ${total} steps done`} size="sm" />
           </div>
         }
       />
 
       <ol className="divide-y divide-line">
-        {list.map((x, i) => {
-          const current = i === next;
-          const Icon = x.icon;
+        {steps.map((x, i) => {
+          const current = x === next;
+          const Icon = ICON[x.id];
           return (
             <li key={x.id} aria-current={current ? "step" : undefined} className={`relative flex gap-4 px-5 sm:px-6 ${current ? "bg-raised py-5" : "py-3.5"}`}>
-              {/* current step: the marker bar on the leading edge, as in the nav */}
               {current ? <span aria-hidden className="absolute inset-y-0 left-0 w-[3px] bg-marker" /> : null}
-              {/* the step marker: a tick when done, the number otherwise */}
               <span
                 aria-hidden
                 className={`mt-0.5 grid size-7 shrink-0 place-items-center rounded-full text-xs font-semibold ${
-                  x.done ? "bg-selected text-on-selected" : current ? "bg-surface text-ink ring-2 ring-inset ring-marker" : "bg-surface text-ink-3 ring-1 ring-inset ring-line-strong"
+                  x.done ? "bg-success-wash text-success" : current ? "bg-surface text-ink ring-2 ring-inset ring-marker" : "bg-surface text-ink-3 ring-1 ring-inset ring-line-strong"
                 }`}
               >
                 {x.done ? <IconCheck size={14} /> : i + 1}
@@ -142,7 +68,7 @@ export function SetupGuide(state: SetupState) {
                   <>
                     <p className="mt-1 max-w-[60ch] text-sm text-ink-2">{x.why}</p>
                     <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
-                      {state.canWrite || x.id === "decision" || x.id === "install" ? (
+                      {canWrite || OPEN_TO_ALL.includes(x.id) ? (
                         <ButtonLink href={x.href}>
                           {x.cta}
                           <IconArrowRight size={16} />
@@ -151,15 +77,16 @@ export function SetupGuide(state: SetupState) {
                         <p className="text-xs text-ink-3">An owner, admin or editor can do this step.</p>
                       )}
                       <Link href={x.docs} className="btn btn-link text-sm">
-                        Learn more<span className="sr-only"> about this step</span>
+                        How this works<span className="sr-only">: {x.title}</span>
                       </Link>
                     </div>
                   </>
                 ) : null}
               </div>
-              {!current && !x.done ? (
+              {!current ? (
                 <Link href={x.href} className="btn btn-link hidden shrink-0 self-center text-xs sm:inline-flex">
-                  Go to step<span className="sr-only">: {x.title}</span>
+                  {x.done ? "Open" : "Go to step"}
+                  <span className="sr-only">: {x.title}</span>
                 </Link>
               ) : null}
             </li>

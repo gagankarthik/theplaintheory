@@ -3,6 +3,14 @@ import type { NextConfig } from "next";
 const isDev = process.env.NODE_ENV !== "production";
 
 /**
+ * Where the SDK and published configs are served from: NEXT_PUBLIC_CDN_URL (e.g. https://cdn.theplaintheory.in
+ * once the custom domain is live), else the distribution's own CloudFront host. Both are allowed, so a
+ * switch never blocks a page that still loads from the other.
+ */
+const CLOUDFRONT = "https://d34dtur9cre43o.cloudfront.net";
+const CDN_HOSTS = [...new Set([(process.env.NEXT_PUBLIC_CDN_URL || CLOUDFRONT).replace(/\/$/, ""), CLOUDFRONT])].join(" ");
+
+/**
  * Content Security Policy for the app and marketing site (SOC 2 CC6.6, CC6.8).
  * - Scripts and styles are first-party; 'unsafe-inline' is needed for Next's hydration and JSON-LD
  *   until we move to per-request nonces. 'unsafe-eval' only in development (React refresh).
@@ -14,11 +22,13 @@ const isDev = process.env.NODE_ENV !== "production";
  */
 const csp = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval' https://va.vercel-scripts.com" : ""}`,
+  // our own consent SDK and its config are served from the SDK CDN (see the root layout)
+  `script-src 'self' 'unsafe-inline' ${CDN_HOSTS}${isDev ? " 'unsafe-eval' https://va.vercel-scripts.com" : ""}`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self'",
-  `connect-src 'self'${isDev ? " ws: wss:" : ""}`,
+  // the SDK posts consent to the canonical API, so preview deployments can record it too
+  `connect-src 'self' ${CDN_HOSTS} https://www.theplaintheory.in${isDev ? " ws: wss:" : ""}`,
   "frame-src 'self'",
   "frame-ancestors 'self'",
   "form-action 'self' https://checkout.stripe.com https://billing.stripe.com",
@@ -41,6 +51,8 @@ const nextConfig: NextConfig = {
   // Keep the dev badge clear of the "Privacy choices" button (bottom right on our own site).
   devIndicators: { position: "bottom-left" },
   poweredByHeader: false,
+  // Styles arrive with the HTML instead of as render-blocking requests (about 23 KB gzipped, Tailwind).
+  experimental: { inlineCss: true },
   // The contact forms used to live on their own pages; they are now topics of one /contact page.
   async redirects() {
     return [
@@ -48,6 +60,35 @@ const nextConfig: NextConfig = {
       { source: "/contact/support", destination: "/contact?topic=support", permanent: true },
       { source: "/contact/enterprise", destination: "/contact?topic=enterprise", permanent: true },
       { source: "/contact/partners", destination: "/contact?topic=partners", permanent: true },
+      // Short and familiar addresses people type or link to
+      { source: "/dpdp", destination: "/compliance/dpdpa", permanent: true },
+      { source: "/dpdpa", destination: "/compliance/dpdpa", permanent: true },
+      { source: "/gdpr", destination: "/compliance/gdpr", permanent: true },
+      { source: "/uk-gdpr", destination: "/compliance/gdpr", permanent: true },
+      { source: "/ccpa", destination: "/compliance/ccpa", permanent: true },
+      { source: "/cpra", destination: "/compliance/ccpa", permanent: true },
+      { source: "/regulations", destination: "/compliance", permanent: true },
+      { source: "/privacy", destination: "/legal/privacy", permanent: true },
+      { source: "/privacy-policy", destination: "/legal/privacy", permanent: true },
+      { source: "/terms", destination: "/legal/terms", permanent: true },
+      { source: "/terms-of-service", destination: "/legal/terms", permanent: true },
+      { source: "/cookies", destination: "/legal/cookies", permanent: true },
+      { source: "/cookie-policy", destination: "/legal/cookies", permanent: true },
+      { source: "/legal", destination: "/legal/terms", permanent: false },
+      { source: "/documentation", destination: "/docs", permanent: true },
+      { source: "/plans", destination: "/pricing", permanent: true },
+      // Account pages live under /auth. The old short addresses (and their sub-pages) keep working;
+      // query strings such as ?next= and ?email= carry over.
+      { source: "/login", destination: "/auth/login", permanent: true },
+      { source: "/login/:path*", destination: "/auth/login/:path*", permanent: true },
+      { source: "/signup", destination: "/auth/signup", permanent: true },
+      { source: "/signup/:path*", destination: "/auth/signup/:path*", permanent: true },
+      { source: "/forgot-password", destination: "/auth/forgot-password", permanent: true },
+      { source: "/reset-password", destination: "/auth/reset-password", permanent: true },
+      { source: "/register", destination: "/auth/signup", permanent: true },
+      { source: "/sign-up", destination: "/auth/signup", permanent: true },
+      { source: "/sign-in", destination: "/auth/login", permanent: true },
+      { source: "/signin", destination: "/auth/login", permanent: true },
     ];
   },
   async headers() {

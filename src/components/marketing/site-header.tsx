@@ -257,12 +257,12 @@ function AccountMenu({ account, open, onOpen, onClose }: { account: Account; ope
           </div>
           <ul className="pt-2">
             <li>
-              <Link href="/app" onClick={onClose} className={link}>
+              <Link href="/app" prefetch={false} onClick={onClose} className={link}>
                 Dashboard
               </Link>
             </li>
             <li>
-              <Link href="/app/account" onClick={onClose} className={link}>
+              <Link href="/app/account" prefetch={false} onClick={onClose} className={link}>
                 Account
               </Link>
             </li>
@@ -372,8 +372,10 @@ export function SiteHeader() {
   return (
     <>
       {notice ? (
-        <div className="on-light relative bg-lime px-12 py-2 text-center text-[0.875rem] text-soot">
-          <span>The DPDP Rules, 2025 are in force. See what your website needs, and by when.</span>{" "}
+        <div className="on-light relative bg-lime py-2 pl-4 pr-12 text-[0.875rem] text-soot sm:px-12 sm:text-center">
+          {/* one line on phones: the short form */}
+          <span className="sm:hidden">The DPDP Rules, 2025 are in force.</span>
+          <span className="max-sm:hidden">The DPDP Rules, 2025 are in force. See what your website needs, and by when.</span>{" "}
           <Link href="/compliance/dpdpa" className="whitespace-nowrap font-medium underline underline-offset-2">
             Read more →
           </Link>
@@ -410,17 +412,18 @@ export function SiteHeader() {
             <div className="grid items-center justify-items-end [&>*]:col-start-1 [&>*]:row-start-1">
               <div {...off(status === "out")}>
                 <div className="flex items-center gap-1">
-                  <Link href="/login" className={`${ITEM} max-sm:hidden`}>
+                  <Link href="/auth/login" className={`${ITEM} max-sm:hidden`}>
                     Sign in
                   </Link>
-                  <Link href="/signup" className="mk-stem mk-stem-lime mk-stem-sm ml-1">
+                  <Link href="/auth/signup" className="mk-stem mk-stem-lime mk-stem-sm ml-1">
                     Start free
                   </Link>
                 </div>
               </div>
               <div {...off(Boolean(signedIn))}>
                 <div className="flex items-center gap-2">
-                  <Link href="/app" className="mk-stem mk-stem-lime mk-stem-sm">
+                  {/* no prefetch: the link is in the page for signed-out visitors too, where /app only redirects to sign-in */}
+                  <Link href="/app" prefetch={false} className="mk-stem mk-stem-lime mk-stem-sm">
                     Dashboard
                   </Link>
                   {signedIn ? (
@@ -480,12 +483,12 @@ export function SiteHeader() {
                     <p className="truncate text-[0.875rem] text-white/60">Signed in as {account.email}</p>
                     <ul className="mt-2">
                       <li>
-                        <Link href="/app" className={sheetLink}>
+                        <Link href="/app" prefetch={false} className={sheetLink}>
                           Dashboard
                         </Link>
                       </li>
                       <li>
-                        <Link href="/app/account" className={sheetLink}>
+                        <Link href="/app/account" prefetch={false} className={sheetLink}>
                           Account
                         </Link>
                       </li>
@@ -500,13 +503,13 @@ export function SiteHeader() {
                   </div>
                 ) : status === "out" ? (
                   <div className="space-y-3 border-t border-white/15 pt-6">
-                    <Link href="/signup" className="mk-stem mk-stem-lime w-full">
+                    <Link href="/auth/signup" className="mk-stem mk-stem-lime w-full">
                       Start free
                     </Link>
                     <Link href="/contact?topic=sales" className="mk-stem mk-stem-outline w-full">
                       Book a demo
                     </Link>
-                    <Link href="/login" className="flex min-h-12 items-center justify-center text-[1rem] text-white/85 hover:text-white">
+                    <Link href="/auth/login" className="flex min-h-12 items-center justify-center text-[1rem] text-white/85 hover:text-white">
                       Sign in
                     </Link>
                   </div>

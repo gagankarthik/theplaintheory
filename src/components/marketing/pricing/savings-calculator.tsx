@@ -124,7 +124,7 @@ export function SavingsCalculator({ plans }: { plans: Plan[] }) {
             Talk to sales about {compactNumber(pageviews)} banner views
           </Link>
         ) : (
-          <Link href={plan.id === "free" ? "/signup" : `/signup?plan=${plan.id}`} className="btn btn-pill btn-primary">
+          <Link href={plan.id === "free" ? "/auth/signup" : `/auth/signup?plan=${plan.id}`} className="btn btn-pill btn-primary">
             {plan.id === "free" ? "Start free" : `Choose ${plan.name}`}
           </Link>
         )}

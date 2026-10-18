@@ -15,7 +15,7 @@ const asPlan = (v: unknown) => (typeof v === "string" && (SELF_SERVE as string[]
 
 export default async function OnboardingPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const session = await getSignedInUser();
-  if (!session) redirect("/login");
+  if (!session) redirect("/auth/login");
   const store = await getStore();
   const memberships = await store.listMemberships(session.userId);
   if (memberships.length) redirect("/app");

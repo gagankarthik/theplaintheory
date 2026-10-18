@@ -8,6 +8,8 @@ import { mfaRequirementState } from "@/lib/auth/second-factor";
 import { requireUser } from "@/lib/auth/session";
 import { getStore } from "@/lib/store";
 import { evaluateFairness } from "@/lib/fairness";
+import { setupProgress } from "@/lib/setup";
+import { loadSetupSignals } from "@/lib/setup-signals";
 
 export const metadata: Metadata = {
   title: { default: "Dashboard", template: `%s | ${site.name}` },
@@ -28,6 +30,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     store.getOrgs(memberships.map((m) => m.orgId)),
     store.listProperties(org.id),
   ]);
+  // The site in focus (the one in the URL, else the last visited, else the first) and how far its
+  // setup has got, for the sidebar's progress card. Three small reads, for that one site only.
+  const pathSite = path.match(/^\/app\/sites\/([^/]+)/)?.[1];
+  const focus = [pathSite, lastSiteId].map((id) => properties.find((p) => p.id === id)).find(Boolean) ?? properties[0];
+  const progress = focus ? setupProgress(await loadSetupSignals(store, focus, org)) : null;
+  const setup =
+    focus && progress && !progress.complete
+      ? { siteId: focus.id, name: focus.name, done: progress.done, total: progress.total, next: progress.next ? { title: progress.next.title, href: progress.next.href } : null }
+      : null;
 
   return (
     <>
@@ -38,6 +49,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       role={role}
       initialCollapsed={sidebarCollapsed}
       initialSiteId={lastSiteId}
+      setup={setup}
       orgs={memberships.flatMap((m) => orgs.filter((o) => o.id === m.orgId)).map((o) => ({ id: o.id, name: o.name }))}
       properties={properties
         .sort((a, b) => a.name.localeCompare(b.name))

@@ -1,12 +1,11 @@
 import Link from "next/link";
 import { IconArrowRight } from "@/components/icons";
-import { FinalCta } from "@/components/marketing/final-cta";
 import { PageHero } from "@/components/marketing/page-hero";
 import { INDUSTRY_LINKS } from "@/components/marketing/site-nav";
 import { pageMetadata } from "@/lib/seo";
 
 export const metadata = pageMetadata({
-  title: "Industries",
+  title: "Cookie Consent by Industry",
   description: "How Plain Theory handles cookie consent for e-commerce, SaaS, healthcare, financial services, media and education websites.",
   path: "/industries",
 });
@@ -43,7 +42,6 @@ export default function IndustriesPage() {
           })}
         </ul>
       </section>
-      <FinalCta />
     </>
   );
 }

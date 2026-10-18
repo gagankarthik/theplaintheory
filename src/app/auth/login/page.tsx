@@ -6,10 +6,10 @@ import { getSignedInUser } from "@/lib/auth/session";
 export const metadata: Metadata = {
   title: "Sign in",
   description: "Sign in to Plain Theory to manage your consent banners, regions, trackers and consent log.",
-  alternates: { canonical: "/login" },
+  alternates: { canonical: "/auth/login" },
 };
 
-export default async function LoginPage(props: PageProps<"/login">) {
+export default async function LoginPage(props: PageProps<"/auth/login">) {
   if (await getSignedInUser()) redirect("/app");
   const { next, reset, confirmed } = await props.searchParams;
   const notice = reset === "1" ? "Password updated. Sign in with your new password." : confirmed === "1" ? "Email confirmed. Sign in to continue." : undefined;

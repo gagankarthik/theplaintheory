@@ -6,7 +6,6 @@ import { IconCheck } from "@/components/icons";
 import { COMPLIANCE } from "@/components/marketing/compliance/content";
 import { ConsentManagerSection, ItemisedSection, LanguagesSection } from "@/components/marketing/compliance/dpdpa-sections";
 import { Faq } from "@/components/marketing/faq";
-import { FinalCta } from "@/components/marketing/final-cta";
 import { JsonLd } from "@/components/marketing/json-ld";
 import { PageHero } from "@/components/marketing/page-hero";
 import { Toc, type TocItem } from "@/components/marketing/toc";
@@ -213,7 +212,6 @@ export default async function CompliancePage({ params }: { params: Promise<{ fra
         </div>
       </div>
 
-      <FinalCta title={`Get ${c.name}-ready this week`} />
     </>
   );
 }

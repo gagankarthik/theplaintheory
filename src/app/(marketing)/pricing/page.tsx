@@ -1,6 +1,5 @@
 import { pageMetadata } from "@/lib/seo";
 import { Faq, type FaqItem } from "@/components/marketing/faq";
-import { FinalCta } from "@/components/marketing/final-cta";
 import { JsonLd } from "@/components/marketing/json-ld";
 import { PageHero } from "@/components/marketing/page-hero";
 import { ComparisonTable } from "@/components/marketing/pricing/comparison-table";
@@ -13,7 +12,7 @@ import { getLivePlans } from "@/lib/stripe-catalog";
 import { absoluteUrl, site } from "@/lib/site";
 
 export const metadata = pageMetadata({
-  title: "Pricing",
+  title: "Pricing: Free Cookie Banner, Plans from $9",
   description: "Free for one site. Paid plans from $9 a month, priced per account, not per domain, in USD, EUR, GBP or INR. No surprise charges or automatic upgrades.",
   path: "/pricing",
   socialTitle: "Pay for your account, not your domains",
@@ -147,7 +146,6 @@ export default async function PricingPage() {
         </div>
       </Section>
 
-      <FinalCta />
     </>
   );
 }

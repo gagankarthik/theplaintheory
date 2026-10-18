@@ -285,7 +285,7 @@ export function WebhooksManager({ propertyId, webhooks, deliveries, canWrite }: 
             <>
               Each request carries <code className="font-mono text-xs text-ink-2">X-Plain-Signature</code>, an HMAC-SHA256 of <code className="font-mono text-xs text-ink-2">t.body</code>. Reject
               requests older than five minutes and dedupe on <code className="font-mono text-xs text-ink-2">X-Plain-Delivery</code>.{" "}
-              <Link href="/docs#api" className="font-medium text-ink underline underline-offset-2 hover:no-underline">
+              <Link href="/docs#webhooks" className="font-medium text-ink underline underline-offset-2 hover:no-underline">
                 API docs
               </Link>
             </>

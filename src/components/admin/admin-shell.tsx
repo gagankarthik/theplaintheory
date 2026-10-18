@@ -2,15 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useCallback, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { staffSignOut, staffSignOutEverywhere } from "@/app/admin/login/actions";
 import { BrandMark } from "@/components/brand/logo";
-import { BreadcrumbProvider, type Crumb } from "@/components/app/shell/breadcrumbs";
 import { Dropdown, MenuSeparator, menuItemClass } from "@/components/app/shell/dropdown";
 import { NavDrawer, NavGroups, NavRail, type NavTab } from "@/components/app/shell/nav";
 import { ToastProvider } from "@/components/app/ui/toast";
 import { ThemeScope, ThemeToggle } from "@/components/theme/theme";
-import { IconArrowRight, IconChain, IconMail, IconOverview, IconShieldCheck, IconSignOut, IconSites, IconTeam } from "@/components/icons";
+import { IconChain, IconMail, IconOverview, IconShieldCheck, IconSignOut, IconSites, IconTeam } from "@/components/icons";
 
 export type AdminNavId = "overview" | "orgs" | "users" | "requests" | "staff" | "audit";
 
@@ -64,23 +63,12 @@ export function AdminShell({
     setMenuOpen(false);
   }
 
-  const resolveTrail = useCallback(
-    (path: string): Crumb[] => {
-      const hit = NAV.filter((t) => nav.includes(t.id) && isActive(t, path)).sort((a, b) => b.href.length - a.href.length)[0];
-      const trail: Crumb[] = [{ label: "Staff console", href: "/admin" }];
-      if (hit) trail.push({ label: hit.label, href: hit.href });
-      return trail;
-    },
-    [nav],
-  );
-
   const groups = [{ label: "Platform", tabs: items }];
   const navBody = (isCollapsed: boolean) => <NavGroups groups={groups} pathname={pathname} collapsed={isCollapsed} isActive={isActive} />;
 
   return (
     <ToastProvider>
       <ThemeScope />
-      <BreadcrumbProvider resolve={resolveTrail}>
         <div className="pt-app min-h-dvh bg-canvas text-ink">
           <a
             href="#main"
@@ -146,9 +134,6 @@ export function AdminShell({
                         <ThemeToggle className="w-full" />
                       </div>
                       <MenuSeparator />
-                      <Link href="/" role="menuitem" tabIndex={-1} className={menuItemClass}>
-                        <IconArrowRight size={16} className="shrink-0 rotate-180 text-ink-3" /> Back to website
-                      </Link>
                       <form action={staffSignOut}>
                         <button type="submit" role="menuitem" tabIndex={-1} className={`${menuItemClass} hover:!bg-destructive-wash hover:!text-destructive`}>
                           <IconSignOut size={16} className="shrink-0" /> Sign out
@@ -190,7 +175,6 @@ export function AdminShell({
             {navBody(false)}
           </NavDrawer>
         </div>
-      </BreadcrumbProvider>
     </ToastProvider>
   );
 }

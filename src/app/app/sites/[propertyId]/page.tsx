@@ -7,7 +7,13 @@ import { PageHeader } from "@/components/app/shell/page-header";
 import { PublishBadge } from "@/components/app/ui/badge";
 import { Card } from "@/components/app/ui/card";
 import { EmptyState } from "@/components/app/ui/empty-state";
-import { SetupGuide, setupComplete, type SetupState } from "@/components/app/sites/setup-guide";
+import { SetupGuide } from "@/components/app/sites/setup-guide";
+import { SitePreview } from "@/components/app/sites/site-preview";
+import { StatusDot } from "@/components/app/ui/status-dot";
+import { ButtonLink } from "@/components/app/ui/button";
+import { CardBody } from "@/components/app/ui/card";
+import { toPublicConfig } from "@/lib/public-config";
+import type { Framework } from "@/lib/types";
 import { IconOverview } from "@/components/icons";
 import { formatInt, isoDaysAgo, rangeDays, summarizeRollups } from "@/lib/analytics";
 import { requireProperty } from "@/lib/auth/access";
@@ -17,6 +23,8 @@ import { evaluateFairness } from "@/lib/fairness";
 import { planById } from "@/lib/plans";
 import { dpdpReadiness } from "@/lib/readiness";
 import { mergeRollups, rollupsFromReceipts } from "@/lib/rollups";
+import { setupProgress } from "@/lib/setup";
+import { loadSetupSignals } from "@/lib/setup-signals";
 import { heldTrackers } from "@/lib/trackers";
 
 export const metadata: Metadata = { title: "Overview" };
@@ -33,11 +41,12 @@ export default async function OverviewPage(props: PageProps<"/app/sites/[propert
   const both = rangeDays(range * 2);
   const prevDays = both.slice(0, range);
   const days = both.slice(range);
-  const [rolled, counters, leaks, [lastScan]] = await Promise.all([
+  const [rolled, counters, leaks, [lastScan], signals] = await Promise.all([
     store.listDecisionRollups(property.id, both[0], both[both.length - 1]),
     store.listCounters(property.id, both[0], both[both.length - 1]),
     store.listLeaks(property.id, isoDaysAgo(7)),
     store.listScans(property.id, 1),
+    loadSetupSignals(store, property, org),
   ]);
   // Daily rollups cover receipts from rolled.fromSeq on. Receipts stored before rollups existed are
   // counted from the receipts themselves (only those: the query starts below fromSeq), so the sum is
@@ -71,17 +80,8 @@ export default async function OverviewPage(props: PageProps<"/app/sites/[propert
   const published = property.publishedVersion > 0;
   const trackers = heldTrackers(property.trackers).length;
   const canWrite = can(role, "property:write");
-  const setup: SetupState = {
-    propertyId: property.id,
-    domain: property.domain,
-    bannerEdited: property.config.version > 1,
-    trackers,
-    published,
-    seen: s.views + p.views > 0 || s.decisions + p.decisions > 0,
-    decisions: s.decisions + p.decisions,
-    canWrite,
-  };
-  const inSetup = !setupComplete(setup);
+  const setup = setupProgress(signals);
+  const inSetup = !setup.complete;
   const hasData = s.decisions > 0 || s.views > 0;
   const frameworkLabels = Object.fromEntries(Object.entries(FRAMEWORK_META).map(([k, v]) => [k, v.name]));
   const leakPages = new Set(leaks.map((l) => l.page)).size;
@@ -99,7 +99,7 @@ export default async function OverviewPage(props: PageProps<"/app/sites/[propert
       href: `${base}/leaks?range=7`,
       cta: "View leaks",
     });
-  if (fairness.failures.length)
+  if (fairness.failures.length && !inSetup)
     steps.push({
       id: "fairness",
       tone: "danger",
@@ -140,11 +140,68 @@ export default async function OverviewPage(props: PageProps<"/app/sites/[propert
       cta: "Open scanner",
     });
 
+  // The site at a glance, as a hosting dashboard shows a project: what visitors see, where, and its state.
+  const shownConfig = property.published?.config ?? property.config;
+  const preview = toPublicConfig({ ...property, config: shownConfig }, org.dpo ? { name: org.dpo.name, email: org.dpo.email } : undefined);
+  const laws = (Object.keys(FRAMEWORK_META) as Framework[]).filter((f) => f !== "generic" && shownConfig.regions[f]?.enabled);
+  const firstLaw = laws[0] ?? "generic";
+  const lastViewDay = counters.filter((c) => c.views > 0).map((c) => c.day).sort().at(-1);
+  const fmtDay = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+  const summary = (
+    <Card aria-labelledby="site-h" className="overflow-hidden">
+      <CardBody className="grid gap-6 md:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] md:items-center">
+        <SitePreview config={preview} framework={firstLaw} domain={property.domain} />
+        <div className="min-w-0">
+          <h2 id="site-h" className="sr-only">
+            {property.domain} at a glance
+          </h2>
+          <dl className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm">
+            <div>
+              <dt className="text-xs text-ink-3">Banner</dt>
+              <dd className="mt-1 flex items-center gap-2 font-medium text-ink">
+                <StatusDot tone={published && !dirty ? "ok" : "warn"} label="" />
+                {published ? (dirty ? `v${property.publishedVersion} live · newer draft` : `v${property.publishedVersion} live`) : "Not published yet"}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs text-ink-3">Script on the site</dt>
+              <dd className="mt-1 flex items-center gap-2 font-medium text-ink">
+                <StatusDot tone={signals.seen ? "ok" : "warn"} label="" />
+                {signals.seen ? (lastViewDay ? `Seen ${fmtDay(lastViewDay)}` : "Seen") : "Not seen yet"}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs text-ink-3">Laws covered</dt>
+              <dd className="mt-1 font-medium text-ink">{laws.length ? laws.map((f) => FRAMEWORK_META[f].name).join(" · ") : "Default notice only"}</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-ink-3">Last published</dt>
+              <dd className="mt-1 font-medium text-ink">{property.publishedAt ? fmtDay(property.publishedAt) : "Never"}</dd>
+            </div>
+          </dl>
+          <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2">
+            {canWrite ? (
+              <ButtonLink href={`${base}/banner`} variant="secondary" size="sm">
+                Edit banner
+              </ButtonLink>
+            ) : null}
+            <ButtonLink href={`${base}/install`} variant="ghost" size="sm">
+              Install
+            </ButtonLink>
+            <a href={`https://${property.domain}`} target="_blank" rel="noreferrer" className="btn btn-link text-sm">
+              Visit {property.domain}
+              <span className="sr-only"> (opens in a new tab)</span>
+            </a>
+          </div>
+        </div>
+      </CardBody>
+    </Card>
+  );
+
   return (
     <>
       <PageHeader
         live
-        crumbs={[{ href: "/app", label: "Sites" }, { label: property.name }]}
         title={property.name}
         description={
           <span className="inline-flex flex-wrap items-center gap-2">
@@ -159,11 +216,14 @@ export default async function OverviewPage(props: PageProps<"/app/sites/[propert
       />
 
       <div className="space-y-6">
-        {inSetup ? <SetupGuide {...setup} /> : null}
+        {summary}
+        {inSetup ? <SetupGuide domain={property.domain} progress={setup} canWrite={canWrite} /> : null}
         <NextSteps steps={steps} />
 
         {hasData ? <MetricOverview current={s} previous={previous} range={range} /> : null}
 
+        {/* While setting up, the checklist is the page: no empty charts or health scores yet. */}
+        {inSetup && !hasData ? null : (
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
           {hasData ? (
             <CategoryConsent
@@ -202,6 +262,7 @@ export default async function OverviewPage(props: PageProps<"/app/sites/[propert
             leakPages={leakPages}
           />
         </div>
+        )}
 
         {hasData ? (
           <>

@@ -134,10 +134,10 @@ function SourceBadge({ t }: { t: Tracker }) {
       </Badge>
     );
   if (s === "ignored") return <Badge tone="neutral">Ignored</Badge>;
-  if (t.source === "manual") return <Badge tone="info">Added by hand</Badge>;
+  if (t.source === "manual") return <Badge tone="neutral">Added by hand</Badge>;
   if (t.source === "traffic") return <Badge tone="warning">Seen in traffic</Badge>;
   return (
-    <Badge tone="info" icon={<IconRadar size={12} />}>
+    <Badge tone="neutral" icon={<IconRadar size={12} />}>
       Auto-detected
     </Badge>
   );

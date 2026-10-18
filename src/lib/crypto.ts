@@ -37,14 +37,26 @@ export function hashIpWithSalt(ip: string | null | undefined, salt: string) {
 const DEV_IP_SECRET = "plain-dev-ip-secret";
 
 /**
- * The server secret behind ipRateKey. Required outside development and test: a missing or empty
- * IP_HASH_SECRET fails the request loudly instead of falling back to a guessable key.
+ * The server secret behind ipRateKey: IP_HASH_SECRET. Never a guessable key. When it isn't set, a
+ * key derived from SESSION_SECRET (a separate HMAC, so neither reveals the other) stands in and a
+ * warning says to set it: a missing setting must not stop consent decisions being recorded (it did,
+ * 2026-10: every public API call answered 500). With neither secret, outside development and test,
+ * it fails loudly.
  */
+let warnedDerived = false;
 export function ipHashSecret() {
   const v = process.env.IP_HASH_SECRET?.trim();
   if (v) return v;
   const env = process.env.NODE_ENV;
   if (env === "development" || env === "test") return DEV_IP_SECRET;
+  const session = process.env.SESSION_SECRET?.trim();
+  if (session) {
+    if (!warnedDerived) {
+      warnedDerived = true;
+      console.warn("[crypto] IP_HASH_SECRET is not set; using a key derived from SESSION_SECRET. Set IP_HASH_SECRET (openssl rand -base64 48).");
+    }
+    return createHmac("sha256", session).update("plain-theory/ip-rate-key/v1").digest("base64url");
+  }
   throw new Error("IP_HASH_SECRET is not set. Set it to 32+ random bytes (openssl rand -base64 48); it keys the IP hashes used for rate limits.");
 }
 

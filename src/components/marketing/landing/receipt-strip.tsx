@@ -26,7 +26,7 @@ function Row({ k, v, strong }: { k: string; v: React.ReactNode; strong?: boolean
 /** One consent receipt, further along in each field. A believable product fragment, sample values. */
 function ReceiptCard({ stage }: { stage: Stage }) {
   return (
-    <div data-ui className="w-[260px] rounded-[14px] bg-white p-4 text-soot ring-1 ring-black/10 transition-transform duration-150 ease-out group-hover:-translate-y-1.5">
+    <div data-ui className="w-full max-w-[280px] rounded-[14px] bg-white p-4 text-soot ring-1 ring-black/10 transition-transform duration-150 ease-out group-hover:-translate-y-1.5">
       <div className="flex items-center justify-between">
         <p className="text-[14px] font-semibold">Consent receipt</p>
         <p className={`rounded-full px-2 py-0.5 text-[12px] font-medium ${stage === 3 ? "bg-lime text-soot" : stage === 2 ? "bg-soot text-white" : "bg-[#efefec] text-[#555]"}`}>
@@ -66,20 +66,38 @@ function ReceiptCard({ stage }: { stage: Stage }) {
  */
 export function ReceiptStrip() {
   return (
-    <section id="how" aria-labelledby="how-title" className="grid scroll-mt-20 md:grid-cols-2 xl:grid-cols-4">
-      {FIELDS.map((f, i) => (
-        <div key={f.clause} className={`group relative flex min-h-[480px] flex-col px-5 pb-8 pt-10 md:min-h-[560px] md:px-7 ${f.bg} ${f.text}`}>
-          {i === 0 ? (
-            <h2 id="how-title" className="text-[clamp(1.375rem,2vw,1.8rem)]">
-              One decision, kept.
-            </h2>
-          ) : null}
-          <div className="flex flex-1 items-start justify-start pt-8 md:items-center md:justify-center md:pt-0">
-            <ReceiptCard stage={i as Stage} />
-          </div>
-          <p className="mt-8 max-w-[14ch] text-[clamp(1.375rem,2vw,1.8rem)] font-semibold leading-[1.05] tracking-[-0.03em]">{f.clause}</p>
-        </div>
-      ))}
+    <section id="how" aria-labelledby="how-title" className="scroll-mt-20 bg-soot">
+      {/* Phones: the four fields side by side in a swipe row, the next one peeking. From md: a grid. */}
+      <ol className="mk-snap flex snap-x snap-mandatory overflow-x-auto md:grid md:snap-none md:grid-cols-2 md:overflow-visible xl:grid-cols-4">
+        {FIELDS.map((f, i) => (
+          <li
+            key={f.clause}
+            className={`group relative flex min-h-[500px] w-[86vw] max-w-[360px] shrink-0 snap-start flex-col px-5 pb-8 pt-10 md:min-h-[560px] md:w-auto md:max-w-none md:px-7 ${f.bg} ${f.text}`}
+          >
+            <div className="flex items-baseline justify-between gap-4">
+              {i === 0 ? (
+                <h2 id="how-title" className="text-[clamp(1.375rem,2vw,1.8rem)]">
+                  One decision, kept.
+                </h2>
+              ) : (
+                <span />
+              )}
+              <span aria-hidden className="font-[family-name:var(--font-data)] text-[0.875rem] opacity-60">
+                {String(i + 1).padStart(2, "0")} / 04
+              </span>
+            </div>
+            {i === 0 ? (
+              <p aria-hidden className="mt-1 text-[0.875rem] text-mute md:hidden">
+                Swipe to follow one receipt →
+              </p>
+            ) : null}
+            <div data-reveal="scale" style={{ "--i": i } as React.CSSProperties} className="flex flex-1 items-start justify-start pt-8 md:items-center md:justify-center md:pt-0">
+              <ReceiptCard stage={i as Stage} />
+            </div>
+            <p className="mt-8 max-w-[14ch] text-[clamp(1.375rem,2vw,1.8rem)] font-semibold leading-[1.05] tracking-[-0.03em]">{f.clause}</p>
+          </li>
+        ))}
+      </ol>
     </section>
   );
 }

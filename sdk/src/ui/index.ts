@@ -50,6 +50,7 @@ export function createUi() {
     const hadFocus = !!root.activeElement;
     const prev = view;
     view = input.view;
+    host!.dataset.view = view;
     if (view === "prefs" && prev !== "prefs") returnTo = (root.activeElement as HTMLElement | null) || (document.activeElement as HTMLElement | null);
 
     const html = view === "banner" ? bannerHtml(input) : view === "prefs" ? prefsHtml(input) : view === "fab" && input.fab ? fabHtml(input) : "";

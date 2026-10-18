@@ -13,9 +13,13 @@ const ABOUT: Record<string, [title: string, about: string]> = {
   "/contact?topic=enterprise": ["Enterprise and compliance requests", "DPA requests, data residency, audit evidence, custom terms, security questionnaires and procurement"],
   "/contact?topic=partners": ["Partner support", "Account, campaign, program and payout queries for agency, affiliate, technology and strategic partners"],
   "/docs": ["Documentation", "One script tag that works with HTML, Next.js, React, Vue, Svelte, Angular, WordPress and more, plus the JavaScript and REST APIs"],
+  "/cookie-consent": ["Cookie banner and consent tool", "The consent banner: tracker blocking by category, notices per region, Banner studio, headless mode and the install tag"],
+  "/cookie-scanner": ["Cookie scanner", "What a scan records (cookies, storage keys, scripts, embeds, pixels), pre-consent findings and scheduled scans"],
+  "/google-consent-mode": ["Google Consent Mode v2", "How the banner sends Consent Mode v2 default and update signals, and how categories map to them"],
+  "/consent-log": ["Consent log and records", "The hash-chained consent log, what a receipt holds, one-click verification, daily anchors and the Evidence Pack"],
   "/compliance/gdpr": ["GDPR guide", "GDPR and ePrivacy cookie consent requirements"],
   "/compliance/ccpa": ["CCPA/CPRA guide", "Opt-out rights and Global Privacy Control in California"],
-  "/compliance/dpdpa": ["DPDPA guide", "India's DPDP Act 2023 and DPDP Rules 2025 readiness"],
+  "/compliance/dpdpa": ["DPDPA guide", "DPDP Act 2023 and DPDP Rules 2025 readiness"],
   "/security": ["Security", "Encryption, residency, access control and SOC 2 preparation"],
   "/brand": ["Brand", "Logo, colours and typography"],
   "/legal/privacy": ["Privacy notice", "How we handle personal data"],
@@ -47,9 +51,9 @@ export async function GET() {
 
 Key facts:
 - Consent script: blocks known trackers until the visitor chooses, honours Global Privacy Control and sends Google Consent Mode v2 signals.
-- Laws covered: GDPR and UK GDPR, CCPA/CPRA, and India's DPDP Act 2023 with the DPDP Rules 2025 (notices in all 22 Eighth Schedule languages).
+- Laws covered: GDPR and UK GDPR, CCPA/CPRA, and the DPDP Act 2023 with the DPDP Rules 2025 (notices in all 22 Eighth Schedule languages).
 - Proof: every decision is a receipt chained to the previous one by a SHA-256 hash; verification runs in one click, and anyone with the export can verify the chain; an Evidence Pack exports the verified chain.
-- Data residency: stored in India (AWS Mumbai, ap-south-1). EU or US residency on Enterprise, by arrangement.
+- Data residency: a single data region, encrypted at rest and in transit. Dedicated residency on Enterprise.
 - Pricing (monthly, excluding tax): ${prices}. Enterprise is custom. Priced per account, not per domain.
 - Plain Theory provides software, not legal advice.
 
