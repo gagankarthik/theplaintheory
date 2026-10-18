@@ -1,5 +1,5 @@
-import { sdkTrackers } from "./trackers";
-import type { Framework, Property } from "./types";
+import { sdkCookies, sdkTrackers } from "./trackers";
+import type { CategoryId, Framework, Property } from "./types";
 
 // Client-safe: used by the server publisher, the builder preview and the SDK contract.
 
@@ -25,6 +25,8 @@ export interface PublicConfig {
   rights?: Property["config"]["rights"];
   /** report tracker requests that fire after a decline */
   leaks: boolean;
+  /** cookie and storage names to clear while their category isn't allowed ("*" wildcard) */
+  cookies?: { n: string; c: CategoryId }[];
 }
 
 export function toPublicConfig(p: Property, dpo?: { name: string; email: string }): PublicConfig {
@@ -48,5 +50,6 @@ export function toPublicConfig(p: Property, dpo?: { name: string; email: string 
     reask: p.config.reaskAfterRejectDays ?? 180,
     rights: p.config.rights,
     leaks: p.config.leakDetection ?? true,
+    cookies: sdkCookies(p.trackers),
   };
 }

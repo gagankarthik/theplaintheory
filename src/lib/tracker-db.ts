@@ -70,7 +70,7 @@ export const TRACKER_DB: TrackerDef[] = [
     urls: ["googleoptimize.com"],
     cookies: [["_gaexp", "90 days"], ["_opt_*", "Session"]],
   }),
-  d("google-maps", "Google Maps", "Google", F, "Shows interactive maps.", { urls: ["maps.googleapis.com", "maps.google.com", "google.com/maps"], cookies: [["NID", "6 months"]] }),
+  d("google-maps", "Google Maps", "Google", F, "Shows interactive maps.", { urls: ["maps.googleapis.com", "maps.gstatic.com", "maps.google.com", "google.com/maps"], cookies: [["NID", "6 months"]] }),
   d("youtube", "YouTube", "Google", M, "Plays embedded videos and tracks viewing for ads and recommendations.", {
     urls: ["youtube.com/embed", "youtube.com/iframe_api", "youtube.com/s/player", "youtube.com/player_api"],
     cookies: [["YSC", "Session"], ["VISITOR_INFO1_LIVE", "6 months"], ["VISITOR_PRIVACY_METADATA", "6 months"], ["PREF", "8 months"]],

@@ -224,7 +224,8 @@ export function evaluateFairness(config: Omit<BannerConfig, "version">, ctx: Fai
 
 /** Path for a fix target, relative to a site. */
 export function fixHref(propertyId: string, target: FixTarget) {
-  if (target === "settings") return "/app/settings";
+  // straight to the DPO section, with a way back to the banner review
+  if (target === "settings") return `/app/settings?back=${encodeURIComponent(`/app/sites/${propertyId}/banner?tab=review`)}#dpo`;
   const [section, tab] = target.split(":");
   if (section === "regions") return `/app/sites/${propertyId}/regions${tab ? "#notice" : ""}`;
   return `/app/sites/${propertyId}/${section}${tab ? `?tab=${tab}` : ""}`;

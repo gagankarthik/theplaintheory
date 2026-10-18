@@ -242,6 +242,14 @@ export function TrackersManager({
   const allChecked = rows.length > 0 && rows.every((r) => selected.has(r.id));
   const someChecked = !allChecked && rows.some((r) => selected.has(r.id));
   const toggleAll = () => setSelected(allChecked ? new Set() : new Set(rows.map((r) => r.id)));
+  // The bulk category belongs to one selection. Once the selection empties (after Approve, Ignore,
+  // Clear, or unticking every row) it goes back to "Keep category", so a choice made for an earlier
+  // batch can never silently overwrite the categories set row by row on the next one.
+  const [lastSelected, setLastSelected] = useState(selected.size);
+  if (selected.size !== lastSelected) {
+    setLastSelected(selected.size);
+    if (selected.size === 0 && bulkCategory) setBulkCategory(undefined);
+  }
   const toggle = (id: string) =>
     setSelected((s) => {
       const n = new Set(s);

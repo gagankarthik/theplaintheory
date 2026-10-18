@@ -27,6 +27,9 @@ const CONTAINER_ARGS = [
   "--mute-audio",
   "--hide-scrollbars",
   "--window-size=1366,900",
+  // We pick the scheme ourselves (https first, http when HTTPS is refused). Chrome's automatic HTTPS
+  // upgrade would silently retry an http:// site over https and abort it, so http-only sites never load.
+  "--disable-features=HttpsUpgrades,HttpsFirstModeV2,HttpsFirstBalancedMode,HttpsFirstBalancedModeAutoEnable,HttpsFirstModeV2ForEngagedSites,HttpsFirstModeV2ForTypicallySecureUsers,HttpsFirstModeIncognito",
 ];
 
 export async function launchBrowser(): Promise<Browser> {

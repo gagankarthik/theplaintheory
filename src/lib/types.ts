@@ -385,6 +385,11 @@ export interface LeakReport {
   framework: Framework;
   country: string;
   createdAt: string;
+  /**
+   * The browser's preloader fetched this from a hard-coded <script src> before plain-consent.js
+   * could hold it: the request went out (IP and page sent to the vendor) but the script never ran.
+   */
+  held?: boolean;
 }
 
 export type TrackerStatus = "approved" | "review" | "ignored";

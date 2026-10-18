@@ -177,7 +177,15 @@ export class FindingCollector {
       const lifetime = lifetimeFromExpiry(c.expires, nowSec);
       const flags = { httpOnly: c.httpOnly, secure: c.secure, ...(c.sameSite ? { sameSite: c.sameSite } : {}), storage: "cookie" as const };
       const m = matchCookie(c.name);
-      const f = m
+      // A third-party cookie the database doesn't name, set by a known vendor's domain (YouTube's
+      // __Secure-YNID, ...), belongs to that vendor's entry rather than its own "Unknown" row.
+      const owner = !m && party === "third" ? matchUrl(`https://${host}/`)?.def : undefined;
+      // A first-party, HttpOnly cookie that ends with the session is almost always the site's own
+      // login or session cookie: suggest Essential (the owner still confirms it).
+      const sessionCookie = !m && !owner && party === "first" && c.httpOnly && lifetime === "Session";
+      const f = owner
+        ? this.add({ kind: "cookie", host, party, pages: c.seenOnUrls, sample: c.name, expiry: lifetime, ...this.known(owner, c.name), ...flags })
+        : m
         ? this.add({
             kind: "cookie",
             host,
@@ -188,7 +196,19 @@ export class FindingCollector {
             ...this.known(m.def, c.name),
             ...flags,
           })
-        : this.add({ kind: "cookie", name: c.name, host, party, category: null, pattern: c.name, expiry: lifetime, pages: c.seenOnUrls, sample: c.name, ...flags });
+        : this.add({
+            kind: "cookie",
+            name: c.name,
+            host,
+            party,
+            category: sessionCookie ? "essential" : null,
+            ...(sessionCookie ? { purpose: "Likely the site's own session cookie: first-party, HttpOnly and deleted when the browser closes." } : {}),
+            pattern: c.name,
+            expiry: lifetime,
+            pages: c.seenOnUrls,
+            sample: c.name,
+            ...flags,
+          });
       this.flagPreConsent(f);
     }
   }
@@ -197,8 +217,16 @@ export class FindingCollector {
   addStorage(keys: CapturedStorageKey[]): void {
     for (const s of keys) {
       const m = matchCookie(s.key);
-      if (!m) continue;
       const storage = s.storageType === "LOCAL_STORAGE" ? ("localStorage" as const) : ("sessionStorage" as const);
+      const party = this.party(s.host);
+      if (!m) {
+        // First-party keys the database doesn't know (an A/B test bucket, a cart) are listed for
+        // review, so the site can categorise them and the SDK can clear them without consent.
+        // Our own consent record and third-party keys we can't attribute are left out.
+        if (party !== "first" || /^plain_/.test(s.key)) continue;
+        this.add({ kind: "cookie", name: s.key, host: normalizeHost(s.host), party, category: null, pattern: s.key, pages: s.seenOnUrls, sample: s.key, expiry: storage === "localStorage" ? "Persistent" : "Session", storage });
+        continue;
+      }
       const f = this.add({
         kind: "cookie",
         host: normalizeHost(s.host),

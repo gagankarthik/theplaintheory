@@ -597,6 +597,11 @@ body:has(.pt-app, .auth) #plain-consent {
   }
 
   /* Skeleton placeholder with a soft travelling sheen */
+  .nav-progress {
+    transition:
+      width 200ms ease-out,
+      opacity 200ms ease 60ms;
+  }
   .skeleton {
     border-radius: var(--radius-sm);
     background: linear-gradient(
@@ -744,6 +749,9 @@ body:has(.pt-app, .auth) #plain-consent {
   .pt-fade,
   .pt-pop,
   .pt-stagger > *,
+  .nav-progress {
+    transition: opacity 150ms ease;
+  }
   .skeleton {
     animation: none !important;
   }

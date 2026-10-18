@@ -10,14 +10,23 @@ import { getStore } from "@/lib/store";
 
 export const metadata: Metadata = { title: "Settings" };
 
-export default async function SettingsPage() {
+/** Only a path inside the app may be a "back" target, so the link can't be pointed elsewhere. */
+const safeBack = (v: string | string[] | undefined) => (typeof v === "string" && /^\/app\/sites\/[\w-]+\/banner(\?tab=\w+)?$/.test(v) ? v : null);
+
+export default async function SettingsPage(props: PageProps<"/app/settings">) {
   const { org, role, user } = await requireUser();
+  const back = safeBack((await props.searchParams).back);
   const store = await getStore();
   const [properties, members] = await Promise.all([store.listProperties(org.id), store.listMembers(org.id)]);
 
   return (
     <>
       <PageHeader title="Settings" description={`Details, data protection contact and sign-in policy for ${org.name}.`} />
+      {back ? (
+        <Link href={back} className="btn btn-link mb-4 inline-flex text-sm">
+          ← Back to the banner review
+        </Link>
+      ) : null}
       <div className="max-w-4xl">
         <OrgSettingsForm org={{ name: org.name, dataRegion: org.dataRegion, dpo: org.dpo }} canEdit={can(role, "org:settings")} />
 

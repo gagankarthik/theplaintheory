@@ -18,6 +18,7 @@ import { can } from "@/lib/auth/rbac";
 import { FRAMEWORK_META } from "@/lib/defaults";
 import { effectiveRetentionDays } from "@/lib/retention-grace";
 import { formatDate, formatNumber, formatPct } from "@/lib/format";
+import { countWithdrawals } from "@/lib/withdrawals";
 import { filterQuery, filterRange, hasFieldFilters, hasFilters, matchesReceipt, parseReceiptFilters } from "@/lib/receipt-filters";
 import { StatStrip, type Stat } from "@/components/app/ui/stat-strip";
 
@@ -75,7 +76,7 @@ export default async function LogsPage(props: PageProps<"/app/sites/[propertyId]
   const decisions = inRange.filter((r) => outcomeOf(r.action));
   const accepted = decisions.filter((r) => r.action === "accept_all").length;
   const gpc = decisions.filter((r) => r.gpc).length;
-  const withdrawals = inRange.filter((r) => r.action === "revoke").length;
+  const withdrawals = countWithdrawals(inRange);
   const period = dated
     ? filters.from && filters.to
       ? filters.from === filters.to

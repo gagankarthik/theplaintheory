@@ -29,7 +29,11 @@ export function LeaksTable({ propertyId, groups, canWrite, footer }: { propertyI
               on {g.page}
             </span>
             <span className="mt-0.5 block text-xs text-ink-3">
-              {g.matchedTracker ? `Listed as "${g.matchedTracker.name}", but ran before plain-consent.js` : "Not on your tracker list"}
+              {g.preloadOnly
+                ? `Downloaded by the browser before consent, but never ran. Mark this tag type="text/plain" data-consent="${g.category}" so it isn't fetched.`
+                : g.matchedTracker
+                  ? `Listed as "${g.matchedTracker.name}", but ran before plain-consent.js`
+                  : "Not on your tracker list"}
             </span>
           </div>
         ),
@@ -58,7 +62,11 @@ export function LeaksTable({ propertyId, groups, canWrite, footer }: { propertyI
         mobileLabel: "Fix",
         align: "right",
         cell: (g) =>
-          g.matchedTracker ? (
+          g.preloadOnly ? (
+            <ButtonLink size="sm" variant="secondary" href="/docs#blocking">
+              How to mark the tag
+            </ButtonLink>
+          ) : g.matchedTracker ? (
             <ButtonLink size="sm" variant="secondary" href={`/app/sites/${propertyId}/install`}>
               Check install order
             </ButtonLink>

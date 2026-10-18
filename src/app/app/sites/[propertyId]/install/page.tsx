@@ -11,7 +11,7 @@ import { formatInt, rangeDays } from "@/lib/analytics";
 import { requireProperty } from "@/lib/auth/access";
 import { can } from "@/lib/auth/rbac";
 import { bareDomain } from "@/lib/consent";
-import { publicUrl } from "@/lib/site";
+import { publicUrl, site } from "@/lib/site";
 import { CDN_ORIGIN, SDK_URL, installMethods } from "@/lib/install-snippets";
 import { InstallCheck, InstallMethods } from "@/components/app/sites/install-methods";
 
@@ -65,7 +65,10 @@ function More({ title, description, children }: { title: string; description: Re
 export default async function InstallPage(props: PageProps<"/app/sites/[propertyId]/install">) {
   const { propertyId } = await props.params;
   const { property, store, role } = await requireProperty(propertyId);
-  const api = `${publicUrl}/api/v1`;
+  // Local development on the local data store (npm run dev:local): its site keys exist only on this
+  // machine, so the snippet points here; everywhere else it names the public service.
+  const localDev = process.env.NODE_ENV !== "production" && process.env.STORE_DRIVER !== "dynamodb";
+  const api = localDev ? `${site.url}/api/v1` : `${publicUrl}/api/v1`;
   // configs reach the CDN when publishing writes to S3; otherwise the consent API serves them
   const onCdn = process.env.PUBLISH_DRIVER === "s3";
   const published = property.publishedVersion > 0;
@@ -83,7 +86,7 @@ export default async function InstallPage(props: PageProps<"/app/sites/[property
 
   const methods = installMethods({
     siteKey: property.siteKey,
-    src: SDK_URL,
+    src: localDev ? `${site.url}/sdk/plain-consent.js` : SDK_URL,
     api,
     configUrl: onCdn ? `${CDN_ORIGIN}/c/${property.siteKey}.json` : undefined,
     gcm: (property.published?.config ?? property.config).googleConsentMode,

@@ -54,6 +54,8 @@ export const LeakInput = z.object({
   category: z.enum(["functional", "analytics", "marketing"]),
   page: z.string().max(300).regex(/^\/[^\s?#]*$/, "Page must be a path without a query string."),
   framework: z.enum(["gdpr", "ccpa", "dpdpa", "generic"]),
+  /** fetched by the browser's preloader for a tag the SDK held: downloaded, never run */
+  held: z.boolean().optional(),
 });
 export type LeakInput = z.infer<typeof LeakInput>;
 
@@ -210,6 +212,7 @@ export async function recordLeak(input: LeakInput, headers: Headers): Promise<Ou
     framework: input.framework,
     country: viewerLocation(headers).country,
     createdAt: new Date().toISOString(),
+    ...(input.held ? { held: true } : {}),
   };
   await store.recordLeak(leak);
   const followUp: FollowUp = async () => {

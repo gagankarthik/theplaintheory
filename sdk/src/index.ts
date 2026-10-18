@@ -4,6 +4,7 @@ import { BUILTIN } from "./builtin";
 import { loadConfig, readSettings } from "./config";
 import { createGcm } from "./consent-mode";
 import { pickLang } from "./lang";
+import { clearDenied, setCookieRules } from "./shred";
 import { watchLeaks } from "./leaks";
 import { ALL, NONE, isFresh, randomId, readGcmFlag, readStored, writeGcmFlag, writeStored } from "./storage";
 import type { Action, CategoryId, Cats, ConsentState, Framework, PublicConfig, Stored } from "./types";
@@ -123,6 +124,9 @@ function logReceipt(action: Action) {
   });
 }
 
+/** Remove catalogued cookies and storage for categories that aren't allowed right now. */
+const sweep = () => clearDenied((c) => cats[c] === true);
+
 function decide(action: Action, next: Cats) {
   cats = { ...next, essential: true };
   decided = true;
@@ -131,6 +135,7 @@ function decide(action: Action, next: Cats) {
   markGranted();
   gcm.update(cats);
   release();
+  sweep();
   logReceipt(action);
   show("fab");
   emit("change");
@@ -169,6 +174,7 @@ async function boot() {
   }
   const patterns = BUILTIN.concat(cfg.trackers);
   setPatterns(patterns);
+  setCookieRules(cfg.cookies);
   decided = isFresh(stored, cfg);
   cats = decided ? { ...stored!.c, essential: true } : initialCategories(cfg, framework);
   rejectedAt = decided ? stored!.r : undefined;
@@ -181,11 +187,14 @@ async function boot() {
   // Once defaults went out (early, from data-gcm or the cached flag), keep the signals truthful.
   gcm.update(cats);
   release();
+  // now, and again once the page's own scripts have run (they may set cookies after us)
+  sweep();
+  if (document.readyState !== "complete") addEventListener("load", sweep, { once: true });
   if (cfg.leaks)
     watchLeaks(
       () => patterns,
       (c) => grantedAt[c] ?? Infinity,
-      (url, category) => transport.beacon("/leak", { url, category, page: safePath(location.pathname), framework }),
+      (url, category, held) => transport.beacon("/leak", { url, category, page: safePath(location.pathname), framework, ...(held ? { held: true } : {}) }),
     );
   whenBody(() => show(decided ? "fab" : "banner"));
   emit("ready");
@@ -210,6 +219,7 @@ const api: PlainConsentApi = {
     rejectedAt = undefined;
     markGranted();
     gcm.update(cats);
+    sweep();
     show("banner");
     emit("change");
   },

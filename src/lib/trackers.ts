@@ -1,3 +1,4 @@
+import { matchUrl } from "./tracker-db";
 import type { CategoryId, Property, Tracker, TrackerKind, TrackerStatus } from "./types";
 
 /**
@@ -109,7 +110,26 @@ export function sdkTrackers(list: Tracker[]): { p: string; c: CategoryId }[] {
     .map((t) => ({ p: t.pattern, c: t.category }));
 }
 
-export const sameSdkTrackers = (a: Tracker[], b: Tracker[]) => JSON.stringify(sdkTrackers(a)) === JSON.stringify(sdkTrackers(b));
+/**
+ * Cookie and storage names the SDK clears while their category isn't allowed: cookies catalogued by
+ * name, plus the known cookies of each approved vendor (GA's _ga and _ga_*, Meta's _fbp, ...), under
+ * the category the site chose for that vendor. "*" is a wildcard. Essential ones are never cleared.
+ */
+export function sdkCookies(list: Tracker[]): { n: string; c: CategoryId }[] {
+  const out = new Map<string, CategoryId>();
+  for (const t of heldTrackers(list)) {
+    if (t.category === "essential") continue;
+    if (t.kind === "cookie") {
+      out.set(t.pattern, t.category);
+      continue;
+    }
+    for (const [name] of matchUrl(`https://${t.pattern}`)?.def.cookies ?? []) if (!out.has(name)) out.set(name, t.category);
+  }
+  return [...out].slice(0, 300).map(([n, c]) => ({ n, c }));
+}
+
+export const sameSdkTrackers = (a: Tracker[], b: Tracker[]) =>
+  JSON.stringify(sdkTrackers(a)) === JSON.stringify(sdkTrackers(b)) && JSON.stringify(sdkCookies(a)) === JSON.stringify(sdkCookies(b));
 
 /* ---------------- triage ---------------- */
 

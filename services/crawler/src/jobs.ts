@@ -3,8 +3,11 @@ import { candidatesFrom, getStore, id, mergeScan, SCAN_LOG_KEEP, trackerPatch, t
 import type { CrawlerConfig } from "./config";
 import type { Logger } from "./logger";
 import { isAllowedUrl, privateNetworkAllowed } from "./net-guard";
+import type { Browser } from "puppeteer";
+import { launchBrowser } from "./scanner/browser";
 import { scanSite } from "./scanner/crawl";
 import type { ScanLogLevel, ScanResult } from "./scanner/types";
+import { describeLoadError, httpVariant, shouldRetryOverHttp } from "./scanner/load-errors";
 import { buildStartUrl } from "./scanner/url";
 
 /**
@@ -79,7 +82,7 @@ export async function runClaimedScan(report: ScanReport, ctx: JobContext): Promi
   };
 
   const limits = report.limits ?? { maxPages: 25, maxDepth: 2 };
-  const startUrl = buildStartUrl(property.domain);
+  let startUrl = buildStartUrl(property.domain);
   const collector = new FindingCollector(new URL(startUrl).hostname);
   const crawlAbort = new AbortController();
   const onShutdown = () => crawlAbort.abort();
@@ -110,6 +113,10 @@ export async function runClaimedScan(report: ScanReport, ctx: JobContext): Promi
     return writing;
   };
 
+  // One browser for the whole job, shared by the https attempt and any http fallback. A second
+  // Chromium launch in a long-lived worker process can't load http:// pages (it fails with
+  // ERR_BLOCKED_BY_CLIENT), and one launch per job is cheaper anyway.
+  let browser: Browser | undefined;
   try {
     if (!(await isAllowedUrl(startUrl))) {
       pushLine("error", "That domain points to a private or internal network address, so it can't be scanned.", startUrl);
@@ -125,8 +132,11 @@ export async function runClaimedScan(report: ScanReport, ctx: JobContext): Promi
     pushLine("info", `Starting at ${startUrl}`, startUrl);
     await flush(true);
 
-    const result = await scanSite({
-      startUrl,
+    browser = await launchBrowser();
+    const shared = browser;
+    const crawl = (from: string) =>
+      scanSite({
+      startUrl: from,
       maxDepth: limits.maxDepth,
       maxPages: limits.maxPages,
       pageTimeoutMs: ctx.config.pageTimeoutMs,
@@ -153,7 +163,19 @@ export async function runClaimedScan(report: ScanReport, ctx: JobContext): Promi
         progress = { pagesScanned: p.pagesScanned, pagesQueued: p.pagesQueued, findings: collector.size };
         void flush();
       },
-    });
+    }, shared);
+    let result = await crawl(startUrl);
+    // HTTPS refused, reset or with a broken certificate: try plain http once before giving up.
+    const firstTry = result.pages[0];
+    if (!result.pages.some((pg) => pg.ok) && !crawlAbort.signal.aborted && shouldRetryOverHttp(startUrl, firstTry?.error ?? undefined)) {
+      const fallback = httpVariant(startUrl);
+      if (await isAllowedUrl(fallback)) {
+        pushLine("warn", "HTTPS didn't answer; trying http:// instead.", fallback);
+        await flush(true);
+        startUrl = fallback;
+        result = await crawl(startUrl);
+      }
+    }
     await writing;
 
     if (ctx.signal.aborted && !cancelled) {
@@ -177,7 +199,7 @@ export async function runClaimedScan(report: ScanReport, ctx: JobContext): Promi
     if (!loaded.length) {
       const first = result.pages[0];
       const error = first?.error
-        ? `We couldn't load your homepage: ${first.error.slice(0, 200)}`
+        ? describeLoadError(first.error, startUrl)
         : first?.status
           ? `Your homepage answered with HTTP ${first.status}. Check the site is live and public.`
           : result.skippedByRobots.length
@@ -231,6 +253,7 @@ export async function runClaimedScan(report: ScanReport, ctx: JobContext): Promi
     return "failed";
   } finally {
     ctx.signal.removeEventListener("abort", onShutdown);
+    await browser?.close().catch(() => undefined);
   }
 }
 

@@ -210,6 +210,8 @@ export interface LeakGroup {
   countries: string[];
   /** a tracker rule already covers this URL: the script ran before plain-consent.js could hold it */
   matchedTracker?: Pick<Tracker, "id" | "name" | "pattern">;
+  /** every report was a preloader fetch of a held tag: downloaded, never run (fix: mark the tag) */
+  preloadOnly: boolean;
 }
 
 export const leakHost = (url: string) => url.replace(/^https?:\/\//, "").split("/")[0];
@@ -234,12 +236,14 @@ export function groupLeaks(leaks: LeakReport[], trackers: Tracker[]): LeakGroup[
         frameworks: [],
         countries: [],
         matchedTracker: matched ? { id: matched.id, name: matched.name, pattern: matched.pattern } : undefined,
+        preloadOnly: true,
         fw: new Set(),
         cc: new Set(),
       };
       groups.set(key, g);
     }
     g.count += 1;
+    if (!l.held) g.preloadOnly = false;
     if (l.createdAt < g.firstSeen) g.firstSeen = l.createdAt;
     if (l.createdAt > g.lastSeen) g.lastSeen = l.createdAt;
     g.fw.add(l.framework);

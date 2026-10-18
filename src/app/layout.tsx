@@ -1,3 +1,4 @@
+import { NavigationProgress } from "@/components/navigation-progress";
 import type { Metadata, Viewport } from "next";
 import { JetBrains_Mono } from "next/font/google";
 import { site } from "@/lib/site";
@@ -62,6 +63,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     // data-scroll-behavior: smooth scrolling for in-page anchors only, not on route changes (Next reads it)
     <html lang="en" suppressHydrationWarning data-scroll-behavior="smooth" className={`${switzer.variable} ${dataFont.variable}`}>
       <body>
+        <NavigationProgress />
         {children}
       </body>
     </html>

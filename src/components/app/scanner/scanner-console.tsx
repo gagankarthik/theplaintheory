@@ -254,7 +254,8 @@ export function ScannerConsole({
   const status = report ? STATUS_COPY[report.status] : null;
   const scanned = report?.progress?.pagesScanned ?? report?.pages.length ?? 0;
   const queued = report?.progress?.pagesQueued ?? 0;
-  const total = Math.max(report?.limits?.maxPages ?? (headless ? maxPages : 10), scanned + queued, 1);
+  // while a crawl runs, count against the pages it has actually found (the limit is only a ceiling)
+  const total = active && report?.progress ? Math.max(1, scanned + queued) : Math.max(report?.limits?.maxPages ?? (headless ? maxPages : 10), scanned + queued, 1);
   const found = report?.progress?.findings ?? report?.findings.length ?? 0;
   const byKind = (report?.findings ?? []).reduce<Record<string, number>>((m, f) => ((m[f.kind] = (m[f.kind] ?? 0) + 1), m), {});
 

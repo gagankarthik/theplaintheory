@@ -25,6 +25,7 @@ import type { BannerConfig, BannerCopy, Framework, Layout, Position, Property } 
 import { FormMessage, useToast } from "@/components/app/ui/toast";
 import { Segmented, Steps, TabPanel } from "@/components/app/ui/tabs";
 import { Alert } from "@/components/app/ui/alert";
+import { DateText } from "@/components/app/ui/date-text";
 import { Badge } from "@/components/app/ui/badge";
 import { Button, ButtonLink } from "@/components/app/ui/button";
 import { DescriptionList } from "@/components/app/ui/description-list";
@@ -192,6 +193,45 @@ export function BannerBuilder({
     return () => window.removeEventListener("message", onMsg);
   }, [send]);
 
+  // Unsaved edits survive leaving the page by any route (a fix link to Settings, the sidebar, a
+  // closed tab): they're kept in this browser per site and restored on return. Tied to the draft
+  // version they were made on, so a newer save by a teammate is never overwritten.
+  const draftKey = `pt:banner-draft:${property.id}`;
+  const [restoredAt, setRestoredAt] = useState<string | null>(null);
+  const restoreChecked = useRef(false);
+  useEffect(() => {
+    if (restoreChecked.current) return;
+    restoreChecked.current = true;
+    try {
+      const raw = localStorage.getItem(draftKey);
+      if (!raw) return;
+      const kept = JSON.parse(raw) as { base: number; at: string; draft: Draft };
+      if (kept.base !== property.config.version || JSON.stringify(kept.draft) === JSON.stringify(initial)) {
+        localStorage.removeItem(draftKey);
+        return;
+      }
+      // restoring browser-held state after hydration is exactly what an effect is for
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setDraft(kept.draft);
+      setRestoredAt(kept.at);
+    } catch {
+      /* storage unavailable or corrupt: start from the saved draft */
+    }
+  }, [draftKey, initial, property.config.version]);
+  useEffect(() => {
+    if (!restoreChecked.current) return;
+    try {
+      if (unsaved) localStorage.setItem(draftKey, JSON.stringify({ base: property.config.version, at: new Date().toISOString(), draft }));
+      else localStorage.removeItem(draftKey);
+    } catch {
+      /* storage full or blocked: the beforeunload warning below still applies */
+    }
+  }, [draft, unsaved, draftKey, property.config.version]);
+  const discardRestored = () => {
+    setDraft(initial);
+    setRestoredAt(null);
+  };
+
   // Warn before leaving with unsaved edits.
   useEffect(() => {
     if (!unsaved) return;
@@ -272,7 +312,7 @@ export function BannerBuilder({
       label: "Data Protection Officer",
       value: dpo ? `${dpo.name} · ${dpo.email}` : null,
       missing: "Not set. Notices must name someone to contact.",
-      href: "/app/settings#dpo",
+      href: `/app/settings?back=${encodeURIComponent(`/app/sites/${property.id}/banner?tab=review`)}#dpo`,
       required: true,
     },
     {
@@ -303,6 +343,18 @@ export function BannerBuilder({
 
   return (
     <div className="grid gap-6 xl:grid-cols-[minmax(0,460px)_minmax(0,1fr)]">
+      {restoredAt && unsaved ? (
+        <Alert tone="info" title="We kept your unsaved edits" className="xl:col-span-2">
+          <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span>
+              From <DateText iso={restoredAt} mode="relative" />. Save the draft to keep them, or start again from the saved version.
+            </span>
+            <button type="button" onClick={discardRestored} className="font-medium text-ink underline underline-offset-4">
+              Discard edits
+            </button>
+          </span>
+        </Alert>
+      ) : null}
       {/* controls: above the preview on phones and tablets, beside it on wide screens */}
       <div ref={controls} className="min-w-0 scroll-mt-20 self-start overflow-hidden rounded-lg border border-line bg-surface">
         <Steps<BuilderTab> label="Banner setup steps" idBase="banner" items={stepItems} value={tab} onChange={setTab} />
@@ -736,7 +788,7 @@ export function BannerBuilder({
           </div>
         </div>
         <p className="mt-3 text-xs text-ink-3">
-          {FRAMEWORK_META[framework].name} notice ({FRAMEWORK_META[framework].region}), with your unsaved edits. Visitors see the last published version.
+          {FRAMEWORK_META[framework].name} notice ({FRAMEWORK_META[framework].region}){unsaved ? ", with your unsaved edits" : ""}. Visitors see the last published version.
         </p>
 
         <button

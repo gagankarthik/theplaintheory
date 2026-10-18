@@ -169,13 +169,15 @@ export async function addTracker(propertyId: string, _: ActionResult, form: Form
       },
       { action: "tracker.added", metadata: () => ({ name: parsed.data.name, category: parsed.data.category, duplicate: dup }) },
     );
-    return dup ? { error: "A tracker with that pattern is already listed." } : { ok: `${parsed.data.name} will be held until visitors consent to ${parsed.data.category}.` };
+    return dup ? { error: "A tracker with that pattern is already listed." } : { ok: `${parsed.data.name} will be held until visitors consent to ${CATEGORY_LABEL[parsed.data.category].toLowerCase()}.` };
   } catch (e) {
     return failure(e);
   }
 }
 
 const CATEGORY = z.enum(["essential", "functional", "analytics", "marketing"]);
+/** What customers see: "functional" is stored, "Preferences" is shown everywhere. */
+const CATEGORY_LABEL = { essential: "Essential", functional: "Preferences", analytics: "Analytics", marketing: "Marketing" } as const;
 
 /** Change the category of any tracker; for one in review this sets what approving it will use. */
 export async function updateTrackerCategory(propertyId: string, trackerId: string, category: Tracker["category"]): Promise<ActionResult> {
@@ -185,7 +187,7 @@ export async function updateTrackerCategory(propertyId: string, trackerId: strin
       action: "tracker.updated",
       metadata: () => ({ trackerId, category: cat }),
     });
-    return { ok: `Moved to ${cat}.` };
+    return { ok: cat === "essential" ? "Moved to Essential. It's listed, never held." : `Moved to ${CATEGORY_LABEL[cat]}.` };
   } catch (e) {
     return failure(e);
   }

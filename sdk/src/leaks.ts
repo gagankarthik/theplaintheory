@@ -21,20 +21,35 @@ export function watchLeaks(
   patterns: () => Pattern[],
   /** performance.now() at which the category became allowed; Infinity while it isn't */
   grantedAt: (c: CategoryId) => number,
-  report: (url: string, category: CategoryId) => void,
+  /** `held`: the request came from a <script> tag the SDK is holding, i.e. the browser's preloader
+   * fetched it from the HTML before any script could run; it was downloaded but never executed. */
+  report: (url: string, category: CategoryId, held: boolean) => void,
 ) {
   const seen = new Set<string>();
+  const clean = (u: string) => u.split(/[?#]/)[0];
+  const heldSrcs = () =>
+    new Set(
+      [...document.querySelectorAll("script[src],script[data-plain-src]")]
+        .filter(isHeldScript)
+        .map((s) => {
+          try {
+            return clean(new URL(s.getAttribute("data-plain-src") || s.getAttribute("src") || "", location.href).href);
+          } catch {
+            return "";
+          }
+        }),
+    );
 
-  const check = (url: string | null, startedAt: number) => {
+  const check = (url: string | null, startedAt: number, fromTiming = false) => {
     if (!url || seen.size >= MAX_REPORTS || !/^https?:/i.test(url)) return;
     const hit = findPattern(patterns(), url);
     if (!hit) return;
     const category = hit.c as CategoryId;
     if (startedAt >= grantedAt(category)) return;
-    const clean = url.split(/[?#]/)[0];
-    if (seen.has(clean)) return;
-    seen.add(clean);
-    report(clean, category);
+    const u = clean(url);
+    if (seen.has(u)) return;
+    seen.add(u);
+    report(u, category, fromTiming && heldSrcs().has(u));
   };
 
   const checkEl = (el: Element) => {
@@ -44,7 +59,7 @@ export function watchLeaks(
   };
 
   try {
-    new PerformanceObserver((list) => list.getEntries().forEach((e) => check(e.name, e.startTime))).observe({ type: "resource", buffered: true });
+    new PerformanceObserver((list) => list.getEntries().forEach((e) => check(e.name, e.startTime, true))).observe({ type: "resource", buffered: true });
   } catch {
     /* Resource Timing unavailable: element checks still run */
   }
