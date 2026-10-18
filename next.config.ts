@@ -51,8 +51,10 @@ const nextConfig: NextConfig = {
   // Keep the dev badge clear of the "Privacy choices" button (bottom right on our own site).
   devIndicators: { position: "bottom-left" },
   poweredByHeader: false,
-  // Styles arrive with the HTML instead of as render-blocking requests (about 23 KB gzipped, Tailwind).
-  experimental: { inlineCss: true },
+  // Not inlined: inlining put our 143 KB of CSS in every page three times (a <style> tag plus twice in
+  // the RSC payload, ~690 KB of HTML per page). As one cached file, pages are ~260 KB, first paint is
+  // 120-380 ms sooner on mobile, and returning visitors don't download it again (measured 2026-10-18).
+  experimental: { inlineCss: false },
   // The contact forms used to live on their own pages; they are now topics of one /contact page.
   async redirects() {
     return [

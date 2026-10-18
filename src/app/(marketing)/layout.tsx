@@ -1,4 +1,3 @@
-import Script from "next/script";
 import { preconnect } from "react-dom";
 import { WebAnalytics } from "@/components/analytics/web-analytics";
 import { SiteFooter } from "@/components/marketing/site-footer";
@@ -36,13 +35,15 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
         The floating Privacy choices button shows on the landing page only (globals.css); everywhere else the
         footer's Cookie settings reopens the choices.
       */}
-      <Script
+      {/* async: starts downloading with the HTML and runs as soon as it arrives, without waiting for
+          the page to hydrate, so the banner (often the largest thing on a phone screen) paints sooner. */}
+      <script
+        async
         src={`${SDK_CDN}/sdk/v1/plain-consent.js`}
         data-site={SITE_KEY}
         data-api="https://www.theplaintheory.in/api/v1"
         data-config-url={`${SDK_CDN}/c/${SITE_KEY}.json`}
         data-gcm="true"
-        strategy="afterInteractive"
       />
     </div>
   );
