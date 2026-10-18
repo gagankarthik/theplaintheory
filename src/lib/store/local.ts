@@ -81,6 +81,8 @@ interface LocalState {
   cacheMtime: number;
   heads: Map<string, { seq: number; hash: string }>;
   queue: Promise<unknown>;
+  /** bumped on every write by this process, so a read that overlapped a write never replaces the newer cache */
+  writes?: number;
   /** fixed-window rate-limit counters; one process, so memory is shared by every request */
   windows?: Map<string, { count: number; expires: number }>;
 }
@@ -107,13 +109,20 @@ const mtimeOf = async () => {
 async function load(): Promise<Db> {
   // Reload when something else rewrote the file (e.g. another process editing it while the dev server runs),
   // and drop cached chain heads with it so new receipts never link to a stale head.
+  const writes = state.writes ?? 0;
   const mtime = await mtimeOf();
   if (state.cache && mtime === state.cacheMtime) return state.cache;
+  let read: Db;
   try {
-    state.cache = JSON.parse(await fs.readFile(DB_FILE, "utf8")) as Db;
+    read = JSON.parse(await fs.readFile(DB_FILE, "utf8")) as Db;
   } catch {
-    state.cache = { users: [], orgs: [], memberships: [], invites: [], properties: [], counters: [] };
+    read = { users: [], orgs: [], memberships: [], invites: [], properties: [], counters: [] };
   }
+  // This process wrote while we were reading: what we read may be the older file, and on file systems
+  // with coarse timestamps it can even carry the same mtime, so it would be trusted. Keep the newer
+  // in-memory copy instead.
+  if ((state.writes ?? 0) !== writes && state.cache) return state.cache;
+  state.cache = read;
   state.cacheMtime = mtime;
   heads.clear();
   return state.cache;
@@ -122,6 +131,7 @@ async function load(): Promise<Db> {
 async function save() {
   await fs.mkdir(DIR, { recursive: true });
   const tmp = DB_FILE + ".tmp";
+  state.writes = (state.writes ?? 0) + 1;
   await fs.writeFile(tmp, JSON.stringify(state.cache, null, 2));
   await fs.rename(tmp, DB_FILE);
   state.cacheMtime = await mtimeOf();
