@@ -255,7 +255,9 @@ export function ScannerConsole({
   const scanned = report?.progress?.pagesScanned ?? report?.pages.length ?? 0;
   const queued = report?.progress?.pagesQueued ?? 0;
   // while a crawl runs, count against the pages it has actually found (the limit is only a ceiling)
-  const total = active && report?.progress ? Math.max(1, scanned + queued) : Math.max(report?.limits?.maxPages ?? (headless ? maxPages : 10), scanned + queued, 1);
+  const limit = report?.limits?.maxPages ?? (headless ? maxPages : 10);
+  // pages found can far exceed the limit (a sitemap lists thousands); the scan visits at most the limit
+  const total = active && report?.progress ? Math.max(1, Math.min(limit, scanned + queued)) : Math.max(limit, scanned, 1);
   const found = report?.progress?.findings ?? report?.findings.length ?? 0;
   const byKind = (report?.findings ?? []).reduce<Record<string, number>>((m, f) => ((m[f.kind] = (m[f.kind] ?? 0) + 1), m), {});
 

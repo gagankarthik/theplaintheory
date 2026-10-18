@@ -16,6 +16,8 @@ interface RobotsRule {
 export interface RobotsPolicy {
   isAllowed(url: string): boolean;
   rules: RobotsRule[];
+  /** Sitemap: lines, which apply to every crawler wherever they appear in the file */
+  sitemaps: string[];
 }
 
 export const ROBOTS_PRODUCT_TOKEN = "cmpscanner";
@@ -33,6 +35,7 @@ export function parseRobots(text: string, productToken = ROBOTS_PRODUCT_TOKEN): 
   const groups: Array<{ agents: string[]; rules: RobotsRule[] }> = [];
   let current: { agents: string[]; rules: RobotsRule[] } | null = null;
   let lastWasAgent = false;
+  const sitemaps: string[] = [];
 
   for (const rawLine of text.split(/\r?\n/)) {
     const line = rawLine.replace(/#.*$/, "").trim();
@@ -42,6 +45,11 @@ export function parseRobots(text: string, productToken = ROBOTS_PRODUCT_TOKEN): 
     const key = line.slice(0, idx).trim().toLowerCase();
     const value = line.slice(idx + 1).trim();
 
+    if (key === "sitemap") {
+      // not part of any user-agent group
+      if (/^https?:\/\//i.test(value) && sitemaps.length < 50) sitemaps.push(value);
+      continue;
+    }
     if (key === "user-agent") {
       if (!current || !lastWasAgent) {
         current = { agents: [], rules: [] };
@@ -67,6 +75,7 @@ export function parseRobots(text: string, productToken = ROBOTS_PRODUCT_TOKEN): 
 
   return {
     rules,
+    sitemaps,
     isAllowed(url: string): boolean {
       let path: string;
       try {
@@ -91,7 +100,7 @@ export function parseRobots(text: string, productToken = ROBOTS_PRODUCT_TOKEN): 
   };
 }
 
-export const ALLOW_ALL: RobotsPolicy = { rules: [], isAllowed: () => true };
+export const ALLOW_ALL: RobotsPolicy = { rules: [], sitemaps: [], isAllowed: () => true };
 
 const MAX_ROBOTS_BYTES = 500_000;
 const MAX_ROBOTS_REDIRECTS = 5;

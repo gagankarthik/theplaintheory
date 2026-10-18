@@ -3,6 +3,7 @@ import { matchUrl, registrableDomain, sameSite } from "../app";
 import { launchBrowser, realisticUserAgent } from "./browser";
 import { capturePage, type PageCapture } from "./page-capture";
 import { ALLOW_ALL, fetchRobots } from "./robots";
+import { discoverSitemapUrls } from "./sitemaps";
 import type {
   CapturedCookie,
   CapturedRequestHost,
@@ -12,7 +13,7 @@ import type {
   ScanProgress,
   ScanResult,
 } from "./types";
-import { extractCrawlableLinks, normalizeUrl } from "./url";
+import { extractCrawlableLinks, normalizeUrl, templateKey } from "./url";
 
 const MAX_SEEN_URLS = 20;
 const MAX_SAMPLES_PER_HOST = 25;
@@ -206,8 +207,46 @@ export async function scanSite(options: ScanOptions, existingBrowser?: Browser):
   const aggregator = new FindingsAggregator(siteHost);
   const pages: PageResult[] = [];
   const skippedByRobots: string[] = [];
-  const queue: Array<{ url: string; depth: number }> = [{ url: startUrl, depth: 0 }];
+  // Each queued page carries its template (lib: url.ts templateKey), so the crawl can spread itself
+  // across the kinds of page a site has, the way a search engine spends its crawl budget.
+  const queue: Array<{ url: string; depth: number; key: string }> = [{ url: startUrl, depth: 0, key: templateKey(startUrl) }];
   const seen = new Set<string>([startUrl]);
+  const visitedTemplates = new Map<string, number>();
+  /** Next page: a kind of page not visited yet (shallowest first), else the kind visited least. */
+  const takeNext = () => {
+    let best = 0;
+    let bestScore = Number.POSITIVE_INFINITY;
+    for (let i = 0; i < queue.length; i++) {
+      const q = queue[i];
+      const score = (visitedTemplates.get(q.key) ?? 0) * 1_000 + q.depth;
+      if (score < bestScore) {
+        bestScore = score;
+        best = i;
+        if (score === 0) break;
+      }
+    }
+    return queue.splice(best, 1)[0];
+  };
+
+  // Like a search engine, start from the sitemaps (robots.txt Sitemap: lines, else /sitemap.xml) as
+  // well as the homepage's links: pages only reachable through the sitemap get found too.
+  if (options.sitemaps !== false) {
+    const fromSitemap = await discoverSitemapUrls(startUrl, robots.sitemaps, {
+      userAgent,
+      guard: options.guard,
+      limit: 2000,
+      log: (message, url) => log("DEBUG", message, url ?? null),
+    });
+    let added = 0;
+    for (const raw of fromSitemap) {
+      const url = normalizeUrl(raw);
+      if (!url || seen.has(url)) continue;
+      seen.add(url);
+      queue.push({ url, depth: 1, key: templateKey(url) });
+      added += 1;
+    }
+    if (added) log("INFO", `Found ${added} page(s) in the sitemap`, startUrl);
+  }
   let aborted = false;
   let timedOut = false;
 
@@ -233,7 +272,7 @@ export async function scanSite(options: ScanOptions, existingBrowser?: Browser):
         });
         break;
       }
-      const next = queue.shift()!;
+      const next = takeNext();
       if (!robots.isAllowed(next.url)) {
         skippedByRobots.push(next.url);
         log("INFO", `Skipped by robots.txt: ${next.url}`, next.url);
@@ -267,11 +306,15 @@ export async function scanSite(options: ScanOptions, existingBrowser?: Browser):
 
         aggregator.addPage(capture.finalUrl || next.url, capture);
         options.onPage?.({ url: capture.finalUrl || next.url, html: capture.html, setCookies: capture.setCookieHeaders });
+        visitedTemplates.set(next.key, (visitedTemplates.get(next.key) ?? 0) + 1);
+        // A page that names another as canonical is a duplicate of it: don't visit that one again.
+        const canonical = capture.canonical ? normalizeUrl(capture.canonical) : null;
+        if (canonical) seen.add(canonical);
         const links = next.depth < maxDepth ? extractCrawlableLinks(capture.links, capture.finalUrl || next.url, crawlRoot) : [];
         for (const link of links) {
           if (seen.has(link)) continue;
           seen.add(link);
-          queue.push({ url: link, depth: next.depth + 1 });
+          queue.push({ url: link, depth: next.depth + 1, key: templateKey(link) });
         }
 
         const found = aggregator.cookies.size + aggregator.storage.size;

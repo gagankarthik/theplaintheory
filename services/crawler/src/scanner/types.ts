@@ -68,6 +68,8 @@ export interface ScanProgress {
 
 export interface ScanOptions {
   startUrl: string;
+  /** read the site's sitemaps to find pages (default true) */
+  sitemaps?: boolean;
   maxDepth: number;
   maxPages: number;
   pageTimeoutMs?: number;

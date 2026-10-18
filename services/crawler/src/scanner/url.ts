@@ -101,3 +101,24 @@ export function extractCrawlableLinks(hrefs: string[], pageUrl: string, startUrl
   }
   return [...out];
 }
+
+/** A path segment that names one item rather than a section: a number, an id, a hash, a date part. */
+const ID_LIKE = /^(\d+|[0-9a-f]{8,}|[0-9a-f]{8}-[0-9a-f-]{27,}|.*\d.*-.*|.*-.*\d.*)$/i;
+
+/**
+ * The page template a URL belongs to, the way a search engine clusters pages to spend its crawl
+ * budget across the kinds of page a site has: /product/house-blend and /product/cold-brew are both
+ * "/product/*", /blog/2026/why-tuesdays is "/blog/:id/*". The last segment of a path two or more deep
+ * is treated as the item, ids anywhere are generalised, and the query string is ignored.
+ */
+export function templateKey(raw: string): string {
+  let u: URL;
+  try {
+    u = new URL(raw);
+  } catch {
+    return raw;
+  }
+  const segs = u.pathname.split("/").filter(Boolean);
+  const key = segs.map((s, i) => (ID_LIKE.test(s) ? ":id" : i === segs.length - 1 && segs.length >= 2 ? "*" : s.toLowerCase()));
+  return `${u.hostname.replace(/^www\./, "")}/${key.join("/")}`;
+}

@@ -38,6 +38,8 @@ export interface PageCapture {
   storage: PageStorageObservation[];
   requests: PageRequestObservation[];
   links: string[];
+  /** the page's rel="canonical" address, when it declares one */
+  canonical: string | null;
   /** Rendered DOM after scripts ran (capped), for the dashboard's HTML classifier. */
   html: string;
   /** Raw Set-Cookie headers seen while loading the page (each line one cookie). */
@@ -66,6 +68,7 @@ interface DomSnapshot {
   session: Array<[string, number]>;
   documentCookies: string[];
   links: string[];
+  canonical?: string | null;
 }
 
 /**
@@ -83,7 +86,7 @@ const COLLECT_DOM_SCRIPT = `(() => {
     }
     return out;
   }
-  var local = [], session = [], documentCookies = [], links = [];
+  var local = [], session = [], documentCookies = [], links = [], canonical = null;
   try { local = readStorage(window.localStorage); } catch (e) { local = []; }
   try { session = readStorage(window.sessionStorage); } catch (e) { session = []; }
   try {
@@ -92,7 +95,11 @@ const COLLECT_DOM_SCRIPT = `(() => {
   try {
     links = Array.prototype.map.call(document.querySelectorAll("a[href]"), function (a) { return a.href; }).slice(0, 2000);
   } catch (e) { links = []; }
-  return { host: location.host, local: local, session: session, documentCookies: documentCookies, links: links };
+  try {
+    var c = document.querySelector('link[rel="canonical"][href]');
+    canonical = c ? c.href : null;
+  } catch (e) { canonical = null; }
+  return { host: location.host, local: local, session: session, documentCookies: documentCookies, links: links, canonical: canonical };
 })()`;
 
 /** Scrolls the page to trigger lazy-loaded embeds and scroll-depth beacons (plain JS for the same reason). */
@@ -382,6 +389,7 @@ export async function capturePage(context: BrowserContext, url: string, opts: Ca
       storage,
       requests: [...requests.values()],
       links: dom.links,
+      canonical: dom.canonical ?? null,
       html,
       setCookieHeaders,
       blocked,
