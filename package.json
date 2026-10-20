@@ -38,7 +38,7 @@
     "react-dom": "19.3.0",
     "recharts": "^3.10.1",
     "server-only": "^0.0.1",
-    "simple-icons": "^15.22.0",
+    "simple-icons": "^16.35.0",
     "stripe": "^23.0.0",
     "zod": "^4.6.7"
   },
